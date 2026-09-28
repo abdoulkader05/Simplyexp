@@ -1,0 +1,232 @@
+---
+id: recherche-semantique
+type: concept
+titre: "La recherche sémantique : trouver par le sens, pas par les mots"
+sous_titre: "Recherche par embeddings et bases vectorielles"
+domaine: langage
+niveau: 4
+prerequis: [embeddings]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Reimers, Gurevych, « Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks », 2019 — https://arxiv.org/abs/1908.10084 — résumé (paire la plus similaire parmi 10 000 phrases : environ 65 heures avec BERT, environ 5 secondes avec SBERT ; embeddings comparés par similarité cosinus)"
+  - "Malkov, Yashunin, « Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs », 2016 — https://arxiv.org/abs/1603.09320 — résumé (graphes de proximité en couches, complexité de recherche logarithmique)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Sur le site d'une boutique, un client tape « je veux renvoyer mes chaussures ». La page d'aide qui répond s'intitule « Retours et remboursements ». Une recherche par mots-clés compare les mots : « renvoyer » n'est pas « retours », « chaussures » n'apparaît pas. Résultat : aucune réponse, ou une réponse à côté. Le client parlait pourtant exactement du sujet de la page. Il faut une recherche qui compare le **sens** des textes, pas leurs mots. Les [embeddings](/concepts/embeddings/) donnent l'outil : si des textes de sens voisin ont des vecteurs voisins, chercher revient à trouver les vecteurs les plus proches.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On transforme chaque document et chaque requête en un vecteur, puis on renvoie les documents dont le vecteur est le plus proche de celui de la requête.
+</PhraseCle>
+
+## En image
+
+Imagine une bibliothécaire qui a lu tous les livres de sa bibliothèque.
+
+- Elle a rangé chaque livre dans la salle selon son sujet, pas selon son titre : les livres de cuisine d'un côté, ceux d'astronomie de l'autre.
+- Quand tu lui décris ce que tu cherches avec tes propres mots, elle comprend le sujet et va se placer au bon endroit de la salle.
+- Elle te tend les livres les plus proches d'elle, même si aucun ne reprend tes mots exacts.
+
+Là où l'image s'arrête : la bibliothécaire comprend vraiment, alors que le système ne fait que comparer des vecteurs appris ; et il ne sait pas dire « je n'ai rien sur ce sujet », il renvoie toujours les voisins les moins éloignés.
+
+## Comment ça marche
+
+Trois étapes.
+
+**1. Indexer.** Un modèle d'embedding de texte transforme chaque document en un vecteur de taille $d$ (souvent quelques centaines). On calcule ces vecteurs une seule fois et on les range dans une base vectorielle (*vector database*).
+
+**2. Encoder la requête.** Au moment de la recherche, le même modèle transforme la requête en un vecteur $\mathbf{q}$.
+
+**3. Classer.** On calcule un score pour chaque document $\mathbf{d}$ et on renvoie les $k$ meilleurs :
+
+$$
+\text{score}(\mathbf{q}, \mathbf{d}) = \cos(\mathbf{q}, \mathbf{d}) = \frac{\mathbf{q} \cdot \mathbf{d}}{\lVert \mathbf{q} \rVert\, \lVert \mathbf{d} \rVert}
+$$
+
+où :
+- $\mathbf{q}$ est le vecteur de la requête et $\mathbf{d}$ celui d'un document ;
+- $\mathbf{q} \cdot \mathbf{d}$ est leur produit scalaire, $\lVert \cdot \rVert$ la norme ;
+- $k$ est le nombre de résultats voulus : on garde les $k$ plus grands scores.
+
+Exemple : $\mathbf{q} = (0{,}6 ; 0{,}8)$ et $\mathbf{d} = (0{,}8 ; 0{,}6)$ ont tous deux une norme de 1, donc $\text{score} = 0{,}48 + 0{,}48 = 0{,}96$. Fais défiler : les vecteurs sont inventés et en deux dimensions pour qu'on puisse les voir.
+
+<PasAPas rendu="recherche-classement" label="Classement de cinq articles d'aide par similarité cosinus avec une requête">
+  <Etape etat="initial">
+    Cinq articles d'aide d'une boutique en ligne, chacun transformé en vecteur une fois pour toutes.
+  </Etape>
+  <Etape etat="requete">
+    **La requête** « je veux renvoyer mes chaussures » devient à son tour un vecteur. Elle n'a aucun mot en commun avec « Retours et remboursements », mais sa flèche pointe presque dans la même direction.
+  </Etape>
+  <Etape etat="scores">
+    **On calcule les scores.** Retours 0,99, Changer de taille 0,91, Délais de livraison 0,53, Suivre mon colis 0,30, Moyens de paiement −0,46. Un score négatif signifie une direction presque opposée.
+  </Etape>
+  <Etape etat="topk">
+    **On garde les $k = 2$ meilleurs.** Le client voit « Retours et remboursements », puis « Changer de taille », deux réponses pertinentes à sa demande.
+  </Etape>
+</PasAPas>
+
+**Pourquoi des modèles spécialisés ?** On pourrait comparer deux phrases en les donnant ensemble à un grand modèle qui dit si elles se ressemblent. Mais il faudrait le faire pour chaque paire. Reimers et Gurevych ont mesuré que trouver la paire la plus similaire parmi 10 000 phrases prend environ 65 heures de cette façon avec BERT, un modèle de langage présenté dans la fiche [BERT vs GPT](/concepts/bert-vs-gpt/) ; avec leur modèle Sentence-BERT, qui produit un vecteur par phrase comparé ensuite par cosinus, cela prend environ 5 secondes.
+
+**Et quand il y a des millions de documents ?** Comparer la requête à chaque vecteur coûte $N \times d$ multiplications, où $N$ est le nombre de documents. On utilise alors une recherche approchée des plus proches voisins (*approximate nearest neighbor search*). Par exemple, la méthode HNSW de Malkov et Yashunin relie les vecteurs en un graphe de voisinage à plusieurs niveaux et le parcourt de proche en proche, avec un coût qui croît comme le logarithme de $N$. En échange, elle peut rater de temps en temps le vrai meilleur voisin.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi, avec des vecteurs normalisés, cosinus et distance donnent le même classement">
+
+On normalise souvent tous les vecteurs, pour qu'ils aient une norme de 1. Alors le cosinus devient un simple produit scalaire : $\cos(\mathbf{q}, \mathbf{d}) = \mathbf{q} \cdot \mathbf{d}$, plus rapide à calculer. Et la distance euclidienne se déduit du cosinus :
+
+$$
+\begin{aligned}
+\lVert \mathbf{q} - \mathbf{d} \rVert^2 &= (\mathbf{q} - \mathbf{d}) \cdot (\mathbf{q} - \mathbf{d}) && \text{carré de la norme} \\
+&= \lVert \mathbf{q} \rVert^2 - 2\, \mathbf{q} \cdot \mathbf{d} + \lVert \mathbf{d} \rVert^2 && \text{on développe} \\
+&= 2 - 2 \cos(\mathbf{q}, \mathbf{d}) && \text{normes égales à 1}
+\end{aligned}
+$$
+
+Plus le cosinus est grand, plus la distance est petite : classer par cosinus décroissant ou par distance croissante donne exactement le même ordre. C'est pourquoi une base vectorielle peut utiliser l'un ou l'autre selon ce qui est le plus rapide.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Quelle page d'aide afficher ?" niveau="facile" reponse={0.96} tolerance={0.005}>
+
+La requête « mon colis n'est pas arrivé » a pour vecteur normalisé $\mathbf{q} = (0{,}6 ; 0{,}8)$. Deux pages : « Suivre mon colis » $(0{,}8 ; 0{,}6)$ et « Délais de livraison » $(0 ; 1)$. Calcule les deux scores et donne le **meilleur**.
+
+<div slot="solution">
+
+Les vecteurs sont normalisés, donc le score est le produit scalaire. Suivre mon colis : $0{,}6 \times 0{,}8 + 0{,}8 \times 0{,}6 = 0{,}96$. Délais de livraison : $0 + 0{,}8 \times 1 = 0{,}8$. On affiche d'abord « Suivre mon colis ».
+
+</div>
+</Exercice>
+
+<Exercice titre="Du cosinus à la distance" niveau="moyen" reponse={0.283} tolerance={0.01}>
+
+Deux vecteurs normalisés ont une similarité cosinus de 0,96. Quelle est la distance euclidienne entre eux ?
+
+<div slot="indice">
+
+Utilise la dérivation dépliable ci-dessus : $\lVert \mathbf{q} - \mathbf{d} \rVert^2 = 2 - 2\cos$.
+
+</div>
+
+<div slot="solution">
+
+$\lVert \mathbf{q} - \mathbf{d} \rVert^2 = 2 - 2 \times 0{,}96 = 0{,}08$, donc la distance vaut $\sqrt{0{,}08} \approx 0{,}283$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Tenir la charge" niveau="defi" reponse={0.768} tolerance={0.01} unite="secondes">
+
+Un site indexe 2 millions de fiches produits, avec des vecteurs de taille $d = 384$. Sa machine fait un milliard de multiplications par seconde. Combien de secondes prend une recherche exacte, qui compare la requête à tous les vecteurs ? Le site reçoit 50 recherches par seconde : que conclus-tu ?
+
+<div slot="solution">
+
+$2\,000\,000 \times 384 = 768$ millions de multiplications, soit 0,768 seconde par requête. Pour 50 requêtes par seconde, il faudrait 38,4 secondes de calcul chaque seconde : impossible sur une seule machine. D'où la recherche approchée, qui n'examine qu'une petite partie des vecteurs.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un encodeur jouet qui fait la moyenne de vecteurs de mots, puis un classement par cosinus.
+
+```python
+import numpy as np
+
+# Vecteurs de mots inventés (dimension 3) : retour, livraison, paiement
+mots = {
+    "renvoyer": [0.9, 0.1, 0.0], "retours": [1.0, 0.0, 0.0], "remboursements": [0.8, 0.0, 0.3],
+    "chaussures": [0.4, 0.2, 0.0], "colis": [0.1, 0.9, 0.0], "livraison": [0.0, 1.0, 0.0],
+    "délais": [0.0, 0.7, 0.0], "suivre": [0.1, 0.8, 0.0], "paiement": [0.0, 0.0, 1.0],
+    "carte": [0.0, 0.1, 0.9],
+}
+
+def encoder(texte):
+    v = np.mean([mots[m] for m in texte.lower().split() if m in mots], axis=0)
+    return v / np.linalg.norm(v)          # normalisé : cosinus = produit scalaire
+
+docs = ["Retours remboursements", "Délais livraison", "Suivre colis", "Paiement carte"]
+index = np.array([encoder(d) for d in docs])  # calculé une seule fois
+
+def chercher(requete, k=2):
+    scores = index @ encoder(requete)
+    meilleurs = np.argsort(-scores)[:k]
+    return [(docs[i], round(float(scores[i]), 3)) for i in meilleurs]
+
+print(chercher("je veux renvoyer mes chaussures"))
+print(chercher("où est mon colis"))
+```
+
+En vrai, avec la bibliothèque sentence-transformers et un modèle multilingue :
+
+```python
+# no-run
+from sentence_transformers import SentenceTransformer, util
+modele = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+docs = ["Retours et remboursements", "Délais de livraison", "Moyens de paiement"]
+index = modele.encode(docs, normalize_embeddings=True)
+q = modele.encode("je veux renvoyer mes chaussures", normalize_embeddings=True)
+print(util.cos_sim(q, index))
+```
+
+## Les pièges classiques
+
+**« La recherche sémantique remplace les mots-clés. »** Pas pour tout. Un numéro de commande, une référence de produit ou un nom propre rare se trouvent mieux par correspondance exacte. Beaucoup de systèmes combinent les deux scores : c'est la recherche hybride.
+
+**« Le meilleur score est forcément une bonne réponse. »** La recherche renvoie toujours $k$ résultats, même si aucun document ne parle du sujet. Il faut un seuil de score en dessous duquel on répond « rien trouvé ».
+
+**« On peut mélanger des vecteurs de deux modèles. »** Non : chaque modèle a son propre espace. Si on change de modèle d'embedding, il faut recalculer tous les vecteurs de l'index.
+
+## Dans la vraie vie
+
+La recherche sémantique sert aux moteurs de recherche internes des boutiques et des services clients, à la détection de questions en double sur les forums, et à la recommandation de contenus proches. Elle a un intérêt particulier quand les utilisateurs écrivent dans plusieurs langues : avec un modèle multilingue, une question en français peut retrouver une réponse rédigée en anglais. Surtout, c'est la brique centrale du [RAG](/concepts/rag/), où l'on cherche les passages utiles avant de les donner à un LLM pour qu'il réponde.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi la recherche par mots-clés échoue-t-elle sur « je veux renvoyer mes chaussures » ?",
+    choix: ["La phrase est trop longue", "Aucun mot n'est en commun avec « Retours et remboursements »", "Les chaussures ne sont pas en stock", "Le cosinus est négatif"],
+    bonne: 1,
+    explication: "Les mots-clés comparent les mots ; la requête et la page parlent du même sujet avec des mots différents."
+  },
+  {
+    question: "Avec des vecteurs normalisés, à quoi se réduit la similarité cosinus ?",
+    choix: ["À la somme des composantes", "Au produit scalaire", "À la norme de la requête", "À la distance au carré"],
+    bonne: 1,
+    explication: "Les normes valent 1, le dénominateur disparaît."
+  },
+  {
+    question: "Quel est le prix d'une recherche approchée des plus proches voisins ?",
+    choix: ["Elle est plus lente", "Elle peut rater de temps en temps le vrai meilleur voisin", "Elle ne marche qu'en 2 dimensions", "Elle oblige à tout réindexer à chaque requête"],
+    bonne: 1,
+    explication: "On gagne énormément en vitesse en n'examinant qu'une partie des vecteurs, au prix d'une petite perte de précision."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment concevoir la recherche d'un centre d'aide de plusieurs millions d'articles ?">
+
+On découpe les articles en passages, on les encode avec un modèle d'embedding de phrases (multilingue si les clients écrivent dans plusieurs langues), on normalise et on range les vecteurs dans un index approché, par exemple HNSW. À chaque requête, on l'encode avec le même modèle, on récupère les $k$ passages les plus proches, et on combine souvent ce score avec un score par mots-clés pour les références exactes. On fixe un seuil pour répondre « rien trouvé », on évalue sur un jeu de requêtes réelles annotées (le bon article est-il dans les $k$ premiers ?), et on prévoit de tout réindexer si on change de modèle.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "recherche sémantique", en: "semantic search", definition: "Retrouver des documents par la proximité de leurs embeddings avec celui de la requête." },
+  { fr: "base vectorielle", en: "vector database", definition: "Système qui stocke des vecteurs et renvoie rapidement les plus proches d'un vecteur donné." },
+  { fr: "recherche approchée des plus proches voisins", en: "approximate nearest neighbor search", definition: "Trouver des voisins très proches sans comparer à tous les vecteurs, au prix d'erreurs rares." },
+  { fr: "recherche hybride", en: "hybrid search", definition: "Combiner un score sémantique et un score par mots-clés." }
+]} />
