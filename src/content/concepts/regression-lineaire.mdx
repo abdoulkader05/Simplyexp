@@ -1,0 +1,233 @@
+---
+id: regression-lineaire
+type: concept
+titre: "La régression linéaire : le premier modèle de toute l'IA"
+sous_titre: "Modèle linéaire, moindres carrés et descente de gradient"
+domaine: machine-learning
+niveau: 3
+prerequis: [produit-matriciel, descente-gradient]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Wikipédia, « Méthode des moindres carrés » — https://fr.wikipedia.org/wiki/M%C3%A9thode_des_moindres_carr%C3%A9s — section Histoire (Legendre 1805, Gauss 1809, Cérès 1801), consultée le 2026-09-28"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.1.4 (régression linéaire, équations normales)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.4 (transformation linéaire apprise suivie d'un softmax en sortie)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Le jour de l'an 1801, l'astronome Giuseppe Piazzi découvre Cérès, puis la perd de vue derrière le Soleil. Pour la retrouver, il faut tirer une courbe à travers des observations imprécises : aucune courbe ne passe exactement par tous les points. Quelle courbe choisir ? Adrien-Marie Legendre publie en 1805 une réponse qui sert encore : prendre celle qui rend la somme des carrés des écarts la plus petite possible. Carl Friedrich Gauss publie la même méthode en 1809. Deux siècles plus tard, c'est toujours le point de départ de l'apprentissage automatique.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Prédire un nombre par une somme pondérée des entrées plus une constante, en réglant les poids pour que les erreurs au carré soient, en moyenne, les plus petites possible.
+</PhraseCle>
+
+## En image
+
+Imagine une règle souple posée sur un nuage de clous plantés dans une planche. Chaque clou est relié à la règle par un élastique vertical. Les élastiques tirent, la règle bouge et finit par s'immobiliser à l'endroit où les tensions s'équilibrent.
+
+- Chaque clou est un exemple : une entrée $x_i$ et la valeur observée $y_i$.
+- La règle est le modèle : une droite, réglée par sa pente et sa hauteur.
+- Chaque élastique est un écart entre la prédiction et la vraie valeur.
+- L'énergie des élastiques, qui grandit comme le carré de leur longueur, est la perte.
+- La position d'équilibre est la solution des moindres carrés.
+
+Là où l'image s'arrête : les vrais élastiques tirent dans toutes les directions. Ici, les écarts sont mesurés seulement à la verticale, parce qu'on ne se trompe que sur $y$. Et la règle n'a pas besoin de trouver l'équilibre en tâtonnant : on peut le calculer directement.
+
+## Comment ça marche
+
+Reprenons le gbaka de la fiche sur la [fonction de perte](/maths/fonction-perte/). Kofi avait noté quatre trajets : 2 km pour 300 F, 4 km pour 500 F, 5 km pour 700 F et 8 km pour 1 100 F. Son premier modèle, prix $= w \times$ distance, forçait la droite à passer par zéro. Or un trajet de 0 km n'est pas forcément gratuit : il y a peut-être une prise en charge. On ajoute donc une constante.
+
+Le modèle de régression linéaire (*linear regression*) prédit :
+
+$$
+\hat{y} = w\,x + b
+$$
+
+où :
+- $x$ est l'entrée (la distance) et $\hat{y}$ la prédiction (le prix prédit) ;
+- $w$ est le poids (*weight*), la pente de la droite ;
+- $b$ est le biais (*bias*), la valeur prédite quand $x = 0$.
+
+Avec plusieurs entrées rangées dans un vecteur $\mathbf{x}$, le modèle devient un [produit scalaire](/maths/produit-scalaire/) plus une constante, et pour tout un jeu de données, un [produit matriciel](/maths/produit-matriciel/). Touche un symbole de la formule pour retrouver son rôle.
+
+<FormuleVivante
+  tex="\begin{gathered} \htmlClass{t-yhat}{\hat{y}} = \htmlClass{t-w}{\mathbf{w}} \cdot \htmlClass{t-x}{\mathbf{x}} + \htmlClass{t-b}{b} \\ \htmlClass{t-L}{\mathcal{L}}(\htmlClass{t-w}{\mathbf{w}}, \htmlClass{t-b}{b}) = \frac{1}{n}\sum_{i=1}^{n} \big(\htmlClass{t-yhat}{\hat{y}_i} - y_i\big)^2 \end{gathered}"
+  termes={{
+    x: { role: "entree", texte: "les entrées d'un exemple, par exemple la distance d'un trajet" },
+    w: { role: "parametre", texte: "les poids, un par entrée : ce que le modèle apprend" },
+    b: { role: "parametre", texte: "le biais, la constante apprise en plus des poids" },
+    yhat: { role: "sortie", texte: "la prédiction du modèle" },
+    L: { role: "perte", texte: "l'erreur quadratique moyenne sur les n exemples" }
+  }}
+  label="Modèle linéaire et sa perte"
+/>
+
+Apprendre, c'est trouver les <Terme id="w">poids</Terme> et le <Terme id="b">biais</Terme> qui rendent la <Terme id="L">perte</Terme> minimale. Pour les quatre trajets, on peut le faire à la main. La meilleure droite passe par le point moyen des données, $(\bar{x}\,;\,\bar{y})$, et sa pente se calcule avec les écarts à ce point :
+
+$$
+w^* = \frac{\sum_i (x_i - \bar{x})(y_i - \bar{y})}{\sum_i (x_i - \bar{x})^2} \qquad b^* = \bar{y} - w^*\,\bar{x}
+$$
+
+où :
+- $\bar{x}$ et $\bar{y}$ sont les moyennes des entrées et des valeurs observées ;
+- $w^*$ et $b^*$ sont le poids et le biais optimaux.
+
+Calcul. Les moyennes valent $\bar{x} = (2 + 4 + 5 + 8)/4 = 4{,}75$ km et $\bar{y} = (300 + 500 + 700 + 1\,100)/4 = 650$ F. Les écarts à la moyenne sont $(-2{,}75\,;\,-0{,}75\,;\,0{,}25\,;\,3{,}25)$ pour $x$ et $(-350\,;\,-150\,;\,50\,;\,450)$ pour $y$. Leurs produits deux à deux font $962{,}5 + 112{,}5 + 12{,}5 + 1\,462{,}5 = 2\,550$. Les carrés des écarts en $x$ font $7{,}562\,5 + 0{,}562\,5 + 0{,}062\,5 + 10{,}562\,5 = 18{,}75$. Donc $w^* = 2\,550 / 18{,}75 = 136$ F par km, et $b^* = 650 - 136 \times 4{,}75 = 4$ F.
+
+Le modèle appris est : prix $= 136 \times$ distance $+ 4$. Ses prédictions sont 276, 548, 684 et 1 092 F, avec des écarts de $-24$, $48$, $-16$ et $-8$ F. L'erreur quadratique moyenne vaut $(576 + 2\,304 + 256 + 64)/4 = 800$, un peu moins que les 803 du modèle sans biais. Pour un trajet de 6 km, le modèle prédit $136 \times 6 + 4 = 820$ F.
+
+Avec des millions d'exemples et des milliers d'entrées, on n'utilise pas forcément la formule. On fait une [descente de gradient](/maths/descente-gradient/) sur $\mathbf{w}$ et $b$ : la perte étant convexe, elle mène au même résultat.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+On annule les deux dérivées partielles de $\mathcal{L}(w, b) = \frac{1}{n}\sum_i (w x_i + b - y_i)^2$.
+
+**Dérivée par rapport à $b$.**
+
+$$
+\begin{aligned}
+\frac{\partial \mathcal{L}}{\partial b} &= \frac{2}{n} \sum_i (w x_i + b - y_i) && \text{dérivée de } u^2 \text{ : } 2u\,u' \text{, avec } u' = 1 \\
+&= 2\,(w\,\bar{x} + b - \bar{y}) && \textstyle\frac{1}{n}\sum_i x_i = \bar{x} \text{ et } \frac{1}{n}\sum_i y_i = \bar{y}
+\end{aligned}
+$$
+
+Elle s'annule pour $b = \bar{y} - w\,\bar{x}$ : la droite optimale passe par le point moyen.
+
+**Dérivée par rapport à $w$**, en remplaçant $b$ :
+
+$$
+\begin{aligned}
+\frac{\partial \mathcal{L}}{\partial w} &= \frac{2}{n} \sum_i x_i\,(w x_i + b - y_i) && u' = x_i \\
+&= \frac{2}{n} \sum_i x_i\,\big(w\,(x_i - \bar{x}) - (y_i - \bar{y})\big) && b = \bar{y} - w\,\bar{x} \\
+&= \frac{2}{n} \sum_i (x_i - \bar{x})\,\big(w\,(x_i - \bar{x}) - (y_i - \bar{y})\big) && \textstyle\sum_i \bar{x}\,(\dots) = 0 \text{, car les écarts somment à 0}
+\end{aligned}
+$$
+
+Elle s'annule pour $w \sum_i (x_i - \bar{x})^2 = \sum_i (x_i - \bar{x})(y_i - \bar{y})$, ce qui donne la formule de $w^*$.
+
+**Pourquoi c'est bien un minimum.** La perte est une somme de carrés de fonctions affines de $(w, b)$, donc elle est [convexe](/maths/convexite/) : le seul point où le gradient s'annule est le minimum global.
+
+**Avec plusieurs entrées.** On range les exemples dans une matrice $\mathbf{X}$ (une ligne par exemple, et une colonne de 1 pour le biais). Le même raisonnement donne les équations normales (*normal equations*) $\mathbf{X}^\top \mathbf{X}\,\boldsymbol{\theta} = \mathbf{X}^\top \mathbf{y}$, un système linéaire dont la solution est le vecteur $\boldsymbol{\theta}$ des poids et du biais.
+
+</Depliable>
+
+## Essaie toi-même
+
+Règle la pente et la hauteur de la droite. Les traits rouges sont les écarts, et leur erreur quadratique moyenne s'affiche en bas.
+
+<Simulation
+  rendu="regression-droite"
+  label="Les quatre trajets, une droite réglable et ses écarts"
+  parametres={[
+    { nom: "w", label: "Pente w (F par km)", min: 50, max: 200, pas: 1, valeur: 100, role: "parametre" },
+    { nom: "b", label: "Biais b (F)", min: -200, max: 300, pas: 2, valeur: 150, role: "parametre" }
+  ]}
+  legende="Données : 2 km pour 300 F, 4 km pour 500 F, 5 km pour 700 F, 8 km pour 1 100 F."
+/>
+
+Consigne : avec $b = 150$, cherche la pente qui donne la plus petite erreur. Descend-elle sous 1 000 ? Puis règle aussi le biais. Peux-tu descendre sous 800 ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $b = 150$, la meilleure pente est environ 110, et l'erreur ne descend pas sous 4 467 environ : la droite est coincée trop haut au départ. En réglant les deux curseurs, on atteint 800 exactement pour $w = 136$ et $b = 4$. Impossible de faire moins : c'est le minimum calculé plus haut. Remarque aussi qu'en bougeant $b$, il faut réajuster $w$ : les deux paramètres dépendent l'un de l'autre, parce que la droite optimale doit passer par le point moyen $(4{,}75\,;\,650)$.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+
+# Les quatre trajets : distance en km, prix payé en F CFA
+x = np.array([2.0, 4.0, 5.0, 8.0])
+y = np.array([300.0, 500.0, 700.0, 1100.0])
+
+# Formule des moindres carrés
+w = np.sum((x - x.mean()) * (y - y.mean())) / np.sum((x - x.mean()) ** 2)
+b = y.mean() - w * x.mean()
+print("w =", w, " b =", b)                         # w = 136.0  b = 4.0
+
+# Même résultat avec les équations normales : colonne de 1 pour le biais
+X = np.column_stack([x, np.ones_like(x)])
+theta = np.linalg.solve(X.T @ X, X.T @ y)
+print("theta =", theta)                            # [136.   4.]
+
+erreurs = X @ theta - y
+print("MSE =", np.mean(erreurs ** 2))              # 800.0
+print("prix prédit pour 6 km :", 6 * w + b)        # 820.0
+```
+
+En vrai, avec scikit-learn :
+
+```python
+# no-run
+from sklearn.linear_model import LinearRegression
+modele = LinearRegression().fit(x.reshape(-1, 1), y)
+print(modele.coef_, modele.intercept_)             # [136.] 4.0
+```
+
+## Les pièges classiques
+
+**« Linéaire veut dire que la relation doit être une droite. »** On y croit à cause du dessin. Mais le modèle est linéaire en ses paramètres, pas forcément en l'entrée : on peut donner au modèle $x$ et $x^2$ comme deux entrées, et il apprend alors une parabole, avec exactement la même méthode.
+
+**« Le biais est une erreur du modèle. »** Le mot trompe, parce qu'on parle aussi de « biais » pour une erreur systématique. Ici, $b$ est un simple paramètre, la hauteur de la droite en $x = 0$. Pour le gbaka, il vaut 4 F : une prise en charge minuscule.
+
+**« Une petite erreur sur les données d'entraînement garantit de bonnes prédictions. »** Avec quatre trajets, on peut avoir de la chance. Un modèle se juge sur des données qu'il n'a pas vues, ce qu'explique la fiche [train, validation, test](/concepts/train-val-test/).
+
+## Dans la vraie vie
+
+La régression linéaire est partout où l'on veut prédire un nombre à partir d'autres nombres, et elle sert de référence à battre pour des modèles plus compliqués. Les tableurs la proposent directement : c'est la fonction DROITEREG dans la version française d'Excel et de LibreOffice. Elle vit aussi au cœur des grands modèles : un Transformer se termine par une transformation linéaire apprise, suivie d'un softmax qui transforme les scores en probabilités (Vaswani et ses coauteurs, 2017).
+
+Plus près de nous, la méthode est à la portée de n'importe quel cahier de comptes. Une vendeuse qui note chaque jour ses ventes d'eau glacée et la température peut, avec les mêmes formules que pour le gbaka, estimer ce qu'elle vendra demain selon la météo annoncée, et savoir de combien elle se trompe en moyenne.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que représente b dans le modèle y = w x + b ?",
+    choix: ["L'erreur moyenne du modèle", "La prédiction quand x vaut 0", "La pente de la droite", "Le nombre d'exemples"],
+    bonne: 1,
+    explication: "b est la hauteur de la droite en x = 0. C'est un paramètre appris, au même titre que w."
+  },
+  {
+    question: "Avec les trajets du gbaka, w = 136 et b = 4. Quel prix le modèle prédit-il pour 10 km ?",
+    choix: ["1 360 F", "1 364 F", "1 400 F", "140 F"],
+    bonne: 1,
+    explication: "136 × 10 + 4 = 1 364 F."
+  },
+  {
+    question: "Par quel point passe toujours la droite des moindres carrés, quand le modèle a un biais ?",
+    choix: ["L'origine (0 ; 0)", "Le premier exemple", "Le point moyen des données", "Le point le plus éloigné"],
+    bonne: 2,
+    explication: "La dérivée par rapport à b s'annule pour b = ȳ − w x̄ : la droite passe par (x̄ ; ȳ). Sans biais, elle serait forcée de passer par l'origine."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi minimise-t-on les carrés plutôt que les valeurs absolues des erreurs ?">
+
+Avec les carrés, la perte est dérivable partout et convexe : on obtient une formule fermée (les équations normales) et la descente de gradient marche bien. Les carrés pénalisent fortement les grosses erreurs, ce qui est souhaitable si les erreurs sont du bruit modéré. Sous l'hypothèse d'un bruit gaussien, minimiser les carrés revient à maximiser la vraisemblance. L'inconvénient est la sensibilité aux valeurs aberrantes : un seul point très faux tire toute la droite. Avec les valeurs absolues, le modèle est plus robuste, mais la perte n'est pas dérivable en zéro et il n'y a pas de formule fermée.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "régression linéaire", en: "linear regression", definition: "Modèle qui prédit un nombre par une somme pondérée des entrées plus une constante." },
+  { fr: "poids", en: "weight", definition: "Coefficient appris qui multiplie une entrée." },
+  { fr: "biais", en: "bias", definition: "Constante apprise ajoutée à la somme pondérée ; la prédiction quand toutes les entrées valent 0." },
+  { fr: "moindres carrés", en: "least squares", definition: "Méthode qui choisit les paramètres rendant minimale la somme des carrés des écarts." },
+  { fr: "équations normales", en: "normal equations", definition: "Système XᵀXθ = Xᵀy dont la solution donne les paramètres des moindres carrés." }
+]} />
