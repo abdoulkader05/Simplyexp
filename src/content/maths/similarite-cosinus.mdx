@@ -1,0 +1,164 @@
+---
+id: similarite-cosinus
+type: maths
+titre: "La similarité cosinus : mesurer l'angle entre deux idées"
+sous_titre: "Cosine similarity pour comparer embeddings et documents"
+domaine: algebre-lineaire
+niveau: 2
+prerequis: [normes-distances]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 3 (Analytic Geometry), angles et orthogonalité, inégalité de Cauchy-Schwarz"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Deux textes parlent du même sujet, mais l'un est dix fois plus long que l'autre. Si on les transforme en vecteurs, la [distance](/maths/normes-distances/) entre eux sera grande, simplement à cause de la longueur. Il faut une mesure qui compare les directions et ignore les longueurs. C'est la similarité cosinus, qu'on utilisera pour comparer des [embeddings](/concepts/embeddings/).
+
+## L'intuition
+
+Deux flèches qui partent du même point peuvent pointer dans la même direction, dans des directions perpendiculaires ou dans des directions opposées. L'angle entre elles dit à quel point elles « vont dans le même sens », quelle que soit leur longueur.
+
+Fais tourner $\mathbf{b}$, puis allonge-la. Le [produit scalaire](/maths/produit-scalaire/) $\mathbf{a} \cdot \mathbf{b}$ grandit avec la longueur. Le cosinus, lui, ne bouge que si l'angle change.
+
+<Simulation
+  rendu="cosinus-longueur"
+  label="Vecteur a fixe et vecteur b réglable, avec l'angle, le produit scalaire et la similarité cosinus"
+  parametres={[
+    { nom: "theta", label: "Direction de b", min: 0, max: 359, pas: 1, valeur: 37, role: "entree", unite: "°" },
+    { nom: "longueur", label: "Longueur de b", min: 1, max: 10, pas: 1, valeur: 10, role: "entree" }
+  ]}
+  legende="a = (4 ; 3) est fixe, de longueur 5."
+/>
+
+## La définition
+
+Pour deux vecteurs non nuls $\mathbf{a}$ et $\mathbf{b}$ de même dimension :
+
+$$
+\cos(\mathbf{a}, \mathbf{b}) = \frac{\mathbf{a} \cdot \mathbf{b}}{\|\mathbf{a}\|_2\, \|\mathbf{b}\|_2}
+$$
+
+où :
+- $\cos(\mathbf{a}, \mathbf{b})$ est la similarité cosinus (*cosine similarity*), un nombre entre $-1$ et $1$ ;
+- $\mathbf{a} \cdot \mathbf{b}$ est leur produit scalaire ;
+- $\|\mathbf{a}\|_2$ et $\|\mathbf{b}\|_2$ sont leurs normes L2.
+
+Autrement dit : on calcule le produit scalaire, puis on le divise par les deux longueurs pour ne garder que l'information de direction. Il vaut 1 si les vecteurs pointent dans la même direction, 0 s'ils sont orthogonaux, $-1$ s'ils sont opposés.
+
+<Depliable titre="Pourquoi c'est bien le cosinus de l'angle">
+
+On se place dans le plan. Soit $\theta$ l'angle entre $\mathbf{a}$ et $\mathbf{b}$. Le triangle formé par $\mathbf{a}$, $\mathbf{b}$ et $\mathbf{a} - \mathbf{b}$ vérifie le théorème d'Al-Kashi, qu'on admet (c'est Pythagore généralisé) :
+
+$$
+\|\mathbf{a} - \mathbf{b}\|^2 = \|\mathbf{a}\|^2 + \|\mathbf{b}\|^2 - 2\,\|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta
+$$
+
+On développe aussi le membre de gauche avec le produit scalaire :
+
+$$
+\begin{aligned}
+\|\mathbf{a} - \mathbf{b}\|^2 &= (\mathbf{a} - \mathbf{b}) \cdot (\mathbf{a} - \mathbf{b}) && \text{norme au carré} = \text{produit avec soi-même} \\
+&= \mathbf{a} \cdot \mathbf{a} - 2\,\mathbf{a} \cdot \mathbf{b} + \mathbf{b} \cdot \mathbf{b} && \text{distributivité et symétrie} \\
+&= \|\mathbf{a}\|^2 - 2\,\mathbf{a} \cdot \mathbf{b} + \|\mathbf{b}\|^2 && \text{norme au carré}
+\end{aligned}
+$$
+
+On compare les deux expressions : les termes $\|\mathbf{a}\|^2$ et $\|\mathbf{b}\|^2$ s'annulent, et il reste $\mathbf{a} \cdot \mathbf{b} = \|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta$. En divisant par les deux normes, on obtient la définition.
+
+C'est la preuve promise dans la fiche sur le produit scalaire : son signe est celui de $\cos\theta$, positif pour un angle aigu, nul pour un angle droit, négatif pour un angle obtus.
+
+En dimension $d$ quelconque, on ne dessine plus de triangle. On utilise l'inégalité de Cauchy-Schwarz, $|\mathbf{a} \cdot \mathbf{b}| \le \|\mathbf{a}\|\,\|\mathbf{b}\|$, admise ici, qui garantit que le quotient reste entre $-1$ et $1$. On définit alors l'angle par ce cosinus.
+
+</Depliable>
+
+## Un exemple à la main
+
+Avec $\mathbf{a} = (4\,;\,3)$ et $\mathbf{b} = (8\,;\,6)$ :
+
+- produit scalaire : $4 \times 8 + 3 \times 6 = 32 + 18 = 50$ ;
+- normes : $\|\mathbf{a}\| = \sqrt{16 + 9} = 5$ et $\|\mathbf{b}\| = \sqrt{64 + 36} = 10$ ;
+- cosinus : $50 / (5 \times 10) = 1$.
+
+$\mathbf{b}$ est deux fois $\mathbf{a}$ : même direction, cosinus 1. Avec $\mathbf{c} = (3\,;\,-4)$ : $\mathbf{a} \cdot \mathbf{c} = 12 - 12 = 0$, donc $\cos(\mathbf{a}, \mathbf{c}) = 0$ : ils sont orthogonaux.
+
+Un exemple avec des textes. On compte trois mots dans des SMS : « transfert », « argent », « match ». Le message 1, « transfert d'argent reçu, merci pour le transfert », donne $(2\,;\,1\,;\,0)$. Le message 2, « as-tu reçu l'argent du transfert ? », donne $(1\,;\,1\,;\,0)$. Le message 3, « le match, le match, quel beau match », donne $(0\,;\,0\,;\,3)$.
+
+- Messages 1 et 2 : $\frac{2 + 1 + 0}{\sqrt{5}\,\sqrt{2}} = \frac{3}{\sqrt{10}} \approx 0{,}95$.
+- Messages 1 et 3 : $\frac{0}{\sqrt{5} \times 3} = 0$.
+
+Les deux premiers parlent de la même chose. Le troisième n'a aucun mot en commun avec eux.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec la direction à 37°, fais varier la longueur de 1 à 10. Note le produit scalaire et le cosinus. Puis trouve une direction où le cosinus vaut environ $-1$, et une où il vaut 0.
+
+<Depliable titre="Ce que tu devrais observer">
+
+À 37°, $\mathbf{b}$ pointe presque exactement comme $\mathbf{a}$. Le produit scalaire passe d'environ 5 à 50 quand la longueur passe de 1 à 10. Le cosinus reste à 1,00.
+
+Le cosinus vaut environ $-1$ vers 217°, à l'opposé de $\mathbf{a}$. Il vaut 0 vers 127° et vers 307°, perpendiculairement à $\mathbf{a}$ : ce sont les directions de $(-3\,;\,4)$ et de $(3\,;\,-4)$.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Comparer des embeddings.** Pour savoir si deux mots ou deux phrases ont un sens proche, on calcule la similarité cosinus de leurs [embeddings](/concepts/embeddings/). La [recherche sémantique](/concepts/recherche-semantique/) classe ainsi des documents par proximité avec une requête.
+- **Comparer des documents.** Comme dans l'exemple des SMS, deux textes de longueurs différentes peuvent être comparés sur leur contenu, sans que le plus long soit pénalisé.
+- **Normaliser pour aller vite.** Si tous les vecteurs sont ramenés à une norme 1, la similarité cosinus devient un simple produit scalaire. C'est ce que font beaucoup de bases de vecteurs pour accélérer la recherche.
+
+## Les pièges classiques
+
+**« Un cosinus proche de 1 veut dire que les vecteurs sont proches. »** On y croit parce que « similaire » évoque « proche ». Mais $(1\,;\,1)$ et $(100\,;\,100)$ ont un cosinus de 1 et sont très loin l'un de l'autre. Le cosinus compare les directions, pas les positions.
+
+**« La similarité cosinus est toujours positive. »** On y croit parce qu'avec des comptages de mots, toutes les coordonnées sont positives ou nulles, et le cosinus aussi. Mais les embeddings ont des coordonnées négatives, et le cosinus peut descendre jusqu'à $-1$.
+
+**« On peut calculer le cosinus avec un vecteur nul. »** On divise par la norme : si un vecteur est nul, on divise par zéro. Un texte qui ne contient aucun des mots comptés n'a pas de direction, et il faut le traiter à part.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $\cos(\mathbf{u}, \mathbf{v})$ pour $\mathbf{u} = (1\,;\,0)$ et $\mathbf{v} = (1\,;\,1)$. Quel angle cela donne-t-il ?
+
+<Depliable titre="Corrigé">
+
+$\mathbf{u} \cdot \mathbf{v} = 1$, $\|\mathbf{u}\| = 1$, $\|\mathbf{v}\| = \sqrt{2}$. Donc $\cos = 1/\sqrt{2} \approx 0{,}71$, ce qui correspond à un angle de 45°.
+
+</Depliable>
+
+**Exercice 2.** Montre que $\cos(k\,\mathbf{a}, \mathbf{b}) = \cos(\mathbf{a}, \mathbf{b})$ pour tout nombre $k > 0$. Que se passe-t-il si $k < 0$ ?
+
+<Depliable titre="Corrigé">
+
+Par distributivité, $(k\,\mathbf{a}) \cdot \mathbf{b} = k\,(\mathbf{a} \cdot \mathbf{b})$. Et $\|k\,\mathbf{a}\| = |k|\,\|\mathbf{a}\|$. Donc :
+
+$$
+\cos(k\,\mathbf{a}, \mathbf{b}) = \frac{k\,(\mathbf{a} \cdot \mathbf{b})}{|k|\,\|\mathbf{a}\|\,\|\mathbf{b}\|} = \frac{k}{|k|}\,\cos(\mathbf{a}, \mathbf{b})
+$$
+
+Si $k > 0$, $k / |k| = 1$ : le cosinus ne change pas. Si $k < 0$, $k / |k| = -1$ : le cosinus change de signe, car la flèche a fait demi-tour.
+
+</Depliable>
+
+**Exercice 3.** Trois embeddings en dimension 3 : « payer » $= (2\,;\,1\,;\,0)$, « régler » $= (4\,;\,2\,;\,1)$, « pluie » $= (0\,;\,1\,;\,3)$. Quel mot est le plus similaire à « payer » selon le cosinus ? Selon la distance L2 ?
+
+<Depliable titre="Corrigé">
+
+$\|\text{payer}\| = \sqrt{5} \approx 2{,}24$, $\|\text{régler}\| = \sqrt{21} \approx 4{,}58$, $\|\text{pluie}\| = \sqrt{10} \approx 3{,}16$.
+
+Cosinus : payer et régler, $\frac{8 + 2 + 0}{2{,}24 \times 4{,}58} \approx 0{,}98$ ; payer et pluie, $\frac{0 + 1 + 0}{2{,}24 \times 3{,}16} \approx 0{,}14$. « Régler » gagne.
+
+Distance L2 : payer et régler, $\|(2\,;\,1\,;\,1)\| = \sqrt{6} \approx 2{,}45$ ; payer et pluie, $\|(-2\,;\,0\,;\,3)\| = \sqrt{13} \approx 3{,}61$. « Régler » gagne aussi, mais il en aurait été autrement si son vecteur avait été beaucoup plus long.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "similarité cosinus", en: "cosine similarity", definition: "Produit scalaire divisé par le produit des normes : le cosinus de l'angle entre deux vecteurs." },
+  { fr: "inégalité de Cauchy-Schwarz", en: "Cauchy-Schwarz inequality", definition: "La valeur absolue du produit scalaire ne dépasse jamais le produit des normes." }
+]} />
