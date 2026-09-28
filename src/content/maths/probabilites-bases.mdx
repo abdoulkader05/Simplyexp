@@ -1,0 +1,154 @@
+---
+id: probabilites-bases
+type: maths
+titre: "Les probabilités : quantifier l'incertitude"
+sous_titre: "Événements, univers et règles de calcul de base"
+domaine: probabilites
+niveau: 1
+prerequis: []
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), section sur l'espace probabilisé (univers, événements, probabilité)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.1 et 3.2 (pourquoi les probabilités, variables et incertitude)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un modèle d'IA ne sait presque jamais rien avec certitude. Un filtre ne dit pas « ce SMS est une arnaque », il dit « c'est une arnaque avec 93 % de chances ». Un LLM ne connaît pas le mot suivant : il donne une probabilité à chacun des mots possibles, puis en choisit un. Pour lire, construire et entraîner ces modèles, il faut le langage des probabilités, qui mène à la [probabilité conditionnelle](/maths/probabilite-conditionnelle/) et aux [variables aléatoires](/maths/variables-aleatoires/).
+
+## L'intuition
+
+Quand la radio annonce « 70 % de risque de pluie demain à Bouaké », elle ne dit pas qu'il pleuvra 70 % de la journée. Elle dit que, parmi les jours qui ressemblent à celui-là, il a plu environ 7 fois sur 10. Une probabilité est un nombre entre 0 et 1 qui mesure à quel point on s'attend à un événement : 0 pour l'impossible, 1 pour le certain.
+
+Avec un dé équilibré, les six faces sont également probables : chacune a une chance sur six. La probabilité d'un événement, comme « obtenir un nombre pair », est alors le nombre de faces qui le réalisent, divisé par 6. Et l'on peut combiner les événements : « pair **ou** au moins 4 », « pair **et** au moins 4 ».
+
+<Simulation
+  rendu="probas-de"
+  label="Les six faces d'un dé, les événements A et B, et la probabilité de A ou B"
+  parametres={[
+    { nom: "k", label: "Seuil k de l'événement B = « au moins k »", min: 1, max: 6, pas: 1, valeur: 4, role: "parametre" }
+  ]}
+  legende="Les faces communes à A et B ne doivent être comptées qu'une fois."
+/>
+
+## La définition
+
+On décrit une expérience aléatoire par :
+
+- l'univers (*sample space*) $\Omega$ : l'ensemble de tous les résultats possibles, par exemple $\{1, 2, 3, 4, 5, 6\}$ ;
+- les événements (*events*) : des parties de $\Omega$, par exemple $A = \{2, 4, 6\}$ ;
+- une probabilité $P$, qui associe à chaque événement un nombre et respecte trois règles :
+
+$$
+0 \le P(A) \le 1 \qquad P(\Omega) = 1 \qquad P(A \cup B) = P(A) + P(B) \ \text{ si } A \cap B = \emptyset
+$$
+
+où :
+- $A \cup B$ est l'événement « $A$ ou $B$ » (au moins l'un des deux) ;
+- $A \cap B$ est l'événement « $A$ et $B$ » (les deux à la fois) ;
+- $\emptyset$ est l'événement impossible ; $A \cap B = \emptyset$ veut dire que $A$ et $B$ ne peuvent pas arriver ensemble.
+
+Quand tous les résultats sont également probables, $P(A) = \frac{\text{nombre de résultats dans } A}{\text{nombre total de résultats}}$.
+
+Autrement dit : une probabilité répartit une masse totale de 1 entre les résultats possibles, et la probabilité d'un événement est la masse des résultats qui le composent.
+
+<Depliable titre="Deux règles qu'on utilisera partout">
+
+**L'événement contraire.** Notons $\bar{A}$ l'événement « non $A$ ». $A$ et $\bar{A}$ ne peuvent pas arriver ensemble, et l'un des deux arrive toujours :
+
+$$
+\begin{aligned}
+1 = P(\Omega) &= P(A \cup \bar{A}) && A \cup \bar{A} = \Omega \\
+&= P(A) + P(\bar{A}) && \text{troisième règle, car } A \cap \bar{A} = \emptyset
+\end{aligned}
+$$
+
+Donc $P(\bar{A}) = 1 - P(A)$.
+
+**La probabilité de « A ou B », en général.** On découpe $A \cup B$ en deux morceaux qui ne se chevauchent pas : $A$, et la partie de $B$ hors de $A$. De même, $B$ se découpe en $A \cap B$ et en la partie de $B$ hors de $A$. La troisième règle donne :
+
+$$
+P(A \cup B) = P(A) + \big(P(B) - P(A \cap B)\big) = P(A) + P(B) - P(A \cap B)
+$$
+
+On retire $P(A \cap B)$ parce qu'en additionnant $P(A)$ et $P(B)$, on a compté deux fois les résultats communs.
+
+</Depliable>
+
+## Un exemple à la main
+
+Avec un dé équilibré, $A$ = « pair » = $\{2, 4, 6\}$ et $B$ = « au moins 4 » = $\{4, 5, 6\}$.
+
+- $P(A) = 3/6 = 0{,}5$ et $P(B) = 3/6 = 0{,}5$.
+- $A \cap B = \{4, 6\}$, donc $P(A \cap B) = 2/6$.
+- $P(A \cup B) = 3/6 + 3/6 - 2/6 = 4/6 \approx 0{,}667$. Vérification : $A \cup B = \{2, 4, 5, 6\}$, 4 faces sur 6.
+- $P(\bar{A}) = 1 - 0{,}5 = 0{,}5$ : « impair ».
+
+Un exemple d'IA : un modèle de langage doit compléter « Je vais au marché acheter du… ». Il donne 0,4 à « riz », 0,25 à « poisson », 0,15 à « manioc », et le reste, 0,2, se répartit sur tous les autres mots de son vocabulaire. La probabilité que le mot soit « riz » ou « manioc » vaut $0{,}4 + 0{,}15 = 0{,}55$, puisque ces deux mots ne peuvent pas être choisis en même temps.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve la valeur de $k$ pour laquelle $A$ et $B$ n'ont aucune face en commun. Existe-t-elle ? Puis cherche $k$ tel que $P(A \cup B) = 1$.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Aucun $k$ ne rend $A \cap B$ vide : même avec $k = 6$, la face 6 est paire et au moins 6. Il y a toujours au moins une face commune, donc on doit toujours soustraire $P(A \cap B)$.
+
+$P(A \cup B) = 1$ pour $k = 1$ : $B$ contient alors toutes les faces, et « $A$ ou $B$ » est certain. Pour $k = 2$, seule la face 1 manque ($P = 5/6$) : elle est impaire et plus petite que 2.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Des sorties probabilistes.** Un classifieur rend une probabilité par classe, calculée par la [régression logistique](/concepts/regression-logistique/) ou le [softmax](/concepts/softmax/) ; ces probabilités sont positives et leur somme vaut 1, comme l'exigent les règles.
+- **Raisonner avec l'incertitude.** La [probabilité conditionnelle](/maths/probabilite-conditionnelle/) et le [théorème de Bayes](/maths/bayes/) disent comment une information nouvelle change les probabilités.
+- **Décrire les données.** Les [variables aléatoires](/maths/variables-aleatoires/) et leurs lois décrivent le hasard des données et le bruit des mesures.
+
+## Les pièges classiques
+
+**« P(A ou B) = P(A) + P(B), toujours. »** Seulement si $A$ et $B$ ne peuvent pas arriver ensemble. Sinon, on compte deux fois les cas communs : pour « pair ou au moins 4 », $3/6 + 3/6 = 1$ serait faux.
+
+**« Une probabilité de 70 % de pluie veut dire qu'il pleuvra. »** Non : parmi les jours semblables, environ 3 sur 10 restent secs. Un modèle bien étalonné qui annonce 70 % se trompe « souvent » par nature, et c'est normal.
+
+**« Tous les résultats sont toujours équiprobables. »** Le dé équilibré est un cas particulier. Les mots suivants d'une phrase, eux, ont des probabilités très différentes, et la formule « cas favorables sur cas possibles » ne s'applique plus.
+
+## Entraîne-toi
+
+**Exercice 1.** On tire une carte dans un paquet de 32 cartes. Quelle est la probabilité de tirer un cœur ? Un as ? L'as de cœur ? Un cœur ou un as ?
+
+<Depliable titre="Corrigé">
+
+8 cœurs : $8/32 = 0{,}25$. 4 as : $4/32 = 0{,}125$. L'as de cœur : $1/32$. Cœur ou as : $8/32 + 4/32 - 1/32 = 11/32 \approx 0{,}344$.
+
+</Depliable>
+
+**Exercice 2.** Un modèle donne à un message les probabilités 0,85 « normal », 0,1 « publicité » et le reste « arnaque ». Quelle est la probabilité « arnaque » ? Et « pas normal » ?
+
+<Depliable titre="Corrigé">
+
+Arnaque : $1 - 0{,}85 - 0{,}1 = 0{,}05$. Pas normal : $1 - 0{,}85 = 0{,}15$, soit publicité ou arnaque.
+
+</Depliable>
+
+**Exercice 3.** Dans une classe, 60 % des élèves ont un téléphone, 30 % un vélo, et 20 % ont les deux. Quelle proportion n'a ni l'un ni l'autre ?
+
+<Depliable titre="Corrigé">
+
+$P(\text{téléphone ou vélo}) = 0{,}6 + 0{,}3 - 0{,}2 = 0{,}7$. Ni l'un ni l'autre : $1 - 0{,}7 = 0{,}3$, soit 30 %.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "univers", en: "sample space", definition: "Ensemble de tous les résultats possibles d'une expérience aléatoire." },
+  { fr: "événement", en: "event", definition: "Partie de l'univers : un ensemble de résultats." },
+  { fr: "probabilité", en: "probability", definition: "Nombre entre 0 et 1 attribué à chaque événement, avec P(univers) = 1." },
+  { fr: "événement contraire", en: "complement", definition: "L'événement « non A », de probabilité 1 − P(A)." },
+  { fr: "événements incompatibles", en: "mutually exclusive events", definition: "Événements qui ne peuvent pas se produire ensemble." }
+]} />
