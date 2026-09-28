@@ -1,0 +1,223 @@
+---
+id: regression-logistique
+type: concept
+titre: "La régression logistique : transformer un score en probabilité"
+sous_titre: "Sigmoïde, classification binaire et log-loss"
+domaine: machine-learning
+niveau: 3
+prerequis: [regression-lineaire, maximum-vraisemblance, loi-categorielle]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.7.1 (régression logistique) ; chapitre 6, section 6.2.2.2 (unités sigmoïdes pour des sorties de Bernoulli)"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), maximum de vraisemblance"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+La [régression linéaire](/concepts/regression-lineaire/) prédit un nombre : un prix, une foule. Mais beaucoup de questions se répondent par oui ou non. Un élève va-t-il réussir son examen ? Un SMS est-il une arnaque ? Un client va-t-il rembourser ? Une droite ne convient pas : elle sort de l'intervalle entre 0 et 1, et une « probabilité » de 1,4 ou de −0,2 n'a pas de sens. Il faut garder la simplicité du modèle linéaire, mais tordre sa sortie pour qu'elle devienne une vraie probabilité.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On calcule un score linéaire, comme en régression, puis on le fait passer dans une fonction en S qui le transforme en probabilité entre 0 et 1.
+</PhraseCle>
+
+## En image
+
+Pense au bouton de volume d'une vieille radio à cadran, gradué de 0 à 10, qui commande une ampoule. Tourné très à gauche, l'ampoule est éteinte ; très à droite, elle brille à fond. Entre les deux, sur une petite plage, elle passe progressivement de l'une à l'autre.
+
+- La position du bouton est le score linéaire $z = w\,x + b$.
+- La luminosité de l'ampoule est la probabilité prédite, toujours entre éteint (0) et plein feu (1).
+- Le point du cadran où l'ampoule est à mi-puissance est le seuil de décision.
+- La largeur de la plage de transition dépend du poids $w$ : un grand $w$ donne une transition brutale.
+
+Là où l'image s'arrête : une ampoule n'a pas d'avis. La sortie du modèle, elle, s'interprète comme une probabilité, et c'est cette interprétation qui dicte la façon de l'entraîner.
+
+## Comment ça marche
+
+Une professeure a noté, pour huit élèves, le nombre d'heures de révision par semaine et le résultat à l'examen blanc : 1, 2 et 3 heures, échec ; 4 heures, réussite ; 5 heures, échec ; 6, 7 et 8 heures, réussite. On veut estimer la probabilité de réussite selon les heures.
+
+Le modèle de régression logistique (*logistic regression*) calcule un score linéaire, puis applique la fonction sigmoïde (*sigmoid*) :
+
+<FormuleVivante
+  tex="\htmlClass{t-p}{p} = \htmlClass{t-s}{\sigma}\big(\htmlClass{t-w}{w}\, \htmlClass{t-x}{x} + \htmlClass{t-b}{b}\big) \qquad \htmlClass{t-s}{\sigma}(z) = \frac{1}{1 + e^{-z}}"
+  termes={{
+    x: { role: "entree", texte: "l'entrée : les heures de révision" },
+    w: { role: "parametre", texte: "le poids appris : de combien chaque heure augmente le score" },
+    b: { role: "parametre", texte: "le biais appris : le score de départ" },
+    s: { role: "sortie", texte: "la sigmoïde, qui écrase n'importe quel score dans l'intervalle ]0 ; 1[" },
+    p: { role: "sortie", texte: "la probabilité prédite de réussite" }
+  }}
+  label="Régression logistique"
+/>
+
+où :
+- $z = w\,x + b$ est le score, un nombre quelconque ;
+- $\sigma(z)$ vaut 0,5 pour $z = 0$, tend vers 1 quand $z$ est grand et vers 0 quand $z$ est très négatif ;
+- $p$ est la <Terme id="p">probabilité prédite</Terme> que la réponse soit « oui ».
+
+Avec $w = 1$ et $b = -4{,}5$ : pour 2 heures, $z = -2{,}5$ et $p = 1/(1 + e^{2{,}5}) \approx 0{,}076$. Pour 4 heures, $z = -0{,}5$ et $p \approx 0{,}378$. Pour 5 heures, $p \approx 0{,}622$. Pour 6 heures, $p \approx 0{,}818$. Le seuil de décision, où $p = 0{,}5$, est à $z = 0$, soit $x = 4{,}5$ heures.
+
+Pour régler <Terme id="w">$w$</Terme> et <Terme id="b">$b$</Terme>, on ne prend pas l'erreur quadratique. On prend la log-loss (*log loss*), aussi appelée entropie croisée binaire :
+
+$$
+\mathcal{L}(w, b) = -\frac{1}{n} \sum_{i=1}^{n} \Big(y_i \ln p_i + (1 - y_i) \ln(1 - p_i)\Big)
+$$
+
+où :
+- $y_i$ vaut 1 si l'élève $i$ a réussi, 0 sinon ;
+- $p_i$ est la probabilité de réussite prédite pour lui ;
+- $\ln$ est le logarithme népérien.
+
+Pour chaque élève, un seul des deux termes compte : $-\ln p_i$ s'il a réussi, $-\ln(1 - p_i)$ s'il a échoué. La perte est petite quand le modèle donne une forte probabilité à ce qui s'est vraiment passé, et devient énorme quand il était sûr de se tromper. L'élève de 4 heures, qui a réussi, coûte $-\ln 0{,}378 \approx 0{,}97$ ; l'élève de 5 heures, qui a échoué, coûte $-\ln(1 - 0{,}622) \approx 0{,}97$ aussi. En moyenne sur les huit élèves, la perte vaut environ 0,321. La meilleure valeur possible, obtenue par descente de gradient, est environ 0,313, pour $w \approx 1{,}28$ et $b \approx -5{,}77$ : le seuil reste à 4,5 heures, mais la transition est plus nette.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**D'où vient la log-loss.** On modélise la réussite de l'élève $i$ comme un tirage de Bernoulli de probabilité $p_i$. La probabilité du résultat observé s'écrit en une seule formule : $P(y_i) = p_i^{\,y_i}\,(1 - p_i)^{1 - y_i}$, qui vaut $p_i$ si $y_i = 1$ et $1 - p_i$ si $y_i = 0$. Pour des élèves indépendants, la vraisemblance est le produit, et on cherche à la rendre maximale, comme dans la fiche [maximum de vraisemblance](/maths/maximum-vraisemblance/) :
+
+$$
+\begin{aligned}
+-\frac{1}{n}\ln \prod_i p_i^{\,y_i}(1 - p_i)^{1 - y_i} &= -\frac{1}{n}\sum_i \ln\big(p_i^{\,y_i}(1 - p_i)^{1 - y_i}\big) && \ln \text{ d'un produit} = \text{somme des } \ln \\
+&= -\frac{1}{n}\sum_i \big(y_i \ln p_i + (1 - y_i)\ln(1 - p_i)\big) && \ln(a^k) = k \ln a
+\end{aligned}
+$$
+
+Minimiser la log-loss, c'est donc maximiser la vraisemblance.
+
+**La dérivée de la sigmoïde.** $\sigma(z) = (1 + e^{-z})^{-1}$, donc
+
+$$
+\sigma'(z) = \frac{e^{-z}}{(1 + e^{-z})^2} = \frac{1}{1 + e^{-z}} \cdot \frac{e^{-z}}{1 + e^{-z}} = \sigma(z)\,\big(1 - \sigma(z)\big)
+$$
+
+**Le gradient, étonnamment simple.** Pour un exemple, $\ell = -y \ln p - (1 - y)\ln(1 - p)$ avec $p = \sigma(z)$ et $z = wx + b$ :
+
+$$
+\begin{aligned}
+\frac{\partial \ell}{\partial z} &= -\frac{y}{p}\,\sigma'(z) + \frac{1 - y}{1 - p}\,\sigma'(z) && \text{règle de la chaîne} \\
+&= -y\,(1 - p) + (1 - y)\,p && \sigma'(z) = p(1 - p) \\
+&= p - y && \text{développement}
+\end{aligned}
+$$
+
+Donc $\frac{\partial \ell}{\partial w} = (p - y)\,x$ et $\frac{\partial \ell}{\partial b} = p - y$ : l'erreur de probabilité, multipliée par l'entrée. C'est la même forme que pour la régression linéaire, ce qui n'est pas un hasard. La perte est aussi convexe en $(w, b)$ : la descente de gradient trouve le meilleur modèle.
+
+</Depliable>
+
+## Essaie toi-même
+
+Règle le poids et le biais. Les traits rouges relient chaque élève à la probabilité que le modèle lui attribue ; la log-loss s'affiche en bas.
+
+<Simulation
+  rendu="logistique-sigmoide"
+  label="Huit élèves, la courbe sigmoïde réglable et la log-loss"
+  parametres={[
+    { nom: "w", label: "Poids w", min: -1, max: 4, pas: 0.05, valeur: 1, role: "parametre", decimales: 2 },
+    { nom: "b", label: "Biais b", min: -20, max: 5, pas: 0.25, valeur: -4.5, role: "parametre", decimales: 2 }
+  ]}
+  legende="Le trait doré vertical marque le seuil où la probabilité vaut 0,5."
+/>
+
+Consigne : augmente fortement $w$ en ajustant $b$ pour garder le seuil vers 4,5 heures (par exemple $w = 4$ et $b = -18$). La courbe devient une marche. La log-loss baisse-t-elle ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $w = 4$ et $b = -18$, la courbe passe presque d'un coup de 0 à 1 à 4,5 heures. Le modèle devient très sûr de lui, et la log-loss monte à environ 0,53 : il se trompe avec assurance sur les deux élèves « à contre-courant », celui de 4 heures qui a réussi et celui de 5 heures qui a échoué, et chacun coûte environ 2. La log-loss punit la fausse certitude. Le meilleur modèle, vers $w = 1{,}28$ et $b = -5{,}77$, reste prudent autour du seuil.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : descente de gradient sur la log-loss.
+
+```python
+import numpy as np
+
+heures = np.array([1, 2, 3, 4, 5, 6, 7, 8], dtype=float)
+reussite = np.array([0, 0, 0, 1, 0, 1, 1, 1], dtype=float)
+
+def sigmoide(z):
+    return 1 / (1 + np.exp(-z))
+
+w, b, eta = 0.0, 0.0, 0.1
+for _ in range(20000):
+    p = sigmoide(w * heures + b)
+    w -= eta * np.mean((p - reussite) * heures)     # gradient : (p - y) x
+    b -= eta * np.mean(p - reussite)                # gradient : (p - y)
+
+p = sigmoide(w * heures + b)
+perte = -np.mean(reussite * np.log(p) + (1 - reussite) * np.log(1 - p))
+print(f"w = {w:.2f}, b = {b:.2f}, seuil = {-b / w:.2f} h, log-loss = {perte:.3f}")
+print("P(réussite) pour 6 h :", round(sigmoide(6 * w + b), 3))
+```
+
+En vrai, avec scikit-learn (sa régularisation L2 par défaut est désactivée ici pour retrouver les mêmes nombres) :
+
+```python
+# no-run
+from sklearn.linear_model import LogisticRegression
+modele = LogisticRegression(penalty=None).fit(heures.reshape(-1, 1), reussite)
+print(modele.coef_, modele.intercept_, modele.predict_proba([[6]]))
+```
+
+## Les pièges classiques
+
+**« C'est une régression, donc elle prédit un nombre. »** Le nom trompe : la régression logistique sert à classer. Elle prédit une probabilité, puis on décide « oui » au-dessus d'un seuil, souvent 0,5.
+
+**« Le seuil est toujours 0,5. »** C'est un choix, pas une loi. Pour repérer une fraude, on préfère parfois alerter dès 0,2 de probabilité, quitte à avoir plus de fausses alertes. Le modèle donne la probabilité ; le seuil dépend du coût des erreurs.
+
+**« On peut l'entraîner avec l'erreur quadratique. »** On peut, mais la perte obtenue n'est plus convexe en $(w, b)$ et ses gradients s'écrasent quand la sigmoïde sature. La log-loss, issue du maximum de vraisemblance, donne le gradient simple $(p - y)\,x$.
+
+## Dans la vraie vie
+
+La régression logistique reste un modèle de référence pour classer en deux catégories : filtrage de messages indésirables, prédiction de désabonnement, scores de risque. Elle est aussi la brique de base des réseaux de neurones : un [neurone artificiel](/concepts/neurone-artificiel/) avec une activation sigmoïde est exactement une régression logistique, et le [softmax](/concepts/softmax/) la généralise à plus de deux catégories.
+
+Les services de crédit par mobile money doivent décider, pour chaque demande de petit prêt, s'il sera probablement remboursé ; un modèle qui sort une probabilité, plutôt qu'un simple oui ou non, permet de fixer le seuil selon le risque qu'on accepte de prendre. La régression logistique est un point de départ naturel pour ce genre de décision, à condition de la juger sur un [ensemble de test](/concepts/train-val-test/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que vaut σ(0) ?",
+    choix: ["0", "0,5", "1", "e"],
+    bonne: 1,
+    explication: "σ(0) = 1 / (1 + e⁰) = 1 / 2. Un score nul correspond à une probabilité de 0,5 : c'est le seuil de décision."
+  },
+  {
+    question: "Avec w = 1 et b = −4,5, quelle est la probabilité de réussite prédite pour 4,5 heures de révision ?",
+    choix: ["0", "0,378", "0,5", "0,622"],
+    bonne: 2,
+    explication: "z = 4,5 − 4,5 = 0, donc p = σ(0) = 0,5."
+  },
+  {
+    question: "Un élève a échoué (y = 0) et le modèle lui donnait p = 0,99 de réussite. Combien coûte-t-il dans la log-loss ?",
+    choix: ["−ln 0,99 ≈ 0,01", "−ln 0,01 ≈ 4,6", "0,99", "0"],
+    bonne: 1,
+    explication: "Pour y = 0, le coût est −ln(1 − p) = −ln 0,01 ≈ 4,6 : une erreur faite avec assurance coûte très cher."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi utilise-t-on la log-loss et non l'erreur quadratique en régression logistique ?">
+
+La log-loss est l'opposé de la log-vraisemblance d'un modèle de Bernoulli : la minimiser revient à estimer les paramètres par maximum de vraisemblance, ce qui donne des probabilités bien calibrées. Avec la sigmoïde, elle est convexe en les paramètres, donc sans minimum local, et son gradient vaut simplement (p − y)x. L'erreur quadratique composée avec la sigmoïde n'est pas convexe, et son gradient contient le facteur σ'(z), presque nul quand la sigmoïde sature : un modèle sûr de lui et faux apprendrait très lentement. La log-loss, au contraire, pénalise fortement ces erreurs confiantes.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "régression logistique", en: "logistic regression", definition: "Modèle de classification binaire : un score linéaire passé dans une sigmoïde donne une probabilité." },
+  { fr: "sigmoïde", en: "sigmoid", definition: "Fonction σ(z) = 1 / (1 + e⁻ᶻ), en forme de S, à valeurs entre 0 et 1." },
+  { fr: "log-loss", en: "log loss, binary cross-entropy", definition: "Moyenne de −ln de la probabilité donnée à ce qui s'est réellement passé." },
+  { fr: "seuil de décision", en: "decision threshold", definition: "Probabilité au-dessus de laquelle on répond « oui »." },
+  { fr: "classification binaire", en: "binary classification", definition: "Tâche qui consiste à choisir entre deux catégories." }
+]} />
