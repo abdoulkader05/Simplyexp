@@ -1,0 +1,203 @@
+---
+id: bpe
+type: concept
+titre: "BPE : l'algorithme qui a inventé l'alphabet des LLM"
+sous_titre: "Byte Pair Encoding et tokenisation en sous-mots"
+domaine: langage
+niveau: 3
+prerequis: [tokenisation]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Sennrich, Haddow, Birch, « Neural Machine Translation of Rare Words with Subword Units », ACL 2016 — https://arxiv.org/abs/1508.07909 — sections 1 et 3.2 (BPE adapté de Gage 1994, fusion des paires les plus fréquentes, taille du vocabulaire = symboles initiaux + nombre de fusions, pas de paire à cheval sur deux mots)"
+  - "Radford et al., « Language Models are Unsupervised Multitask Learners », OpenAI, 2019 — https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf — section 2.2 (BPE au niveau des octets)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+La fiche sur la [tokenisation](/concepts/tokenisation/) a montré l'intérêt des sous-mots : les mots fréquents restent entiers, les mots rares se décomposent en morceaux connus. Mais qui décide de ces morceaux ? Les choisir à la main, langue par langue, serait interminable. En 1994, Philip Gage publie un algorithme de compression de données, le *byte pair encoding* (BPE), qui remplace répétitivement la paire d'octets la plus fréquente par un nouveau symbole. En 2016, Sennrich, Haddow et Birch l'adaptent à la découpe des mots pour la traduction automatique. C'est, à des variantes près, ce qui fabrique le vocabulaire de la plupart des LLM.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On part des lettres, puis on fusionne encore et encore la paire de symboles voisins la plus fréquente du corpus ; chaque fusion ajoute un token au vocabulaire.
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui prend des notes à la main pendant un cours et invente, au fil des heures, ses propres abréviations.
+
+- Au début, il écrit tout lettre par lettre : c'est le vocabulaire de départ, les caractères.
+- Il remarque qu'il écrit sans arrêt « qu » : il invente un signe pour « qu ». C'est une fusion.
+- Plus tard, « que » revient partout : il combine son signe « qu » et le « e ».
+- Chaque abréviation inventée est un nouveau token ; il s'arrête quand il en a assez inventé.
+- Pour noter un mot nouveau, il utilise ses abréviations quand elles s'appliquent, et des lettres pour le reste.
+
+Là où l'image s'arrête : la personne invente ses abréviations au feeling. BPE, lui, compte exactement les paires dans tout le corpus et prend toujours la plus fréquente, sans aucun jugement sur le sens.
+
+## Comment ça marche
+
+On prend un minuscule corpus : « banane » (3 fois), « bandana » (2 fois), « ananas » (2 fois) et « banc » (1 fois). On découpe chaque mot en lettres, puis on répète : compter toutes les paires de symboles voisins, en pondérant par le nombre d'apparitions de chaque mot, et fusionner la plus fréquente partout. Comme dans le paper de Sennrich, on ne fusionne jamais deux symboles qui appartiennent à deux mots différents. En cas d'égalité, on prend ici la paire rencontrée en premier. Fais défiler.
+
+<PasAPas rendu="bpe-fusions" label="Fusions successives de BPE sur un petit corpus">
+  <Etape etat="initial">
+    Au départ, chaque lettre est un token. Le vocabulaire contient seulement les lettres du corpus.
+  </Etape>
+  <Etape etat="f1">
+    **Fusion 1 : « a » + « n ».** La paire « an » apparaît 2 fois dans « banane » (×3), 2 fois dans « bandana » (×2), 2 fois dans « ananas » (×2) et 1 fois dans « banc » (×1) : $6 + 4 + 4 + 1 = 15$ fois. Elle devient le token « an ».
+  </Etape>
+  <Etape etat="f2">
+    **Fusion 2 : « b » + « an ».** On recompte avec le nouveau découpage. « b an » apparaît $3 + 2 + 1 = 6$ fois, un peu plus que « an an » (5 fois). Nouveau token : « ban ».
+  </Etape>
+  <Etape etat="f3">
+    **Fusion 3 : « an » + « a ».** Présente dans « bandana » et « ananas », $2 + 2 = 4$ fois. Nouveau token : « ana ».
+  </Etape>
+  <Etape etat="f4">
+    **Fusion 4 : « ban » + « an ».** 3 fois, grâce aux trois « banane ». Nouveau token : « banan ».
+  </Etape>
+  <Etape etat="f5">
+    **Fusion 5 : « banan » + « e ».** Encore 3 fois : « banane » devient un seul token. Le mot le plus fréquent du corpus est désormais entier, les autres restent en morceaux réutilisables.
+  </Etape>
+</PasAPas>
+
+Au bout de cinq fusions, le vocabulaire contient les lettres de départ plus « an », « ban », « ana », « banan » et « banane ». Comme l'écrivent Sennrich et ses coauteurs, la taille finale du vocabulaire est le nombre de symboles de départ plus le nombre de fusions, qui est le seul réglage de l'algorithme. Les LLM en font des dizaines de milliers, sur des corpus immenses.
+
+Pour tokeniser un texte nouveau, on applique les fusions apprises dans le même ordre. Le mot inconnu « anana » est découpé en lettres, puis « a n » devient « an » partout (« an an a »), puis « an » + « a » devient « ana » : résultat « an | ana ». Aucun mot n'est jamais inconnu, puisqu'on peut toujours retomber sur les lettres. GPT-2 va plus loin en partant des octets plutôt que des lettres, pour que n'importe quel texte, emojis compris, soit représentable.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi fusionner la paire la plus fréquente fait gagner le plus">
+
+Mesurons la longueur totale du corpus découpé, en tokens, pondérée par la fréquence des mots : $\text{longueur} = \sum_{\text{mots } m} f_m \times (\text{nombre de tokens de } m)$.
+
+Quand on fusionne une paire $(x, y)$, chaque occurrence de cette paire, dans chaque mot, remplace deux tokens par un seul. La longueur totale baisse donc exactement de :
+
+$$
+\Delta = \sum_{\text{mots } m} f_m \times (\text{nombre de paires } (x, y) \text{ dans } m) = \text{compte pondéré de la paire}
+$$
+
+Choisir la paire la plus fréquente, c'est donc choisir la fusion qui raccourcit le plus le corpus, à cette étape. Sur l'exemple : longueur de départ $3 \times 6 + 2 \times 7 + 2 \times 6 + 1 \times 4 = 48$ ; après la fusion 1, $48 - 15 = 33$ ; après la fusion 2, $33 - 6 = 27$.
+
+C'est un choix glouton : il est le meilleur étape par étape, sans garantie d'être le meilleur au total. C'est aussi pourquoi BPE est un algorithme de compression : le vocabulaire qu'il produit fait tenir le texte en peu de tokens.
+
+</Depliable>
+
+## Essaie toi-même
+
+Refais l'algorithme à la main sur un autre corpus : « lala » (4 fois) et « lola » (1 fois). Consigne : fais deux fusions, puis tokenise le mot nouveau « lalola ».
+
+<Depliable titre="Ce que tu devrais observer">
+
+Paires au départ : « l a » apparaît $2 \times 4 + 1 = 9$ fois, « a l » $4$ fois, « l o » et « o l » 1 fois chacune. Fusion 1 : « la ». Découpages : « la la » et « l o la ». Paires : « la la » 4 fois, « l o » et « o la » 1 fois. Fusion 2 : « lala ».
+
+Pour « lalola » : lettres « l a l o l a » ; la fusion 1 donne « la l o la » ; la fusion 2 ne s'applique pas (il n'y a pas deux « la » voisins). Résultat : « la | l | o | la », 4 tokens. Le mot « lola » n'a pas eu droit à son propre token : il était trop rare.
+
+</Depliable>
+
+## En code
+
+Depuis zéro : apprendre les fusions, puis tokeniser un mot nouveau.
+
+```python
+from collections import Counter
+
+corpus = {"banane": 3, "bandana": 2, "ananas": 2, "banc": 1}
+decoupe = {mot: list(mot) for mot in corpus}
+
+def fusionner(symboles, a, b):
+    sortie, i = [], 0
+    while i < len(symboles):
+        if i + 1 < len(symboles) and symboles[i] == a and symboles[i + 1] == b:
+            sortie.append(a + b); i += 2
+        else:
+            sortie.append(symboles[i]); i += 1
+    return sortie
+
+fusions = []
+for _ in range(5):
+    paires = Counter()
+    for mot, freq in corpus.items():
+        s = decoupe[mot]
+        for a, b in zip(s, s[1:]):
+            paires[(a, b)] += freq                       # comptage pondéré
+    (a, b), n = max(paires.items(), key=lambda kv: kv[1])   # la première en cas d'égalité
+    fusions.append((a, b))
+    decoupe = {mot: fusionner(s, a, b) for mot, s in decoupe.items()}
+    print(f"fusion {a}+{b} ({n} fois) :", {m: "|".join(s) for m, s in decoupe.items()})
+
+def tokeniser(mot):
+    s = list(mot)
+    for a, b in fusions:                                 # dans l'ordre d'apprentissage
+        s = fusionner(s, a, b)
+    return s
+
+print("anana ->", tokeniser("anana"))
+```
+
+En vrai, avec la bibliothèque `tokenizers` de Hugging Face :
+
+```python
+# no-run
+from tokenizers import Tokenizer, models, trainers, pre_tokenizers
+tok = Tokenizer(models.BPE())
+tok.pre_tokenizer = pre_tokenizers.Whitespace()
+tok.train(["corpus.txt"], trainers.BpeTrainer(vocab_size=8000))
+```
+
+## Les pièges classiques
+
+**« BPE comprend la structure des mots. »** Il ne connaît que des fréquences. Il retrouve souvent des préfixes ou des terminaisons (« in », « ment ») parce qu'ils sont fréquents, mais il peut aussi couper un mot au milieu d'une syllabe si c'est ce que dictent les comptes.
+
+**« Le vocabulaire est le même pour tout le monde. »** Il dépend entièrement du corpus d'apprentissage. Un BPE appris surtout sur de l'anglais garde les mots anglais entiers et hache les autres langues en petits morceaux.
+
+**« On peut changer de tokeniseur sans rien changer d'autre. »** Le modèle apprend un vecteur par token. Changer les fusions change les tokens, donc le modèle doit être réentraîné, au moins en partie.
+
+## Dans la vraie vie
+
+Les tokeniseurs de la famille GPT reposent sur BPE appliqué aux octets, comme le décrit le paper de GPT-2. Des variantes proches, comme WordPiece ou le modèle Unigram de SentencePiece, suivent la même logique de sous-mots appris sur un corpus. Construire un bon tokeniseur est aujourd'hui une étape à part entière de la préparation d'un LLM.
+
+Pour une langue peu représentée, comme le peul ou l'éwé, apprendre les fusions sur un corpus qui inclut cette langue change beaucoup de choses : ses mots fréquents deviennent des tokens entiers au lieu d'être découpés en lettres, ce qui raccourcit les textes et facilite l'apprentissage.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quelle paire BPE fusionne-t-il à chaque étape ?",
+    choix: ["La plus longue", "La plus fréquente dans le corpus, pondérée par la fréquence des mots", "La plus rare", "Une paire au hasard"],
+    bonne: 1,
+    explication: "C'est la paire de symboles voisins la plus fréquente, en comptant chaque mot autant de fois qu'il apparaît."
+  },
+  {
+    question: "On part de 256 octets et on fait 50 000 fusions. Quelle est la taille du vocabulaire ?",
+    choix: ["256", "50 000", "50 256", "12 800 000"],
+    bonne: 2,
+    explication: "Chaque fusion ajoute un token : 256 + 50 000 = 50 256."
+  },
+  {
+    question: "Comment BPE tokenise-t-il un mot jamais vu ?",
+    choix: ["Il le remplace par un token inconnu", "Il applique les fusions apprises, dans l'ordre, en partant des lettres", "Il l'ignore", "Il apprend une nouvelle fusion"],
+    bonne: 1,
+    explication: "On découpe en lettres (ou en octets), puis on rejoue les fusions apprises : le mot est toujours représentable."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez BPE et pourquoi il est utilisé pour les LLM.">
+
+BPE construit un vocabulaire de sous-mots à partir d'un corpus : on part des caractères (ou des octets), on compte les paires de symboles adjacents pondérées par la fréquence des mots, et on fusionne la plus fréquente en un nouveau symbole, jusqu'à atteindre la taille de vocabulaire voulue. Pour tokeniser, on rejoue les fusions dans l'ordre. Chaque fusion réduit au maximum la longueur du corpus à cette étape, d'où son origine en compression. Pour un LLM, c'est un bon compromis : vocabulaire de taille fixe, mots fréquents entiers, mots rares décomposés sans token inconnu, surtout au niveau des octets. Ses limites : découpes sans sens linguistique, dépendance au corpus et inégalités entre langues.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "codage par paires d'octets", en: "byte pair encoding (BPE)", definition: "Algorithme qui fusionne répétitivement la paire de symboles voisins la plus fréquente." },
+  { fr: "fusion", en: "merge", definition: "Remplacement d'une paire de symboles voisins par un nouveau symbole, ajouté au vocabulaire." },
+  { fr: "BPE au niveau des octets", en: "byte-level BPE", definition: "BPE qui part des 256 octets possibles, pour représenter n'importe quel texte." },
+  { fr: "algorithme glouton", en: "greedy algorithm", definition: "Algorithme qui fait à chaque étape le meilleur choix local, sans revenir en arrière." }
+]} />
