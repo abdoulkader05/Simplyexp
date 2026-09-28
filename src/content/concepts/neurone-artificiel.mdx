@@ -1,0 +1,207 @@
+---
+id: neurone-artificiel
+type: concept
+titre: "Le neurone artificiel : une décision pondérée"
+sous_titre: "Perceptron, poids, biais et activation"
+domaine: deep-learning
+niveau: 3
+prerequis: [regression-logistique]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Wikipédia (anglais), « Perceptron » — https://en.wikipedia.org/wiki/Perceptron — sections History et Mark I Perceptron (McCulloch et Pitts 1943, Rosenblatt 1958, Mark I 1959, Minsky et Papert 1969), consultée le 2026-09-28"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.1 (apprendre XOR)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+En 1943, Warren McCulloch et Walter Pitts proposent un modèle mathématique très simplifié du neurone : il additionne des signaux reçus et « s'allume » au-delà d'un seuil. En 1958, Frank Rosenblatt en fait une machine qui apprend, le perceptron, décrit dans la revue *Psychological Review*. L'année suivante, le Mark I Perceptron reçoit ses images par une grille de 20 sur 20 cellules photoélectriques. L'idée est ambitieuse : construire l'intelligence à partir d'une seule brique répétée. Mais que calcule exactement cette brique, et que ne peut-elle pas faire seule ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un neurone artificiel fait une somme pondérée de ses entrées, ajoute un biais, puis passe le résultat dans une fonction d'activation qui décide de sa réponse.
+</PhraseCle>
+
+## En image
+
+Chaque matin, Aminata décide si elle prend le gbaka ou si elle marche jusqu'au travail. Elle ne tire pas au sort : elle pèse quelques éléments.
+
+- Les entrées sont ce qu'elle observe : la distance à parcourir, la pluie.
+- Les poids disent combien chaque élément compte pour elle : la pluie pèse lourd, chaque kilomètre un peu.
+- Le biais est sa préférence de départ : sans raison particulière, elle aime marcher, ce qui compte comme un « contre » fixe.
+- La somme des arguments pour et contre est le score $z$.
+- La décision finale, « gbaka » si le score est positif, est la sortie de la fonction d'activation.
+
+Là où l'image s'arrête : Aminata peut changer de raisonnement selon l'humeur. Le neurone, lui, applique toujours la même somme pondérée, avec des poids qui ne bougent que pendant l'apprentissage.
+
+## Comment ça marche
+
+Un neurone artificiel (*artificial neuron*) à $d$ entrées calcule :
+
+<FormuleVivante
+  tex="\htmlClass{t-a}{a} = \htmlClass{t-phi}{\varphi}\big(\htmlClass{t-w}{\mathbf{w}} \cdot \htmlClass{t-x}{\mathbf{x}} + \htmlClass{t-b}{b}\big)"
+  termes={{
+    x: { role: "entree", texte: "les entrées du neurone : distance, pluie…" },
+    w: { role: "parametre", texte: "les poids, un par entrée, réglés par l'apprentissage" },
+    b: { role: "parametre", texte: "le biais, qui déplace le seuil de décision" },
+    phi: { role: "sortie", texte: "la fonction d'activation, appliquée au score" },
+    a: { role: "sortie", texte: "l'activation, la sortie du neurone" }
+  }}
+  label="Neurone artificiel"
+/>
+
+où :
+- $\mathbf{x} = (x_1\,;\,\dots\,;\,x_d)$ sont les entrées ;
+- $\mathbf{w}$ sont les <Terme id="w">poids</Terme> et $b$ le <Terme id="b">biais</Terme> ;
+- $z = \mathbf{w} \cdot \mathbf{x} + b$ est le score, qu'on appelle aussi pré-activation ;
+- $\varphi$ est la fonction d'activation (*activation function*) et $a$ la sortie, l'activation.
+
+Le perceptron de Rosenblatt utilise une marche : $\varphi(z) = 1$ si $z > 0$, et 0 sinon. Si l'on prend la sigmoïde, $\varphi = \sigma$, le neurone est exactement une [régression logistique](/concepts/regression-logistique/).
+
+Pour Aminata, avec $x_1$ la distance en km et $x_2$ l'intensité de la pluie (0 s'il fait sec, 1 sous une grosse averse), les poids $w_1 = 0{,}8$ et $w_2 = 1{,}5$, et le biais $b = -2$ :
+
+- A, 1 km sans pluie : $z = 0{,}8 \times 1 + 1{,}5 \times 0 - 2 = -1{,}2$ ; la marche donne 0, elle marche ;
+- B, 1 km sous l'averse : $z = 0{,}8 + 1{,}5 - 2 = 0{,}3$ ; la marche donne 1, elle prend le gbaka ;
+- C, 3 km sans pluie : $z = 2{,}4 - 2 = 0{,}4$ ; gbaka aussi.
+
+Avec la sigmoïde au lieu de la marche, on obtient des probabilités : $\sigma(-1{,}2) \approx 0{,}23$, $\sigma(0{,}3) \approx 0{,}57$ et $\sigma(0{,}4) \approx 0{,}60$.
+
+Géométriquement, les points où $z = 0$ forment une droite dans le plan des entrées : la frontière de décision (*decision boundary*). Ici, $0{,}8\,x_1 + 1{,}5\,x_2 = 2$. D'un côté, le neurone dit « gbaka », de l'autre « à pied ». Un neurone seul découpe toujours l'espace de ses entrées par une droite, ou, en dimension plus grande, par un plan.
+
+<Simulation
+  rendu="neurone-frontiere"
+  label="Plan distance et pluie, probabilité de prendre le gbaka et frontière de décision du neurone"
+  parametres={[
+    { nom: "w1", label: "Poids de la distance w₁", min: -1, max: 2, pas: 0.1, valeur: 0.8, role: "parametre", decimales: 1 },
+    { nom: "w2", label: "Poids de la pluie w₂", min: -1, max: 4, pas: 0.1, valeur: 1.5, role: "parametre", decimales: 1 }
+  ]}
+  legende="Biais fixé à −2. A, B et C sont les trois situations de l'exemple."
+/>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Le vecteur des poids est perpendiculaire à la frontière.** Prenons deux points $\mathbf{p}$ et $\mathbf{q}$ de la frontière : $\mathbf{w} \cdot \mathbf{p} + b = 0$ et $\mathbf{w} \cdot \mathbf{q} + b = 0$. En soustrayant, $\mathbf{w} \cdot (\mathbf{p} - \mathbf{q}) = 0$ : $\mathbf{w}$ est [orthogonal](/maths/produit-scalaire/) à toute direction le long de la frontière. Il pointe du côté où $z > 0$, et changer $b$ fait glisser la frontière parallèlement à elle-même.
+
+**Un neurone seul ne peut pas calculer le « ou exclusif ».** Le ou exclusif (XOR) vaut 1 quand exactement une des deux entrées vaut 1. Supposons qu'un neurone à marche le calcule. Il faudrait :
+
+$$
+\begin{aligned}
+(0, 0) \mapsto 0 &: \quad b \le 0 \\
+(1, 1) \mapsto 0 &: \quad w_1 + w_2 + b \le 0 \\
+(1, 0) \mapsto 1 &: \quad w_1 + b > 0 \\
+(0, 1) \mapsto 1 &: \quad w_2 + b > 0
+\end{aligned}
+$$
+
+En additionnant les deux dernières lignes : $w_1 + w_2 + 2b > 0$. En additionnant les deux premières : $w_1 + w_2 + 2b \le 0$. Contradiction : aucun choix de poids ne convient. Géométriquement, aucune droite ne sépare $\{(1, 0), (0, 1)\}$ de $\{(0, 0), (1, 1)\}$. C'est la limite que Minsky et Papert ont mise en avant en 1969 dans leur livre *Perceptrons* ; la solution consiste à empiler des neurones, dans un [perceptron multicouche](/concepts/mlp/).
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : mets le poids de la pluie à 0. Que devient la frontière, et que fait Aminata en B ? Puis donne un poids négatif à la distance : quelle personne décrit ce neurone ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $w_2 = 0$, la pluie ne compte plus : la frontière devient verticale, à $x_1 = 2 / 0{,}8 = 2{,}5$ km. En B (1 km sous l'averse), $z = 0{,}8 - 2 = -1{,}2$ : elle marche sous la pluie.
+
+Avec un poids de distance négatif, par exemple $w_1 = -0{,}5$, plus le trajet est long, moins le neurone veut prendre le gbaka. Avec $w_2 = 1{,}5$, le score ne dépasse jamais $-0{,}5$ : tout le plan reste pâle, il marche toujours. Monte alors $w_2$ à 3 : il prend le gbaka seulement pour les trajets de moins de 2 km sous une forte averse. C'est un comportement étrange, mais parfaitement représentable : c'est l'apprentissage, à partir de vrais exemples, qui choisit des poids sensés.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : le neurone d'Aminata, puis la règle d'apprentissage du perceptron.
+
+```python
+import numpy as np
+
+def neurone(x, w, b, activation="marche"):
+    z = np.dot(w, x) + b
+    return (z > 0).astype(float) if activation == "marche" else 1 / (1 + np.exp(-z))
+
+w, b = np.array([0.8, 1.5]), -2.0
+for nom, x in [("A", [1, 0]), ("B", [1, 1]), ("C", [3, 0])]:
+    print(nom, "z =", round(np.dot(w, x) + b, 2), "décision :", neurone(np.array(x), w, b),
+          "probabilité :", round(float(neurone(np.array(x), w, b, "sigmoide")), 2))
+
+# Règle du perceptron : w <- w + eta (y - y_pred) x, sur la fonction ET logique
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+y = np.array([0, 0, 0, 1], dtype=float)
+w, b = np.zeros(2), 0.0
+for _ in range(10):
+    for xi, yi in zip(X, y):
+        erreur = yi - float(np.dot(w, xi) + b > 0)
+        w, b = w + 0.1 * erreur * xi, b + 0.1 * erreur
+print("ET appris :", [(np.dot(w, xi) + b > 0).astype(int) for xi in X])   # [0, 0, 0, 1]
+```
+
+En vrai, avec PyTorch, un neurone est une couche linéaire à une sortie suivie d'une activation :
+
+```python
+# no-run
+import torch
+neurone = torch.nn.Sequential(torch.nn.Linear(2, 1), torch.nn.Sigmoid())
+```
+
+## Les pièges classiques
+
+**« Un neurone artificiel fonctionne comme un neurone biologique. »** Le modèle s'en inspire de très loin : un vrai neurone émet des impulsions dans le temps, avec une chimie complexe. Le neurone artificiel n'est qu'une somme pondérée suivie d'une fonction. C'est un outil mathématique, pas une simulation du cerveau.
+
+**« Le biais ne sert à rien. »** Sans biais, la frontière $\mathbf{w} \cdot \mathbf{x} = 0$ passe forcément par l'origine. Pour Aminata, cela voudrait dire qu'une distance nulle et un temps sec la laissent exactement indécise. Le biais déplace la frontière où il faut.
+
+**« Plus de neurones côte à côte suffisent à tout faire. »** Des neurones côte à côte, sur la même couche et sans rien derrière, tracent chacun leur droite, sans pouvoir les combiner. Il faut les empiler en couches, avec une activation non linéaire entre elles, pour obtenir des frontières courbes.
+
+## Dans la vraie vie
+
+Le neurone artificiel est la brique de tous les réseaux de neurones actuels : un grand modèle de langage contient des milliards de poids, organisés en neurones qui calculent chacun une somme pondérée suivie d'une [fonction d'activation](/concepts/fonctions-activation/). Seul, un neurone reste un classifieur linéaire, utile quand les données se séparent par une droite, comme pour certains filtres simples de messages indésirables.
+
+Le raisonnement d'Aminata se retrouve dans beaucoup de petites décisions automatisables : une boutique qui déclenche une commande de réapprovisionnement quand une somme pondérée du stock restant, des ventes récentes et du délai du fournisseur dépasse un seuil fait, sans le savoir, calculer un perceptron.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un neurone a w = (2 ; −1), b = 0,5 et reçoit x = (1 ; 3). Que vaut z ?",
+    choix: ["−0,5", "0,5", "2,5", "−1,5"],
+    bonne: 0,
+    explication: "z = 2 × 1 + (−1) × 3 + 0,5 = 2 − 3 + 0,5 = −0,5."
+  },
+  {
+    question: "Quelle forme a la frontière de décision d'un neurone seul à deux entrées ?",
+    choix: ["Un cercle", "Une droite", "Une courbe quelconque", "Un point"],
+    bonne: 1,
+    explication: "Les points où w · x + b = 0 forment une droite dans le plan, un plan ou un hyperplan en dimension supérieure."
+  },
+  {
+    question: "Pourquoi un neurone seul ne peut-il pas calculer le ou exclusif (XOR) ?",
+    choix: ["Il lui manque un biais", "Aucune droite ne sépare les deux groupes de points", "La sigmoïde est trop lente", "Il faudrait plus de données"],
+    bonne: 1,
+    explication: "(1 ; 0) et (0 ; 1) d'un côté, (0 ; 0) et (1 ; 1) de l'autre : aucune droite ne les sépare."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quel est le lien entre un neurone artificiel et la régression logistique ?">
+
+Un neurone calcule une somme pondérée de ses entrées plus un biais, puis applique une fonction d'activation. Avec une activation sigmoïde et une perte log-loss, c'est exactement une régression logistique : même modèle, même perte, même gradient (p − y)x. La différence est d'usage : dans un réseau, le neurone n'est pas seul ; ses sorties servent d'entrées à d'autres neurones, ce qui permet de dépasser la frontière linéaire. Le perceptron historique, lui, utilisait une marche et une règle de mise à jour différente, qui ne converge que si les données sont séparables par une droite.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "neurone artificiel", en: "artificial neuron", definition: "Unité qui calcule une somme pondérée de ses entrées plus un biais, puis applique une fonction d'activation." },
+  { fr: "perceptron", en: "perceptron", definition: "Neurone à activation en marche, avec la règle d'apprentissage de Rosenblatt." },
+  { fr: "fonction d'activation", en: "activation function", definition: "Fonction appliquée au score d'un neurone pour produire sa sortie." },
+  { fr: "pré-activation", en: "pre-activation", definition: "Le score z = w · x + b, avant la fonction d'activation." },
+  { fr: "frontière de décision", en: "decision boundary", definition: "Ensemble des entrées où le neurone hésite, c'est-à-dire où z = 0." }
+]} />
