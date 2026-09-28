@@ -61,3 +61,5 @@ th { font-family: var(--police-titre); font-weight: 600; }
 .svg-trait-doux { stroke: var(--encre-douce); }
 .svg-ligne { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .svg-pointille { stroke-dasharray: 4 4; }
+/* L'or ne sert jamais de couleur de texte sur fond clair : les textes « sortie » restent à l'encre. */
+text.svg-sortie { fill: var(--encre); }
