@@ -1,0 +1,184 @@
+---
+id: produit-matriciel
+type: maths
+titre: "Le produit matriciel : 90 % du calcul d'un LLM"
+sous_titre: "Multiplication de matrices et transformations linéaires"
+domaine: algebre-lineaire
+niveau: 2
+prerequis: [matrices, produit-scalaire]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 2 (Linear Algebra), multiplication de matrices"
+  - "Kaplan et al., « Scaling Laws for Neural Language Models », 2020 — https://arxiv.org/abs/2001.08361 — section 2.1, équation 2.2 et tableau 1 (coût d'un passage avant)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape, Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Une couche de réseau de neurones prend un lot d'exemples, rangés dans une [matrice](/maths/matrices/), et les multiplie par sa matrice de poids. Un LLM enchaîne des centaines de ces multiplications pour chaque mot qu'il produit. Le produit matriciel n'est qu'une façon efficace de ranger beaucoup de [produits scalaires](/maths/produit-scalaire/). Comprendre comment on le calcule, c'est comprendre où part la puissance de calcul de l'IA.
+
+## L'intuition
+
+Awa et Fatou préparent leurs courses. Awa veut 2 kg de tomates, 1 kg d'oignons et 3 tas de piment. Fatou veut 1 kg de tomates et 2 kg d'oignons. Elles hésitent entre deux marchés, A et B, qui n'affichent pas les mêmes prix.
+
+Quatre factures sont possibles : chaque cliente dans chaque marché. Chacune est un produit scalaire entre une liste de quantités et une liste de prix. Le produit matriciel les calcule toutes d'un coup, et les range dans un tableau.
+
+<PasAPas rendu="produit-matriciel-calcul" label="Calcul du produit matriciel case par case">
+  <Etape etat="initial">
+    À gauche, la matrice $\mathbf{Q}$ des quantités : une ligne par cliente. En haut, la matrice $\mathbf{P}$ des prix : une colonne par marché. Le résultat $\mathbf{C} = \mathbf{Q}\mathbf{P}$ aura une ligne par cliente et une colonne par marché.
+  </Etape>
+  <Etape etat="c11">
+    **Case (1, 1).** Ligne 1 de $\mathbf{Q}$, colonne 1 de $\mathbf{P}$ : $2 \times 500 + 1 \times 400 + 3 \times 100 = 1\,700$. C'est la facture d'Awa au marché A.
+  </Etape>
+  <Etape etat="c12">
+    **Case (1, 2).** Même ligne, colonne suivante : $2 \times 450 + 1 \times 450 + 3 \times 150 = 1\,800$. Au marché B, Awa paierait 100 F de plus.
+  </Etape>
+  <Etape etat="c21">
+    **Case (2, 1).** Ligne de Fatou, colonne du marché A : $1 \times 500 + 2 \times 400 + 0 \times 100 = 1\,300$.
+  </Etape>
+  <Etape etat="c22">
+    **Case (2, 2).** Fatou au marché B : $1 \times 450 + 2 \times 450 + 0 \times 150 = 1\,350$. Le tableau est plein : quatre produits scalaires, rangés au bon endroit.
+  </Etape>
+</PasAPas>
+
+## La définition
+
+Soit $\mathbf{A}$ de taille $m \times n$ et $\mathbf{B}$ de taille $n \times p$. Leur produit $\mathbf{A}\mathbf{B}$ est la matrice de taille $m \times p$ définie par :
+
+$$
+(\mathbf{A}\mathbf{B})_{ij} = \sum_{k=1}^{n} a_{ik}\, b_{kj}
+$$
+
+où :
+- $(\mathbf{A}\mathbf{B})_{ij}$ est l'élément de la ligne $i$ et de la colonne $j$ du produit ;
+- $a_{ik}$ parcourt la ligne $i$ de $\mathbf{A}$, et $b_{kj}$ la colonne $j$ de $\mathbf{B}$ ;
+- $n$ est à la fois le nombre de colonnes de $\mathbf{A}$ et le nombre de lignes de $\mathbf{B}$ : sans cette égalité, le produit n'existe pas.
+
+Autrement dit : la case $(i, j)$ du produit est le produit scalaire de la ligne $i$ de $\mathbf{A}$ par la colonne $j$ de $\mathbf{B}$.
+
+Un cas particulier compte beaucoup : quand $\mathbf{B}$ n'a qu'une colonne, c'est un vecteur $\mathbf{x}$, et $\mathbf{A}\mathbf{x}$ est un nouveau vecteur. La matrice transforme alors un vecteur en un autre. Par exemple, $\begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$ envoie $(1\,;\,0)$ sur $(0\,;\,1)$ : elle fait tourner le plan d'un quart de tour. Une transformation de ce genre s'appelle une application linéaire (*linear map*).
+
+<Depliable titre="Deux propriétés, démontrées">
+
+**L'ordre compte.** Avec $\mathbf{A} = \begin{pmatrix} 1 & 1 \\ 0 & 0 \end{pmatrix}$ et $\mathbf{B} = \begin{pmatrix} 1 & 0 \\ 1 & 0 \end{pmatrix}$ :
+
+$$
+\mathbf{A}\mathbf{B} = \begin{pmatrix} 1 \times 1 + 1 \times 1 & 1 \times 0 + 1 \times 0 \\ 0 & 0 \end{pmatrix} = \begin{pmatrix} 2 & 0 \\ 0 & 0 \end{pmatrix} \qquad \mathbf{B}\mathbf{A} = \begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}
+$$
+
+Un seul contre-exemple suffit : en général, $\mathbf{A}\mathbf{B} \neq \mathbf{B}\mathbf{A}$.
+
+**La transposée d'un produit inverse l'ordre.** Pour toute case $(i, j)$ :
+
+$$
+\begin{aligned}
+\big((\mathbf{A}\mathbf{B})^\top\big)_{ij} &= (\mathbf{A}\mathbf{B})_{ji} && \text{définition de la transposée} \\
+&= \sum_{k} a_{jk}\, b_{ki} && \text{définition du produit} \\
+&= \sum_{k} (\mathbf{B}^\top)_{ik}\, (\mathbf{A}^\top)_{kj} && b_{ki} = (\mathbf{B}^\top)_{ik} \text{ et } a_{jk} = (\mathbf{A}^\top)_{kj} \\
+&= (\mathbf{B}^\top \mathbf{A}^\top)_{ij} && \text{définition du produit}
+\end{aligned}
+$$
+
+Donc $(\mathbf{A}\mathbf{B})^\top = \mathbf{B}^\top \mathbf{A}^\top$.
+
+</Depliable>
+
+## Un exemple à la main
+
+Les matrices de l'animation :
+
+$$
+\mathbf{Q} = \begin{pmatrix} 2 & 1 & 3 \\ 1 & 2 & 0 \end{pmatrix} \qquad \mathbf{P} = \begin{pmatrix} 500 & 450 \\ 400 & 450 \\ 100 & 150 \end{pmatrix}
+$$
+
+- Tailles : $\mathbf{Q}$ est $2 \times 3$, $\mathbf{P}$ est $3 \times 2$. Le 3 du milieu coïncide, le produit existe et sera $2 \times 2$.
+- $c_{11} = 2 \times 500 + 1 \times 400 + 3 \times 100 = 1\,700$.
+- $c_{12} = 2 \times 450 + 1 \times 450 + 3 \times 150 = 1\,800$.
+- $c_{21} = 1 \times 500 + 2 \times 400 + 0 \times 100 = 1\,300$.
+- $c_{22} = 1 \times 450 + 2 \times 450 + 0 \times 150 = 1\,350$.
+
+$$
+\mathbf{Q}\mathbf{P} = \begin{pmatrix} 1\,700 & 1\,800 \\ 1\,300 & 1\,350 \end{pmatrix}
+$$
+
+Conclusion pratique : les deux clientes ont intérêt à aller au marché A. Le produit $\mathbf{P}\mathbf{Q}$, lui, existe aussi (une matrice $3 \times 3$), mais il n'a aucun sens ici : il multiplierait des prix de marchés par des quantités de clientes.
+
+## Essaie toi-même
+
+Choisis une ligne et une colonne : la case correspondante du produit s'allume, avec son calcul.
+
+<Simulation
+  rendu="produit-matriciel-calcul"
+  label="Produit Q P avec la case choisie et son calcul détaillé"
+  parametres={[
+    { nom: "ligne", label: "Ligne de Q (cliente)", min: 1, max: 2, pas: 1, valeur: 1, role: "entree" },
+    { nom: "colonne", label: "Colonne de P (marché)", min: 1, max: 2, pas: 1, valeur: 2, role: "entree" }
+  ]}
+  legende="Chaque case utilise toute une ligne de Q et toute une colonne de P."
+/>
+
+Consigne : le marché B baisse le prix des oignons de 450 à 350 F. Sans tout recalculer, quelles cases de $\mathbf{Q}\mathbf{P}$ changent, et de combien ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le prix modifié est dans la colonne 2 de $\mathbf{P}$ : seules les cases de la colonne 2 du produit changent. Dans chacune, le terme des oignons baisse de $100 \times$ (quantité d'oignons). Awa achète 1 kg : $c_{12}$ passe de 1 800 à 1 700 F. Fatou en achète 2 : $c_{22}$ passe de 1 350 à 1 150 F. Fatou a désormais intérêt à aller au marché B.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Les couches de neurones.** Une couche calcule $\mathbf{X}\mathbf{W}$, où chaque ligne de $\mathbf{X}$ est un exemple et chaque colonne de $\mathbf{W}$ contient les poids d'un neurone : toutes les sorties de tous les neurones pour tous les exemples, d'un coup. C'est aussi le calcul de la [régression linéaire](/concepts/regression-lineaire/).
+- **Le coût d'un LLM.** Kaplan et ses coauteurs (2020) estiment le coût d'un passage dans un Transformer à environ $2N$ opérations par token, où $N$ est le nombre de paramètres, et le facteur 2 vient des multiplications-additions du produit matriciel. Dans leur tableau de coûts, chaque ligne est un produit de matrices ; les activations et les normalisations sont omises car minoritaires. Le 90 % du titre est un ordre de grandeur de cette domination, pas une mesure exacte.
+- **Les décompositions.** Le [rang](/maths/rang-matrice/) et les [valeurs propres](/maths/valeurs-propres/) décrivent ce qu'un produit par une matrice fait aux vecteurs.
+
+## Les pièges classiques
+
+**« On multiplie case par case. »** On y croit parce que l'addition de matrices se fait case par case. Mais le produit matriciel combine une ligne entière avec une colonne entière. Le produit case par case existe aussi, sous un autre nom (produit de Hadamard), et ne donne pas le même résultat.
+
+**« $\mathbf{A}\mathbf{B} = \mathbf{B}\mathbf{A}$. »** On y croit parce que $3 \times 5 = 5 \times 3$. Pour les matrices, c'est faux en général, comme le montre la démonstration. Parfois, l'un des deux produits n'existe même pas.
+
+**« Deux matrices de même taille se multiplient toujours. »** Deux matrices $2 \times 3$ ne se multiplient pas : il faudrait 3 colonnes à gauche et 3 lignes à droite. Ce qui compte, ce sont les deux tailles « du milieu ».
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$. Que fait la deuxième matrice ?
+
+<Depliable titre="Corrigé">
+
+$$
+\begin{pmatrix} 1 \times 0 + 2 \times 1 & 1 \times 1 + 2 \times 0 \\ 3 \times 0 + 4 \times 1 & 3 \times 1 + 4 \times 0 \end{pmatrix} = \begin{pmatrix} 2 & 1 \\ 4 & 3 \end{pmatrix}
+$$
+
+Multipliée à droite, elle échange les deux colonnes.
+
+</Depliable>
+
+**Exercice 2.** $\mathbf{A}$ est de taille $4 \times 3$ et $\mathbf{B}$ de taille $3 \times 5$. Quelle est la taille de $\mathbf{A}\mathbf{B}$ ? Le produit $\mathbf{B}\mathbf{A}$ existe-t-il ? Combien de multiplications de nombres faut-il pour calculer $\mathbf{A}\mathbf{B}$ ?
+
+<Depliable titre="Corrigé">
+
+$\mathbf{A}\mathbf{B}$ est de taille $4 \times 5$. $\mathbf{B}\mathbf{A}$ n'existe pas : $\mathbf{B}$ a 5 colonnes et $\mathbf{A}$ a 4 lignes.
+
+Il y a $4 \times 5 = 20$ cases, et chacune demande un produit scalaire de longueur 3, soit 3 multiplications. Total : $20 \times 3 = 60$ multiplications. En général, un produit $(m \times n)$ par $(n \times p)$ coûte $m \times n \times p$ multiplications.
+
+</Depliable>
+
+**Exercice 3.** Une couche reçoit un lot de 32 exemples de dimension 512 et produit des vecteurs de dimension 2 048. Quelle est la taille de sa matrice de poids $\mathbf{W}$ ? Combien de multiplications le produit $\mathbf{X}\mathbf{W}$ demande-t-il ?
+
+<Depliable titre="Corrigé">
+
+$\mathbf{X}$ est de taille $32 \times 512$. Pour obtenir $32 \times 2\,048$, il faut $\mathbf{W}$ de taille $512 \times 2\,048$. Le coût est $32 \times 512 \times 2\,048 = 33\,554\,432$ multiplications, plus de 33 millions pour une seule couche et un seul petit lot.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "produit matriciel", en: "matrix multiplication", definition: "Matrice dont chaque case est le produit scalaire d'une ligne de la première matrice par une colonne de la seconde." },
+  { fr: "application linéaire", en: "linear map", definition: "Transformation d'un vecteur en un autre par multiplication par une matrice." },
+  { fr: "produit de Hadamard", en: "Hadamard product", definition: "Produit case par case de deux matrices de même taille ; à ne pas confondre avec le produit matriciel." }
+]} />
