@@ -1,0 +1,164 @@
+---
+id: rang-matrice
+type: maths
+titre: "Le rang : combien d'information une matrice contient vraiment"
+sous_titre: "Rang d'une matrice et approximation de rang faible"
+domaine: algebre-lineaire
+niveau: 3
+prerequis: [produit-matriciel]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 2 (Linear Algebra), indépendance linéaire et rang"
+  - "Hu et al., « LoRA: Low-Rank Adaptation of Large Language Models », 2021 — https://arxiv.org/abs/2106.09685 — résumé et introduction (hypothèse de rang intrinsèque faible, facteur 10 000 sur GPT-3 175B)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Une matrice de 4 096 lignes et 4 096 colonnes contient plus de 16 millions de nombres. Mais elle peut n'en « dire » que très peu, si ses colonnes se répètent sous d'autres formes. Le rang mesure cette information réelle. C'est l'idée qui permet d'adapter un grand modèle en ne réglant qu'une toute petite partie de ses poids, avec [LoRA](/concepts/lora/), et c'est la porte d'entrée de la [SVD](/maths/svd/).
+
+## L'intuition
+
+Une matrice $2 \times 2$ agit sur les vecteurs du plan par le [produit matriciel](/maths/produit-matriciel/). Elle envoie $(1\,;\,0)$ sur sa première colonne $\mathbf{c}_1$ et $(0\,;\,1)$ sur sa deuxième colonne $\mathbf{c}_2$. Le carré de côté 1 devient donc le parallélogramme construit sur $\mathbf{c}_1$ et $\mathbf{c}_2$.
+
+Tant que les deux colonnes pointent dans des directions différentes, le parallélogramme a une vraie surface : la matrice garde les deux dimensions du plan. Si les colonnes s'alignent, il s'écrase sur un segment. Tout le plan est envoyé sur une seule droite : une dimension a disparu, et on ne pourra plus la retrouver.
+
+<Simulation
+  rendu="rang-ecrasement"
+  label="Image du carré unité par une matrice dont on règle la deuxième colonne"
+  parametres={[
+    { nom: "a", label: "Première coordonnée de c₂", min: -3, max: 3, pas: 0.5, valeur: 1, role: "entree", decimales: 1 },
+    { nom: "b", label: "Seconde coordonnée de c₂", min: -3, max: 3, pas: 0.5, valeur: 2, role: "entree", decimales: 1 }
+  ]}
+  legende="c₁ = (2 ; 1) est fixe. Cherche les réglages qui écrasent le carré."
+/>
+
+## La définition
+
+Des vecteurs $\mathbf{v}_1, \dots, \mathbf{v}_k$ sont linéairement indépendants (*linearly independent*) si aucun d'eux ne s'écrit comme une combinaison des autres. Autrement dit, la seule façon d'avoir
+
+$$
+\lambda_1 \mathbf{v}_1 + \lambda_2 \mathbf{v}_2 + \dots + \lambda_k \mathbf{v}_k = \mathbf{0}
+$$
+
+est de prendre $\lambda_1 = \lambda_2 = \dots = \lambda_k = 0$, où :
+- $\lambda_1, \dots, \lambda_k$ sont des nombres ;
+- $\mathbf{0}$ est le vecteur dont toutes les coordonnées sont nulles.
+
+Le rang (*rank*) d'une matrice $\mathbf{A}$ de taille $m \times n$ est le plus grand nombre de colonnes linéairement indépendantes qu'on peut y choisir. On le note $\mathrm{rg}(\mathbf{A})$. Un résultat classique, admis ici, dit qu'on trouve le même nombre avec les lignes. Donc :
+
+$$
+\mathrm{rg}(\mathbf{A}) \le \min(m, n)
+$$
+
+où :
+- $\min(m, n)$ est le plus petit des deux nombres $m$ et $n$.
+
+Quand le rang atteint ce maximum, on dit que la matrice est de rang plein (*full rank*).
+
+Autrement dit : le rang compte les directions vraiment différentes que contiennent les colonnes. Les autres colonnes ne font que les recombiner.
+
+<Depliable titre="Pourquoi un produit ne peut pas augmenter le rang">
+
+Soit $\mathbf{A}$ de taille $m \times n$ et $\mathbf{B}$ de taille $n \times p$. La colonne $j$ de $\mathbf{A}\mathbf{B}$ vaut :
+
+$$
+\begin{aligned}
+(\mathbf{A}\mathbf{B})_{\cdot j} &= \Big(\sum_{k} a_{ik}\, b_{kj}\Big)_{i} && \text{définition du produit} \\
+&= \sum_{k} b_{kj}\, \mathbf{a}_{\cdot k} && \text{on regroupe par colonne } \mathbf{a}_{\cdot k} \text{ de } \mathbf{A}
+\end{aligned}
+$$
+
+Chaque colonne de $\mathbf{A}\mathbf{B}$ est donc une combinaison des colonnes de $\mathbf{A}$. Elle ne peut pas créer une direction que les colonnes de $\mathbf{A}$ n'avaient pas : $\mathrm{rg}(\mathbf{A}\mathbf{B}) \le \mathrm{rg}(\mathbf{A})$. Le même raisonnement sur les lignes donne $\mathrm{rg}(\mathbf{A}\mathbf{B}) \le \mathrm{rg}(\mathbf{B})$.
+
+**Conséquence.** Si $\mathbf{B}$ est de taille $m \times r$ et $\mathbf{C}$ de taille $r \times n$, alors $\mathbf{B}\mathbf{C}$ est de taille $m \times n$ mais de rang au plus $r$. Réciproquement, on admet que toute matrice de rang $r$ s'écrit ainsi. Une matrice de rang $r$ se stocke donc avec $r(m + n)$ nombres au lieu de $mn$.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prends
+
+$$
+\mathbf{A} = \begin{pmatrix} 1 & 2 & 3 \\ 2 & 4 & 6 \\ 1 & 0 & 1 \end{pmatrix}
+$$
+
+- Les colonnes sont $\mathbf{c}_1 = (1\,;\,2\,;\,1)$, $\mathbf{c}_2 = (2\,;\,4\,;\,0)$, $\mathbf{c}_3 = (3\,;\,6\,;\,1)$.
+- On remarque $\mathbf{c}_1 + \mathbf{c}_2 = (3\,;\,6\,;\,1) = \mathbf{c}_3$ : la troisième colonne n'apporte rien de neuf.
+- $\mathbf{c}_1$ et $\mathbf{c}_2$ ne sont pas multiples l'une de l'autre : si $\mathbf{c}_2 = k\,\mathbf{c}_1$, la première coordonnée donnerait $k = 2$ et la troisième $0 = k$, impossible.
+- Donc $\mathrm{rg}(\mathbf{A}) = 2$.
+
+Vérification par les lignes : la ligne 2 vaut deux fois la ligne 1, et la ligne 3 n'est pas multiple de la ligne 1. On retrouve 2.
+
+Une matrice de rang 1, maintenant :
+
+$$
+\begin{pmatrix} 2 & 4 & 6 \\ 1 & 2 & 3 \end{pmatrix} = \begin{pmatrix} 2 \\ 1 \end{pmatrix} \begin{pmatrix} 1 & 2 & 3 \end{pmatrix}
+$$
+
+Ses 6 nombres se retrouvent à partir de $2 + 3 = 5$ nombres. Le gain paraît modeste ici ; pour une matrice $4\,096 \times 4\,096$ de rang 8, on passe de 16 777 216 nombres à $8 \times (4\,096 + 4\,096) = 65\,536$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve trois réglages de $\mathbf{c}_2$ qui donnent le rang 1. Puis, avec $b = 2$, trouve la valeur de $a$ qui rend l'image la plus grande possible sur la plage des curseurs.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le rang tombe à 1 quand $\mathbf{c}_2$ est un multiple de $\mathbf{c}_1 = (2\,;\,1)$ : par exemple $(2\,;\,1)$, $(1\,;\,0{,}5)$, $(-2\,;\,-1)$ ou $(0\,;\,0)$. Le parallélogramme devient un segment.
+
+L'aire de l'image vaut $|2b - a|$. Avec $b = 2$, elle vaut $|4 - a|$ : elle est maximale pour $a = -3$, où elle atteint 7. Plus $\mathbf{c}_2$ s'éloigne de la direction de $\mathbf{c}_1$, plus la matrice « ouvre » le plan.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **LoRA.** Pour adapter un grand modèle, Hu et ses coauteurs (2021) font l'hypothèse que la modification utile des poids a un rang faible. Ils l'écrivent comme le produit de deux matrices étroites, et n'entraînent que celles-ci. Sur GPT-3 175B, comparé à un [fine-tuning](/concepts/fine-tuning/) complet avec Adam, ils annoncent un nombre de paramètres entraînables divisé par 10 000. Voir la fiche [LoRA](/concepts/lora/).
+- **Compresser.** Une matrice de poids ou une image approchée par une matrice de rang faible se stocke avec beaucoup moins de nombres. La [SVD](/maths/svd/) dit comment trouver la meilleure approximation.
+- **Diagnostiquer des données.** Si une colonne d'un jeu de données est la somme de deux autres (un prix total et ses composantes, par exemple), la matrice des données n'est pas de rang plein, et la [régression linéaire](/concepts/regression-lineaire/) n'a plus de solution unique.
+
+## Les pièges classiques
+
+**« Le rang, c'est le nombre de colonnes. »** On y croit parce qu'une matrice $3 \times 3$ « a l'air » de contenir trois directions. Mais l'exemple plus haut n'en a que deux. La taille donne seulement un maximum.
+
+**« Deux colonnes différentes sont forcément indépendantes. »** $(2\,;\,1)$ et $(-2\,;\,-1)$ sont différentes, mais la seconde vaut $-1$ fois la première. Indépendant ne veut pas dire « différent », mais « impossible à fabriquer à partir des autres ».
+
+**« Un produit de grandes matrices a un grand rang. »** Un produit ne peut pas dépasser le rang de ses facteurs. Une matrice $4\,096 \times 8$ fois une matrice $8 \times 4\,096$ donne une matrice $4\,096 \times 4\,096$ de rang au plus 8.
+
+## Entraîne-toi
+
+**Exercice 1.** Quel est le rang de $\begin{pmatrix} 1 & 3 \\ 2 & 6 \end{pmatrix}$ ? Et de $\begin{pmatrix} 1 & 3 \\ 2 & 5 \end{pmatrix}$ ?
+
+<Depliable titre="Corrigé">
+
+Dans la première, $(3\,;\,6) = 3 \times (1\,;\,2)$ : rang 1. Dans la seconde, $(3\,;\,5)$ n'est pas multiple de $(1\,;\,2)$ (il faudrait $k = 3$ et $k = 2{,}5$) : rang 2.
+
+</Depliable>
+
+**Exercice 2.** Écris $\begin{pmatrix} 3 & 6 \\ -1 & -2 \\ 2 & 4 \end{pmatrix}$ comme le produit d'une colonne par une ligne.
+
+<Depliable titre="Corrigé">
+
+La deuxième colonne vaut deux fois la première. Donc la matrice vaut $\begin{pmatrix} 3 \\ -1 \\ 2 \end{pmatrix} \begin{pmatrix} 1 & 2 \end{pmatrix}$. Vérification : ligne 2, $-1 \times 1 = -1$ et $-1 \times 2 = -2$.
+
+</Depliable>
+
+**Exercice 3.** Une couche a une matrice de poids $1\,024 \times 1\,024$. On veut l'adapter avec une modification de rang 4, écrite $\mathbf{B}\mathbf{C}$. Donne les tailles de $\mathbf{B}$ et $\mathbf{C}$, le nombre de nombres à entraîner, et compare avec la matrice entière.
+
+<Depliable titre="Corrigé">
+
+$\mathbf{B}$ est de taille $1\,024 \times 4$ et $\mathbf{C}$ de taille $4 \times 1\,024$. Il y a $4 \times 1\,024 + 4 \times 1\,024 = 8\,192$ nombres à entraîner, contre $1\,024 \times 1\,024 = 1\,048\,576$ pour la matrice entière : 128 fois moins.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "linéairement indépendants", en: "linearly independent", definition: "Se dit de vecteurs dont aucun ne s'obtient en combinant les autres." },
+  { fr: "rang", en: "rank", definition: "Nombre maximal de colonnes (ou de lignes) linéairement indépendantes d'une matrice." },
+  { fr: "rang plein", en: "full rank", definition: "Rang égal au plus petit des deux nombres de lignes et de colonnes." },
+  { fr: "approximation de rang faible", en: "low-rank approximation", definition: "Matrice de petit rang, produit de deux matrices étroites, proche d'une matrice donnée." }
+]} />
