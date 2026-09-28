@@ -1,0 +1,145 @@
+---
+id: entropie
+type: maths
+titre: "L'entropie : mesurer la surprise"
+sous_titre: "Entropie de Shannon, information et incertitude"
+domaine: theorie-information
+niveau: 3
+prerequis: [esperance-variance, exp-log]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Shannon, « A Mathematical Theory of Communication », 1948 — fiche shannon-1948 du graphe (paper qui introduit l'entropie)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (théorie de l'information : information propre, entropie de Shannon, nats et bits)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Comment mesurer à quel point une situation est incertaine ? Un modèle qui hésite entre deux mots n'est pas dans le même état qu'un modèle qui hésite entre mille. L'entropie donne un nombre à cette incertitude. Elle a été introduite par Claude Shannon en 1948 pour la transmission des messages, et elle est aujourd'hui au cœur de l'apprentissage : l'[entropie croisée](/maths/entropie-croisee/), la perte des LLM, en est une variante directe. Elle s'écrit avec l'[espérance](/maths/esperance-variance/) et le [logarithme](/maths/exp-log/).
+
+## L'intuition
+
+En pleine saison sèche, la météo annonce « pas de pluie demain ». Personne n'est surpris : l'information n'apprend presque rien. Si elle annonce un orage, c'est une vraie nouvelle. Un événement rare apporte beaucoup d'information quand il arrive ; un événement attendu, très peu.
+
+On mesure la surprise d'un événement de probabilité $p$ par $-\log_2 p$ : 0 bit si l'événement était certain, 1 bit s'il avait une chance sur deux, 3,32 bits s'il avait une chance sur dix. L'entropie est la surprise **moyenne** : ce qu'on s'attend à apprendre, en moyenne, en découvrant le résultat. Elle est maximale quand les deux issues sont également probables, et nulle quand l'une est certaine.
+
+<Simulation
+  rendu="entropie-surprise"
+  label="Entropie de la météo de demain et surprise de chaque issue"
+  parametres={[
+    { nom: "p", label: "Probabilité de pluie p", min: 0.01, max: 0.99, pas: 0.01, valeur: 0.1, role: "entree", decimales: 2 }
+  ]}
+  legende="Gauche : l'entropie selon p. Droite : la surprise de chaque issue, en bits."
+/>
+
+## La définition
+
+Pour une variable aléatoire discrète $X$ de loi $p_1, \dots, p_K$, l'entropie de Shannon (*Shannon entropy*) est :
+
+$$
+H(X) = -\sum_{k=1}^{K} p_k \log_2 p_k = \mathbb{E}\big[-\log_2 p(X)\big]
+$$
+
+où :
+- $-\log_2 p_k$ est la surprise, ou information propre (*self-information*), de l'issue $k$ ;
+- $H(X)$ est l'espérance de cette surprise ;
+- avec $\log_2$, l'entropie se mesure en bits ; avec le logarithme népérien $\ln$, en nats (1 bit vaut environ 0,693 nat) ;
+- par convention, $0 \log 0 = 0$ : une issue impossible ne compte pas.
+
+Autrement dit : l'entropie est la quantité moyenne d'information qu'apporte le résultat, ou, de façon équivalente, l'incertitude qu'il y a avant de le connaître.
+
+<Depliable titre="Deux valeurs à connaître, démontrées">
+
+**Une issue certaine.** Si $p_1 = 1$ et toutes les autres probabilités sont nulles, $H = -1 \times \log_2 1 = 0$ : aucune incertitude.
+
+**$K$ issues également probables.** Si $p_k = 1/K$ pour tout $k$ :
+
+$$
+\begin{aligned}
+H &= -\sum_{k=1}^{K} \frac{1}{K} \log_2 \frac{1}{K} && \text{définition} \\
+&= -K \times \frac{1}{K} \times (-\log_2 K) = \log_2 K && \log_2(1/K) = -\log_2 K
+\end{aligned}
+$$
+
+Pour 8 issues équiprobables, $H = \log_2 8 = 3$ bits : il faut en moyenne trois questions à réponse oui ou non pour trouver le résultat. On admet ici que c'est la plus grande entropie possible pour $K$ issues (chapitre 3 de *Deep Learning*) : l'incertitude est maximale quand rien ne distingue les issues.
+
+**Deux issues.** Avec $p$ et $1 - p$, $H(p) = -p \log_2 p - (1 - p)\log_2(1 - p)$. Elle vaut 1 bit pour $p = 0{,}5$, et tend vers 0 quand $p$ tend vers 0 ou 1.
+
+</Depliable>
+
+## Un exemple à la main
+
+**La météo de saison sèche** : $p(\text{pluie}) = 0{,}1$.
+
+- Surprise s'il pleut : $-\log_2 0{,}1 \approx 3{,}32$ bits.
+- Surprise s'il fait sec : $-\log_2 0{,}9 \approx 0{,}152$ bit.
+- Entropie : $0{,}1 \times 3{,}32 + 0{,}9 \times 0{,}152 \approx 0{,}332 + 0{,}137 = 0{,}469$ bit.
+
+**La saison des pluies** : $p = 0{,}5$. Entropie : $0{,}5 \times 1 + 0{,}5 \times 1 = 1$ bit, le maximum pour deux issues.
+
+**Le mot suivant.** Après « je vais au », un modèle donne (0,4 ; 0,25 ; 0,15 ; 0,1 ; 0,1) à cinq mots. Entropie : $0{,}4 \times 1{,}32 + 0{,}25 \times 2 + 0{,}15 \times 2{,}74 + 2 \times 0{,}1 \times 3{,}32 \approx 0{,}529 + 0{,}5 + 0{,}411 + 0{,}664 = 2{,}10$ bits. Avec cinq mots équiprobables, on aurait $\log_2 5 \approx 2{,}32$ bits : le modèle est un peu moins incertain que s'il hésitait au hasard.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve la valeur de $p$ qui rend l'entropie maximale. Puis place $p$ à 0,01 : quelle est la surprise s'il pleut quand même ? Pourquoi l'entropie reste-t-elle faible ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+L'entropie est maximale en $p = 0{,}5$, où elle vaut 1 bit : les deux issues sont aussi surprenantes l'une que l'autre.
+
+À $p = 0{,}01$, la pluie serait très surprenante : $-\log_2 0{,}01 \approx 6{,}64$ bits. Mais elle n'arrive qu'une fois sur cent ; le reste du temps, le temps sec n'apprend presque rien (0,014 bit). La moyenne pondérée reste petite, environ 0,081 bit. L'entropie mesure la surprise **attendue**, pas la plus grande surprise possible.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **La perte des classifieurs et des LLM.** L'[entropie croisée](/maths/entropie-croisee/) mesure la surprise moyenne d'un modèle face aux vraies données ; elle vaut au moins l'entropie des données elles-mêmes.
+- **Mesurer l'hésitation d'un modèle.** L'entropie de la loi du mot suivant indique à quel point un LLM hésite ; la [perplexité](/maths/perplexite/) en est une version plus parlante.
+- **Choisir les questions les plus informatives.** Les arbres de décision choisissent à chaque étape la question qui réduit le plus l'entropie des classes.
+
+## Les pièges classiques
+
+**« L'entropie mesure le désordre des données. »** Elle mesure l'incertitude d'une loi de probabilité, pas un désordre visuel. Une suite qui semble désordonnée peut avoir une entropie faible si le modèle sait la prédire.
+
+**« Un événement rare apporte peu d'information, puisqu'il arrive peu. »** C'est l'inverse : quand il arrive, il apporte beaucoup d'information (grande surprise). Mais il pèse peu dans la moyenne, parce qu'il arrive rarement.
+
+**« Bits et nats, c'est pareil. »** Même notion, unités différentes, selon la base du logarithme. Les bibliothèques d'apprentissage utilisent le logarithme népérien, donc des nats ; il faut diviser par 0,693 pour passer en bits.
+
+## Entraîne-toi
+
+**Exercice 1.** Quelle est l'entropie d'un dé équilibré à 6 faces, en bits ?
+
+<Depliable titre="Corrigé">
+
+$\log_2 6 \approx 2{,}585$ bits.
+
+</Depliable>
+
+**Exercice 2.** Calcule l'entropie de la loi $(0{,}5\,;\,0{,}25\,;\,0{,}25)$.
+
+<Depliable titre="Corrigé">
+
+$0{,}5 \times 1 + 0{,}25 \times 2 + 0{,}25 \times 2 = 1{,}5$ bit.
+
+</Depliable>
+
+**Exercice 3.** Un modèle donne au mot suivant la loi $(0{,}97\,;\,0{,}01\,;\,0{,}01\,;\,0{,}01)$. Un autre donne $(0{,}25\,;\,0{,}25\,;\,0{,}25\,;\,0{,}25)$. Calcule leurs entropies. Lequel est le plus sûr de lui ?
+
+<Depliable titre="Corrigé">
+
+Premier : $0{,}97 \times 0{,}044 + 3 \times 0{,}01 \times 6{,}64 \approx 0{,}043 + 0{,}199 = 0{,}242$ bit. Second : $\log_2 4 = 2$ bits. Le premier est bien plus sûr de lui, ce qui ne veut pas dire qu'il a raison : c'est l'entropie croisée qui le dira.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "entropie", en: "entropy", definition: "Surprise moyenne d'une loi de probabilité : H = −Σ p log p." },
+  { fr: "information propre, surprise", en: "self-information, surprisal", definition: "Quantité −log p apportée par un événement de probabilité p." },
+  { fr: "bit", en: "bit", definition: "Unité d'information avec le logarithme en base 2 : la réponse à une question oui ou non équiprobable." },
+  { fr: "nat", en: "nat", definition: "Unité d'information avec le logarithme népérien ; 1 bit ≈ 0,693 nat." }
+]} />
