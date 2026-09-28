@@ -1,0 +1,162 @@
+---
+id: derivee
+type: maths
+titre: "La dérivée : mesurer la pente pour savoir où aller"
+sous_titre: "Définition, interprétation et calcul de la dérivée"
+domaine: analyse
+niveau: 1
+prerequis: [fonctions]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 5 (Vector Calculus), section sur la différentiation des fonctions d'une variable (quotient de différences, dérivée, règles de dérivation)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.3 (optimisation par gradient : la dérivée indique comment modifier l'entrée)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Pour apprendre, un modèle doit savoir dans quel sens bouger chacun de ses paramètres pour que son erreur diminue. La dérivée donne exactement cette information : la pente d'une [fonction](/maths/fonctions/) en un point, donc la direction dans laquelle elle monte ou descend, et à quelle vitesse. Elle mène aux [dérivées partielles](/maths/derivees-partielles/), puis à la [règle de la chaîne](/maths/regle-chaine/), les deux outils de tout apprentissage.
+
+## L'intuition
+
+Un gbaka roule sur la route de Bingerville. Entre 8 h et 9 h, il a parcouru 30 km : sa vitesse moyenne sur l'heure est de 30 km/h. Entre 8 h 00 et 8 h 10, il a fait 6 km : 36 km/h. Entre 8 h 00 et 8 h 01, 0,7 km : 42 km/h. En raccourcissant l'intervalle, on s'approche de la vitesse affichée au compteur à 8 h pile : la vitesse instantanée. C'est une dérivée.
+
+Sur un graphe, la vitesse moyenne entre deux instants est la pente de la droite qui relie deux points de la courbe : une sécante. Rapproche les deux points, et la sécante se couche sur la courbe : elle devient la tangente, dont la pente est la dérivée.
+
+<Simulation
+  rendu="derivee-secante"
+  label="Courbe de x², sécante entre a et a + h, et tangente en a"
+  parametres={[
+    { nom: "a", label: "Point a", min: -1, max: 1.2, pas: 0.05, valeur: 1, role: "entree", decimales: 2 },
+    { nom: "h", label: "Écart h", min: 0.01, max: 1, pas: 0.01, valeur: 1, role: "parametre", decimales: 2 }
+  ]}
+  legende="Trait doré : la sécante. Pointillés : la tangente, vers laquelle la sécante tend quand h rétrécit."
+/>
+
+## La définition
+
+La dérivée de $f$ au point $a$ est la limite de la pente des sécantes :
+
+$$
+f'(a) = \lim_{h \to 0} \frac{f(a + h) - f(a)}{h}
+$$
+
+où :
+- $f(a + h) - f(a)$ est la variation de la sortie quand l'entrée passe de $a$ à $a + h$ ;
+- le quotient est la pente de la sécante, ou taux de variation ;
+- $\lim_{h \to 0}$ signifie qu'on regarde ce que devient ce quotient quand $h$ se rapproche de 0 ;
+- $f'(a)$ est la dérivée de $f$ en $a$, si cette limite existe.
+
+Quand la dérivée existe en tout point, on obtient une nouvelle fonction $f'$. Quelques dérivées à connaître, admises ici sauf la première, démontrée plus bas :
+
+| Fonction $f(x)$ | Dérivée $f'(x)$ |
+|---|---|
+| $x^2$ | $2x$ |
+| $a\,x + b$ | $a$ |
+| $x^n$ | $n\,x^{n-1}$ |
+| $e^x$ | $e^x$ |
+| $\ln x$ | $1/x$ |
+
+La dérivée d'une somme est la somme des dérivées, et un facteur constant sort de la dérivée : $(c\,f)' = c\,f'$.
+
+Autrement dit : la dérivée mesure de combien la sortie change quand on pousse très légèrement l'entrée. Positive, la fonction monte ; négative, elle descend ; nulle, on est sur un palier, souvent un sommet ou un creux.
+
+<Depliable titre="Pourquoi la dérivée de x² est 2x">
+
+On calcule la pente de la sécante, puis on fait tendre $h$ vers 0 :
+
+$$
+\begin{aligned}
+\frac{f(a + h) - f(a)}{h} &= \frac{(a + h)^2 - a^2}{h} && \text{définition, avec } f(x) = x^2 \\
+&= \frac{a^2 + 2ah + h^2 - a^2}{h} && \text{développement du carré} \\
+&= \frac{2ah + h^2}{h} = 2a + h && \text{simplification par } h \neq 0
+\end{aligned}
+$$
+
+Quand $h$ tend vers 0, $2a + h$ tend vers $2a$. Donc $f'(a) = 2a$. L'animation affiche justement la pente $2a + h$ de la sécante, qui rejoint $2a$ quand $h$ rétrécit.
+
+</Depliable>
+
+## Un exemple à la main
+
+Avec $f(x) = x^2$ en $a = 1$ :
+
+- $h = 1$ : pente de la sécante $= (4 - 1)/1 = 3$ ;
+- $h = 0{,}1$ : $(1{,}21 - 1)/0{,}1 = 2{,}1$ ;
+- $h = 0{,}01$ : $(1{,}0201 - 1)/0{,}01 = 2{,}01$ ;
+- la limite vaut $f'(1) = 2 \times 1 = 2$.
+
+Une application : la perte du tarif du gbaka, dans la fiche sur la [fonction de perte](/maths/fonction-perte/), est $\mathcal{L}(w) = \frac{1}{4}\big(109\,w^2 - 29\,800\,w + 2\,040\,000\big)$. Avec les règles du tableau :
+
+$$
+\mathcal{L}'(w) = \frac{1}{4}\,(218\,w - 29\,800) = 54{,}5\,w - 7\,450
+$$
+
+- En $w = 100$ : $\mathcal{L}'(100) = 5\,450 - 7\,450 = -2\,000$. La pente est négative : augmenter $w$ fait baisser la perte.
+- En $w = 150$ : $\mathcal{L}'(150) = 8\,175 - 7\,450 = 725$. Positive : il faut baisser $w$.
+- La dérivée s'annule pour $w = 7\,450 / 54{,}5 \approx 136{,}7$ : c'est le meilleur tarif, trouvé sans formule spéciale.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place $a$ en 1, puis réduis $h$ de 1 à 0,01 en notant la pente de la sécante. Ensuite, place $a$ en 0 et en $-0{,}5$ : que vaut la pente de la tangente, et que dit son signe ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En $a = 1$, la pente de la sécante vaut $2 + h$ : 3 pour $h = 1$, 2,5 pour $h = 0{,}5$, 2,01 pour $h = 0{,}01$. Elle rejoint la pente de la tangente, 2.
+
+En $a = 0$, la tangente est horizontale, de pente 0 : c'est le fond de la parabole. En $a = -0{,}5$, la pente vaut $-1$ : la fonction descend quand on va vers la droite. Le signe de la dérivée dit dans quel sens aller pour descendre : vers la droite quand elle est négative, vers la gauche quand elle est positive. C'est tout le principe de la [descente de gradient](/maths/descente-gradient/).
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Savoir dans quel sens corriger.** La [descente de gradient](/maths/descente-gradient/) met à jour chaque paramètre en allant à l'opposé de sa dérivée : $w \leftarrow w - \eta\,\mathcal{L}'(w)$.
+- **Trouver un optimum.** Un minimum se trouve là où la dérivée s'annule, comme pour le [maximum de vraisemblance](/maths/maximum-vraisemblance/).
+- **Remonter un réseau.** La dérivée d'une composition se calcule par la [règle de la chaîne](/maths/regle-chaine/), base de la rétropropagation.
+
+## Les pièges classiques
+
+**« Une dérivée nulle, c'est un minimum. »** Ce peut être un maximum (le sommet d'une colline) ou un simple replat, comme pour $x^3$ en 0. Il faut regarder ce que fait la fonction autour.
+
+**« On peut prendre h = 0 directement. »** Le quotient deviendrait $0/0$, qui n'a pas de sens. La dérivée est une limite : on regarde ce qui se passe quand $h$ se rapproche de 0, sans jamais l'atteindre.
+
+**« Toute fonction a une dérivée partout. »** La valeur absolue $|x|$ a une pointe en 0 : la pente vaut $-1$ à gauche et $1$ à droite, et la limite n'existe pas. La ReLU a le même défaut en 0, que les bibliothèques contournent en choisissant une valeur.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule la dérivée de $f(x) = 3x^2 - 4x + 7$, puis $f'(2)$.
+
+<Depliable titre="Corrigé">
+
+$f'(x) = 3 \times 2x - 4 = 6x - 4$, donc $f'(2) = 8$.
+
+</Depliable>
+
+**Exercice 2.** Estime la dérivée de $e^x$ en 0 avec $h = 0{,}01$, puis compare avec la valeur exacte.
+
+<Depliable titre="Corrigé">
+
+$(e^{0{,}01} - e^0)/0{,}01 = (1{,}010\,05 - 1)/0{,}01 \approx 1{,}005$. La valeur exacte est $e^0 = 1$ : l'estimation est très proche.
+
+</Depliable>
+
+**Exercice 3.** Une perte vaut $\mathcal{L}(w) = (w - 3)^2$. Où la dérivée est-elle nulle ? Partant de $w = 0$, dans quel sens faut-il bouger $w$ ?
+
+<Depliable titre="Corrigé">
+
+$\mathcal{L}'(w) = 2(w - 3)$ s'annule en $w = 3$, le minimum. En $w = 0$, $\mathcal{L}'(0) = -6 < 0$ : la perte baisse quand $w$ augmente, il faut donc augmenter $w$.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "dérivée", en: "derivative", definition: "Limite de la pente des sécantes : la pente de la tangente en un point." },
+  { fr: "taux de variation", en: "difference quotient", definition: "Variation de la sortie divisée par la variation de l'entrée entre deux points." },
+  { fr: "tangente", en: "tangent line", definition: "Droite qui touche la courbe en un point avec la même pente qu'elle." },
+  { fr: "dérivable", en: "differentiable", definition: "Se dit d'une fonction qui a une dérivée en un point ou partout." }
+]} />
