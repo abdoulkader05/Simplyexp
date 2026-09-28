@@ -86,6 +86,8 @@ Un neurone, maintenant. Avec une entrée $x = 2$, un poids $w$ et la sigmoïde $
 - extérieur : $\sigma'(z) = \sigma(z)\,(1 - \sigma(z)) = 0{,}5 \times 0{,}5 = 0{,}25$ ;
 - chaîne : $\frac{dy}{dw} = 0{,}25 \times 2 = 0{,}5$.
 
+Une chaîne à trois maillons enfin : $y = \ln(1 + e^{2x})$, en $x = 0$. On découpe en $u = 2x$, puis $v = 1 + e^u$, puis $y = \ln v$. En $x = 0$, on a $u = 0$ et $v = 2$. Les trois dérivées locales valent $\frac{du}{dx} = 2$, $\frac{dv}{du} = e^u = 1$ et $\frac{dy}{dv} = \frac{1}{v} = 0{,}5$. Leur produit donne $\frac{dy}{dx} = 0{,}5 \times 1 \times 2 = 1$. Remarque l'ordre de travail : on calcule d'abord les valeurs de l'intérieur vers l'extérieur ($u$, puis $v$, puis $y$), car chaque dérivée locale en a besoin, puis on multiplie. C'est exactement l'enchaînement « passe avant, passe arrière » d'un réseau de neurones.
+
 ## Essaie toi-même
 
 Reprends l'animation. Consigne : place $x = 1$ et réduis $\Delta x$ de 0,5 à 0,01 en regardant $\Delta y / \Delta x$. Vers quelle valeur tend-il ? Place ensuite $x = -1/3$ environ ($-0{,}35$ ou $-0{,}3$) : que devient la dérivée ?
