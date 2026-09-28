@@ -57,3 +57,7 @@ th { font-family: var(--police-titre); font-weight: 600; }
 .svg-perte { fill: var(--laterite); }
 .svg-trait { stroke: var(--trait); }
 .svg-encre { fill: var(--encre); } .svg-trait-encre { stroke: var(--encre); }
+.svg-trait-perte { stroke: var(--laterite); }
+.svg-trait-doux { stroke: var(--encre-douce); }
+.svg-ligne { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.svg-pointille { stroke-dasharray: 4 4; }
