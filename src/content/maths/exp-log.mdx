@@ -82,6 +82,8 @@ La règle $\ln(u^k) = k \ln u$ s'en déduit pour $k$ entier, en appliquant la pr
 
 **La probabilité d'une phrase.** Un modèle de langage donne une probabilité à chaque mot, sachant les précédents. Pour une phrase de 20 mots, chacun de probabilité 0,1, la probabilité de la phrase est $0{,}1^{20} = 10^{-20}$. Avec 400 mots, $10^{-400}$ : plus petit que tout ce que l'ordinateur sait représenter en double précision (la limite se situe entre $10^{-308}$ et $10^{-324}$) ; il l'arrondit à 0. Avec le logarithme : $\ln(0{,}1^{400}) = 400 \times \ln 0{,}1 \approx 400 \times (-2{,}303) = -921$. Un nombre tout à fait manipulable.
 
+**Une autre base.** On rencontrera aussi le logarithme en base 2, noté $\log_2$, qui répond à la question « combien de fois faut-il doubler ? ». Il se déduit du logarithme népérien : $\log_2 x = \ln x / \ln 2$. Par exemple, $\log_2 8 = 2{,}079 / 0{,}693 = 3$, puisque $2^3 = 8$. C'est l'unité naturelle de l'[entropie](/maths/entropie/), qui se mesure alors en bits : distinguer entre 8 possibilités équiprobables demande 3 questions à réponse oui ou non.
+
 ## Essaie toi-même
 
 Reprends l'animation. Consigne : place $a$ à 0. Que valent $e^0$ et $\ln 1$ ? Puis fais descendre $a$ jusqu'à $-2$ : l'exponentielle devient-elle un jour négative ou nulle ? Que fait le logarithme près de 0 ?
