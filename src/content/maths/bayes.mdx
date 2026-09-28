@@ -1,0 +1,157 @@
+---
+id: bayes
+type: maths
+titre: "Le théorème de Bayes : mettre à jour ses croyances"
+sous_titre: "Formule de Bayes, a priori, vraisemblance et a posteriori"
+domaine: probabilites
+niveau: 2
+prerequis: [probabilite-conditionnelle]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), théorème de Bayes : a priori, vraisemblance, a posteriori, évidence"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.11 (règle de Bayes)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+On connaît souvent une [probabilité conditionnelle](/maths/probabilite-conditionnelle/) dans un sens et on a besoin de l'autre. On sait que 80 % des arnaques contiennent le mot « gagnant » ; on veut savoir si **ce** SMS, qui contient « gagnant », est une arnaque. Le théorème de Bayes fait ce retournement. Il dit aussi comment une croyance doit changer à chaque nouvel indice, ce qui en fait la base de classifieurs de textes simples et une manière de penser l'apprentissage tout entier.
+
+## L'intuition
+
+Reprenons l'agence mobile money : 10 % des SMS reçus sont des arnaques. Avant de lire un message, c'est tout ce qu'on sait : c'est la croyance a priori. On lit le mot « gagnant ». Ce mot est 16 fois plus fréquent dans les arnaques (80 %) que dans les SMS normaux (5 %) : la croyance monte à 0,64. On lit ensuite « cliquez », 6 fois plus fréquent dans les arnaques : elle monte à 0,91. Puis « urgent » : 0,99.
+
+Chaque indice multiplie les chances d'arnaque par un facteur, qui dépend de la fréquence de l'indice dans chaque catégorie. Mais le point de départ compte : si les arnaques étaient très rares, il faudrait bien plus d'indices pour y croire.
+
+<Simulation
+  rendu="bayes-indices"
+  label="Probabilité qu'un SMS soit une arnaque, avant et après chaque indice"
+  parametres={[
+    { nom: "prior", label: "Part d'arnaques a priori (%)", min: 1, max: 50, pas: 1, valeur: 10, role: "parametre" },
+    { nom: "vus", label: "Indices lus", min: 0, max: 3, pas: 1, valeur: 1, role: "entree" }
+  ]}
+  legende="On suppose que les trois mots apparaissent indépendamment les uns des autres, une fois connue la catégorie du SMS."
+/>
+
+## La définition
+
+Pour deux événements $H$ (une hypothèse) et $D$ (une donnée observée), avec $P(D) > 0$ :
+
+$$
+P(H \mid D) = \frac{P(D \mid H)\, P(H)}{P(D)}
+$$
+
+où :
+- $P(H)$ est l'a priori (*prior*) : la croyance en $H$ avant d'observer $D$ ;
+- $P(D \mid H)$ est la vraisemblance (*likelihood*) : la probabilité d'observer $D$ si $H$ est vraie ;
+- $P(H \mid D)$ est l'a posteriori (*posterior*) : la croyance en $H$ après avoir observé $D$ ;
+- $P(D)$ est la probabilité totale d'observer $D$, toutes hypothèses confondues ; avec deux hypothèses $H$ et $\bar{H}$ : $P(D) = P(D \mid H)\,P(H) + P(D \mid \bar{H})\,P(\bar{H})$.
+
+Autrement dit : la croyance après l'observation est la croyance d'avant, multipliée par la capacité de l'hypothèse à expliquer ce qu'on a vu, puis renormalisée.
+
+<Depliable titre="La démonstration, et la forme « cotes »">
+
+**La formule.** On écrit la probabilité jointe de deux façons, avec la définition de la probabilité conditionnelle :
+
+$$
+\begin{aligned}
+P(H \cap D) &= P(H \mid D)\,P(D) && \text{en conditionnant par } D \\
+P(H \cap D) &= P(D \mid H)\,P(H) && \text{en conditionnant par } H \\
+P(H \mid D) &= \frac{P(D \mid H)\,P(H)}{P(D)} && \text{on égale les deux et on divise par } P(D)
+\end{aligned}
+$$
+
+**La forme « cotes ».** Divisons la formule pour $H$ par la même formule pour $\bar{H}$ : $P(D)$ disparaît.
+
+$$
+\frac{P(H \mid D)}{P(\bar{H} \mid D)} = \frac{P(D \mid H)}{P(D \mid \bar{H})} \times \frac{P(H)}{P(\bar{H})}
+$$
+
+Les cotes a posteriori sont les cotes a priori multipliées par le rapport de vraisemblance. Pour « gagnant » : cotes a priori $0{,}1/0{,}9 = 1/9$, rapport $0{,}8/0{,}05 = 16$, cotes a posteriori $16/9$, soit une probabilité $16/(16 + 9) = 0{,}64$. Si les indices sont indépendants sachant la catégorie, on multiplie simplement leurs rapports les uns après les autres.
+
+</Depliable>
+
+## Un exemple à la main
+
+L'a priori : $P(\text{arnaque}) = 0{,}1$. On observe « gagnant ».
+
+- Vraisemblances : $P(\text{gagnant} \mid \text{arnaque}) = 0{,}8$ et $P(\text{gagnant} \mid \text{normal}) = 0{,}05$.
+- Probabilité totale : $P(\text{gagnant}) = 0{,}8 \times 0{,}1 + 0{,}05 \times 0{,}9 = 0{,}08 + 0{,}045 = 0{,}125$.
+- A posteriori : $P(\text{arnaque} \mid \text{gagnant}) = 0{,}08 / 0{,}125 = 0{,}64$.
+
+On retrouve le résultat obtenu en comptant les 1 000 SMS dans la fiche précédente.
+
+Deuxième indice, « cliquez » ($0{,}6$ contre $0{,}1$), en partant de 0,64 :
+
+- numérateur : $0{,}6 \times 0{,}64 = 0{,}384$ ;
+- dénominateur : $0{,}384 + 0{,}1 \times 0{,}36 = 0{,}42$ ;
+- a posteriori : $0{,}384 / 0{,}42 \approx 0{,}914$.
+
+L'a posteriori d'une étape devient l'a priori de la suivante.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec les trois indices lus, baisse l'a priori de 10 % à 1 %. La probabilité finale reste-t-elle élevée ? Avec un seul indice, que devient-elle ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec les trois indices et un a priori de 1 %, la probabilité finale vaut encore environ 0,91 : trois indices forts, dont les rapports se multiplient ($16 \times 6 \times 10 = 960$), finissent par l'emporter sur un a priori faible.
+
+Avec un seul indice, « gagnant », elle tombe à environ 0,14 : un seul indice, même fort, ne suffit pas quand l'hypothèse de départ est rare. C'est le même piège que pour un test médical très fiable appliqué à une maladie rare : la plupart des résultats positifs peuvent être de fausses alertes.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Les classifieurs bayésiens.** Le classifieur bayésien naïf applique la forme « cotes » mot après mot, en supposant les mots indépendants sachant la catégorie, comme dans l'animation. Il est simple, rapide, et sert souvent de premier modèle de comparaison pour classer des textes.
+- **Relier probabilités et apprentissage.** Voir les paramètres d'un modèle comme une hypothèse et les données comme une observation donne $P(\theta \mid \text{données}) \propto P(\text{données} \mid \theta)\,P(\theta)$. Maximiser la vraisemblance seule, c'est le [maximum de vraisemblance](/maths/maximum-vraisemblance/) ; ajouter un a priori sur les poids revient à une [régularisation](/concepts/regularisation/).
+- **Raisonner sur les erreurs.** La proportion de fausses alertes d'un détecteur dépend de la rareté de ce qu'il cherche : Bayes permet de la calculer avant de déployer un modèle.
+
+## Les pièges classiques
+
+**« L'a priori ne compte pas quand l'indice est fort. »** Avec 1 % d'arnaques, l'indice « gagnant », pourtant 16 fois plus fréquent chez elles, ne donne que 14 %. Oublier l'a priori, c'est l'erreur dite de la fréquence de base.
+
+**« La vraisemblance est la probabilité de l'hypothèse. »** $P(D \mid H) = 0{,}8$ ne dit pas que l'hypothèse a 80 % de chances d'être vraie. C'est la probabilité de l'indice sous l'hypothèse ; il faut Bayes pour la retourner.
+
+**« Les indices sont toujours indépendants. »** L'hypothèse naïve simplifie les calculs, mais « gagnant » et « prix » apparaissent souvent ensemble : compter les deux comme indépendants surestime la force des indices. Le classifieur marche souvent bien quand même pour trier, moins pour donner des probabilités exactes.
+
+## Entraîne-toi
+
+**Exercice 1.** Un test détecte 95 % des malades et donne un faux positif chez 2 % des personnes saines. La maladie touche 1 % de la population. Quelle est la probabilité d'être malade si le test est positif ?
+
+<Depliable titre="Corrigé">
+
+$P(+) = 0{,}95 \times 0{,}01 + 0{,}02 \times 0{,}99 = 0{,}0095 + 0{,}0198 = 0{,}0293$. Donc $P(\text{malade} \mid +) = 0{,}0095 / 0{,}0293 \approx 0{,}32$. Deux positifs sur trois sont de fausses alertes.
+
+</Depliable>
+
+**Exercice 2.** Avec les cotes : a priori 1 contre 4, rapport de vraisemblance 12. Quelles sont les cotes et la probabilité a posteriori ?
+
+<Depliable titre="Corrigé">
+
+Cotes a posteriori : $12 \times 1/4 = 3$, soit 3 contre 1. Probabilité : $3/(3 + 1) = 0{,}75$.
+
+</Depliable>
+
+**Exercice 3.** Un SMS contient « urgent » ($0{,}5$ contre $0{,}05$) mais pas « gagnant ». Avec l'a priori 0,1 et les indices supposés indépendants, calcule la probabilité d'arnaque. (Absence de « gagnant » : $0{,}2$ chez les arnaques, $0{,}95$ chez les normaux.)
+
+<Depliable titre="Corrigé">
+
+Rapport pour « urgent » : 10. Rapport pour « pas gagnant » : $0{,}2/0{,}95 \approx 0{,}21$. Cotes a posteriori : $(1/9) \times 10 \times 0{,}21 \approx 0{,}234$. Probabilité : $0{,}234 / 1{,}234 \approx 0{,}19$. L'absence d'un indice attendu fait baisser la probabilité.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "théorème de Bayes", en: "Bayes' theorem", definition: "P(H | D) = P(D | H) P(H) / P(D) : retourner une probabilité conditionnelle." },
+  { fr: "a priori", en: "prior", definition: "Croyance avant l'observation." },
+  { fr: "vraisemblance", en: "likelihood", definition: "Probabilité de l'observation si l'hypothèse est vraie." },
+  { fr: "a posteriori", en: "posterior", definition: "Croyance mise à jour après l'observation." },
+  { fr: "rapport de vraisemblance", en: "likelihood ratio", definition: "P(D | H) / P(D | non H) : le facteur qui multiplie les cotes." },
+  { fr: "classifieur bayésien naïf", en: "naive Bayes classifier", definition: "Classifieur qui applique Bayes en supposant les indices indépendants sachant la classe." }
+]} />
