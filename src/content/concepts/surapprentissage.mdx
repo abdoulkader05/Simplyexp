@@ -1,0 +1,198 @@
+---
+id: surapprentissage
+type: concept
+titre: "Le surapprentissage : quand le modèle apprend par cœur"
+sous_titre: "Overfitting, underfitting et généralisation"
+domaine: machine-learning
+niveau: 3
+prerequis: [train-val-test]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.2 (capacité, surapprentissage et sous-apprentissage, exemple des polynômes)"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 9 (Linear Regression), régression polynomiale et surapprentissage"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Avec [trois ensembles de données](/concepts/train-val-test/), on sait mesurer honnêtement un modèle. On découvre alors un phénomène troublant : un modèle peut devenir parfait sur ses données d'entraînement et, en même temps, de plus en plus mauvais sur des données nouvelles. Plus il est souple, plus il risque de mémoriser les exemples, bruit compris, au lieu de retenir la règle qui les relie. Ce défaut porte un nom, et c'est le premier ennemi de quiconque entraîne un modèle.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un modèle surapprend quand il colle si bien à ses exemples, bruit compris, qu'il perd la règle générale et se trompe sur les cas nouveaux.
+</PhraseCle>
+
+## En image
+
+Deux élèves révisent le BAC de maths avec les mêmes dix sujets corrigés. Le premier apprend les dix corrigés par cœur, virgule comprise. Le second cherche les méthodes qui reviennent d'un sujet à l'autre. Sur les dix sujets connus, le premier est imbattable. Le jour de l'examen, face à un sujet nouveau, il est perdu, alors que le second s'en sort.
+
+- Les dix sujets corrigés sont les données d'entraînement.
+- Apprendre par cœur, c'est le surapprentissage : erreur nulle sur l'entraînement.
+- Retenir les méthodes, c'est généraliser.
+- L'examen du BAC est l'ensemble de test.
+- Un troisième élève qui ne retiendrait qu'une seule recette pour tout serait en sous-apprentissage : mauvais partout.
+
+Là où l'image s'arrête : un élève peut choisir de comprendre. Un modèle, lui, fait ce que sa forme permet ; c'est nous qui décidons de sa souplesse, et donc de son risque de surapprendre.
+
+## Comment ça marche
+
+Un marché ouvre de 6 h à 18 h. On a compté la foule (en centaines de personnes) à dix moments de la journée : ce sont les points pleins de l'animation. La vraie tendance, inconnue du modèle, est la courbe pointillée : un pic vers 10 h et un second vers 16 h. Chaque comptage s'en écarte un peu, au hasard. Les petits cercles clairs sont 40 autres comptages, jamais montrés au modèle : c'est le test.
+
+Le modèle est un polynôme de degré $d$, ajusté par moindres carrés comme la [régression linéaire](/concepts/regression-lineaire/), avec $1, h, h^2, \dots, h^d$ comme entrées :
+
+$$
+\hat{y}(h) = w_0 + w_1\, h + w_2\, h^2 + \dots + w_d\, h^d
+$$
+
+où :
+- $h$ est l'heure (ramenée entre $-1$ et $1$ dans les calculs) et $\hat{y}$ la foule prédite ;
+- $w_0, \dots, w_d$ sont les $d + 1$ paramètres appris ;
+- $d$ est le degré : plus il est grand, plus la courbe peut se tordre.
+
+Le degré mesure la capacité (*capacity*) du modèle : la variété des formes qu'il peut prendre. Fais-le varier.
+
+<Simulation
+  rendu="surapprentissage-degre"
+  label="Polynôme ajusté sur dix comptages, avec les erreurs d'entraînement et de test selon le degré"
+  parametres={[
+    { nom: "degre", label: "Degré du polynôme", min: 0, max: 9, pas: 1, valeur: 3, role: "parametre" }
+  ]}
+  legende="Points pleins : entraînement. Cercles clairs : test. Pointillés : la vraie tendance."
+/>
+
+Trois régimes apparaissent, visibles sur le petit graphe à droite.
+
+- **Sous-apprentissage** (*underfitting*), degrés 0 à 2 : la courbe est trop raide pour suivre les deux pics. Erreur d'entraînement et erreur de test sont toutes deux élevées, autour de 3 à 4.
+- **Bonne généralisation**, degrés 3 à 7 : la courbe suit la tendance. L'erreur de test descend jusqu'à environ 1,5 au degré 7.
+- **Surapprentissage** (*overfitting*), degrés 8 et 9 : la courbe passe par tous les points d'entraînement et fait des boucles entre eux. Au degré 9, l'erreur d'entraînement vaut 0, et l'erreur de test explose à environ 48.
+
+La signature du surapprentissage est l'écart entre les deux erreurs : très petite sur l'entraînement, grande sur le test. Le bon degré se choisit sur un ensemble de validation, jamais sur le test.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le degré 9 passe exactement par les 10 points">
+
+On cherche $w_0, \dots, w_9$ tels que $\hat{y}(h_i) = y_i$ pour les dix points. Cela fait dix équations linéaires à dix inconnues :
+
+$$
+\begin{pmatrix} 1 & h_1 & \cdots & h_1^9 \\ \vdots & & & \vdots \\ 1 & h_{10} & \cdots & h_{10}^9 \end{pmatrix}
+\begin{pmatrix} w_0 \\ \vdots \\ w_9 \end{pmatrix} =
+\begin{pmatrix} y_1 \\ \vdots \\ y_{10} \end{pmatrix}
+$$
+
+La matrice de gauche s'appelle une matrice de Vandermonde. On admet ici un résultat classique : quand les dix heures $h_i$ sont toutes différentes, elle est de [rang](/maths/rang-matrice/) plein, et le système a une solution unique. Le polynôme passe alors par les dix points, et la perte d'entraînement vaut exactement 0.
+
+Mais cette solution n'a aucune raison de ressembler à la vraie tendance : elle a utilisé toute sa liberté pour reproduire aussi le bruit de chaque comptage. Entre deux points, rien ne la retient, et elle part en grandes oscillations. Ses coefficients deviennent énormes (plus de 1 000 en valeur absolue ici, contre environ 7 au degré 3), ce qui annonce la solution de la fiche suivante : pénaliser les grands coefficients.
+
+**La règle générale.** Avec $n$ exemples, un modèle d'au moins $n$ paramètres bien placés peut en général les reproduire exactement. Une erreur d'entraînement nulle ne prouve donc rien sur la qualité du modèle.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve le degré qui donne la plus petite erreur de test. Puis compare les degrés 7 et 9 : quelle différence vois-tu entre les courbes, alors que les erreurs d'entraînement sont toutes deux presque nulles ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+L'erreur de test est la plus petite au degré 7, environ 1,48. Les degrés 3 à 6 font presque aussi bien, autour de 1,9 à 2,1, avec des courbes plus sages.
+
+Aux degrés 7 et 9, l'erreur d'entraînement est faible (0,06 et 0). Mais la courbe de degré 9 se tord pour attraper chaque point plein et part en boucles entre eux, loin des cercles clairs : erreur de test d'environ 48. Celle de degré 7 reste proche de la tendance. Deux modèles presque parfaits à l'entraînement peuvent donc être très différents sur des données nouvelles ; seule une mesure hors entraînement permet de les départager.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : ajuster des polynômes de degrés croissants.
+
+```python
+import numpy as np
+rng = np.random.default_rng(1)
+
+def tendance(h):
+    return 2 + 6 * np.exp(-((h - 10) / 2.2) ** 2) + 3 * np.exp(-((h - 16) / 1.6) ** 2)
+
+# 10 comptages d'entraînement répartis sur la journée, 40 de test
+h_train = 6 + 12 * (np.arange(10) + rng.uniform(0.2, 0.8, 10)) / 10
+h_test = 6 + 12 * (np.arange(40) + rng.uniform(0.2, 0.8, 40)) / 40
+y_train = tendance(h_train) + rng.normal(0, 0.8, 10)
+y_test = tendance(h_test) + rng.normal(0, 0.8, 40)
+
+u = lambda h: (h - 12) / 6                           # heures ramenées dans [-1 ; 1]
+for d in [1, 3, 5, 9]:
+    coefs = np.polyfit(u(h_train), y_train, d)       # moindres carrés
+    err_train = np.mean((np.polyval(coefs, u(h_train)) - y_train) ** 2)
+    err_test = np.mean((np.polyval(coefs, u(h_test)) - y_test) ** 2)
+    print(f"degré {d} : entraînement {err_train:.2f}, test {err_test:.2f}")
+```
+
+Les nombres diffèrent de ceux de l'animation, car les tirages ne sont pas les mêmes, mais le degré 9 donne toujours une erreur d'entraînement nulle et une erreur de test bien plus grande.
+
+En vrai, avec scikit-learn :
+
+```python
+# no-run
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+modele = make_pipeline(PolynomialFeatures(degree=9), LinearRegression()).fit(X_train, y_train)
+```
+
+## Les pièges classiques
+
+**« Erreur d'entraînement nulle, donc modèle parfait. »** C'est souvent le contraire : avec assez de paramètres, n'importe quel modèle atteint zéro en apprenant par cœur. Il faut toujours regarder l'erreur hors entraînement.
+
+**« Plus un modèle est gros, plus il surapprend. »** C'est vrai à données fixées. Mais ajouter des données recule le problème : avec 1 000 comptages au lieu de 10, un polynôme de degré 9 n'aurait plus assez de liberté pour suivre le bruit de chacun. Le surapprentissage dépend du rapport entre la capacité du modèle et la quantité de données.
+
+**« Le sous-apprentissage est moins grave. »** Un modèle trop simple se trompe partout, et il est plus facile à repérer, puisque son erreur d'entraînement est déjà mauvaise. Mais il n'est pas meilleur : le but est la plus petite erreur sur des données nouvelles, ni trop simple ni trop souple.
+
+## Dans la vraie vie
+
+Tous ceux qui entraînent des réseaux de neurones surveillent deux courbes pendant l'entraînement : la perte sur l'entraînement et la perte sur la validation. Quand la seconde se met à remonter alors que la première continue de baisser, on arrête ou on revient au meilleur point ; c'est l'arrêt précoce (*early stopping*), présenté au chapitre 7 de *Deep Learning*. Les méthodes de [régularisation](/concepts/regularisation/), puis le [dropout](/concepts/dropout/), ont été inventées pour lutter contre le surapprentissage.
+
+Le même piège guette tout modèle construit sur peu de données locales. Un modèle de prévision de récoltes ajusté sur dix saisons, avec autant de variables que de saisons, reproduira parfaitement le passé et se trompera sur la prochaine campagne.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un modèle a une erreur d'entraînement de 0,01 et une erreur de validation de 5,2. Que se passe-t-il ?",
+    choix: ["Sous-apprentissage", "Surapprentissage", "Tout va bien", "Les données sont mal étiquetées"],
+    bonne: 1,
+    explication: "Presque parfait à l'entraînement, mauvais ailleurs : le modèle a mémorisé ses exemples. C'est la signature du surapprentissage."
+  },
+  {
+    question: "Un polynôme de degré 2 a une erreur de 3,1 à l'entraînement et 3,0 en validation, alors que le bruit des données est bien plus faible. Que faire en priorité ?",
+    choix: ["Augmenter le degré", "Diminuer le degré", "Retirer des données", "Ne rien changer"],
+    bonne: 0,
+    explication: "Les deux erreurs sont élevées et proches : le modèle est trop simple. On lui donne plus de capacité, puis on vérifie sur la validation."
+  },
+  {
+    question: "Pourquoi un polynôme de degré 9 peut-il passer exactement par 10 points d'heures différentes ?",
+    choix: ["Parce qu'il est convexe", "Parce qu'il a 10 coefficients pour 10 équations", "Parce que les données sont sans bruit", "C'est impossible"],
+    bonne: 1,
+    explication: "10 coefficients inconnus, 10 équations ; pour des heures toutes différentes, le système a une solution unique."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment détecter et corriger le surapprentissage ?">
+
+On le détecte en comparant l'erreur d'entraînement à l'erreur de validation : un grand écart, surtout s'il se creuse au fil de l'entraînement, est le signe. Pour le corriger, plusieurs leviers : ajouter des données, réduire la capacité du modèle (moins de paramètres, degré plus faible), ajouter une régularisation (pénalité L2 ou L1 sur les poids, dropout), arrêter l'entraînement quand la perte de validation remonte, ou augmenter artificiellement les données. On choisit le réglage sur la validation, et on mesure le résultat final une seule fois sur le test.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "surapprentissage", en: "overfitting", definition: "Le modèle colle aux exemples d'entraînement, bruit compris, et se trompe sur les nouveaux." },
+  { fr: "sous-apprentissage", en: "underfitting", definition: "Le modèle est trop simple et se trompe même sur l'entraînement." },
+  { fr: "généralisation", en: "generalization", definition: "Capacité d'un modèle à bien prédire sur des données qu'il n'a pas vues." },
+  { fr: "capacité", en: "capacity", definition: "Variété des fonctions qu'un modèle peut représenter ; ici, le degré du polynôme." },
+  { fr: "arrêt précoce", en: "early stopping", definition: "Arrêter l'entraînement quand l'erreur de validation cesse de baisser." }
+]} />
