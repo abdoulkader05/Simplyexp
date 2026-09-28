@@ -1,0 +1,141 @@
+---
+id: perplexite
+type: maths
+titre: "La perplexité : à quel point un modèle est-il perdu ?"
+sous_titre: "Mesurer la qualité d'un modèle de langage"
+domaine: theorie-information
+niveau: 3
+prerequis: [entropie-croisee]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre 3 (N-gram Language Models), section sur la perplexité et le facteur de branchement moyen"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (entropie croisée) ; chapitre 12, section 12.4 (modèles de langage)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Pour comparer deux modèles de langage, on mesure leur [entropie croisée](/maths/entropie-croisee/) sur un même texte de test : 2,3 nats par mot contre 2,8. Le chiffre est juste, mais peu parlant. La perplexité le traduit en une image concrète : ce modèle hésite, en moyenne, comme s'il devait choisir au hasard entre 10 mots, l'autre entre 16. C'est la mesure historique de la qualité des modèles de langage, des [n-grammes](/concepts/ngrammes/) jusqu'aux LLM, et elle sert à tracer les [lois d'échelle](/concepts/lois-echelle/).
+
+## L'intuition
+
+Un élève doit deviner le mot suivant d'une phrase. S'il hésite à chaque fois entre deux mots également probables, c'est comme lancer une pièce : sa perplexité vaut 2. S'il hésite entre six, c'est un dé : perplexité 6. Un bon modèle de langage a une perplexité faible, parce que le contexte l'aide à éliminer la plupart des possibilités.
+
+La perplexité est simplement l'exponentielle de la perte moyenne par mot. Règle la perte et regarde combien de « faces » compte le dé équivalent.
+
+<Simulation
+  rendu="perplexite-de"
+  label="Nombre de choix équivalents selon la perte moyenne d'un modèle de langage"
+  parametres={[
+    { nom: "perte", label: "Perte moyenne (nats par mot)", min: 0, max: 5, pas: 0.01, valeur: 2.3, role: "perte", decimales: 2 }
+  ]}
+  legende="Chaque case pleine est une possibilité entre lesquelles le modèle hésiterait uniformément."
+/>
+
+## La définition
+
+Pour un texte de test de $n$ mots $x_1, \dots, x_n$, et un modèle qui donne à chaque mot la probabilité $q(x_t \mid x_1, \dots, x_{t-1})$ :
+
+$$
+\mathrm{PPL} = \exp\left(-\frac{1}{n} \sum_{t=1}^{n} \ln q(x_t \mid x_1, \dots, x_{t-1})\right) = \left(\prod_{t=1}^{n} q(x_t \mid x_{<t})\right)^{-1/n}
+$$
+
+où :
+- l'expression dans l'exponentielle est l'entropie croisée moyenne par mot, en nats ;
+- $x_{<t}$ désigne les mots qui précèdent $x_t$ ;
+- la seconde écriture montre que la perplexité est l'inverse de la moyenne géométrique des probabilités données aux vrais mots.
+
+Autrement dit : la perplexité est le nombre de choix équiprobables qui produiraient la même surprise moyenne que le modèle. Plus elle est basse, meilleur est le modèle.
+
+<Depliable titre="Pourquoi c'est un « nombre de choix »">
+
+Supposons un modèle qui, à chaque mot, hésite uniformément entre $K$ possibilités, dont le vrai mot. Il donne à chaque vrai mot la probabilité $1/K$. Sa perplexité vaut :
+
+$$
+\begin{aligned}
+\mathrm{PPL} &= \exp\left(-\frac{1}{n} \sum_{t=1}^{n} \ln \frac{1}{K}\right) && \text{définition} \\
+&= \exp\left(-\frac{1}{n} \times n \times (-\ln K)\right) = \exp(\ln K) = K && \ln(1/K) = -\ln K
+\end{aligned}
+$$
+
+La perplexité d'un choix uniforme entre $K$ mots est exactement $K$. Pour un modèle quelconque, elle donne le $K$ « équivalent » : celui du dé qui serait aussi surpris, en moyenne, que le modèle.
+
+**Le lien avec les deux écritures.** Comme $\exp$ et $\ln$ sont réciproques, $\exp\big(-\frac{1}{n}\sum_t \ln q_t\big) = \exp\big(\ln \prod_t q_t^{-1/n}\big) = \prod_t q_t^{-1/n}$ : les deux formules sont la même.
+
+</Depliable>
+
+## Un exemple à la main
+
+Un modèle lit la phrase « je vais au marché » et donne aux vrais mots, chacun sachant les précédents, les probabilités 0,05, 0,2, 0,3 et 0,1 (les nombres de la fiche sur la [règle du produit](/maths/regle-produit/)).
+
+- Somme des $-\ln q$ : $3{,}00 + 1{,}61 + 1{,}20 + 2{,}30 = 8{,}11$.
+- Perte moyenne : $8{,}11 / 4 \approx 2{,}03$ nats par mot.
+- Perplexité : $e^{2{,}03} \approx 7{,}6$.
+
+Le modèle hésite, en moyenne, comme entre 7 ou 8 mots équiprobables. Vérification par la moyenne géométrique : le produit des probabilités vaut $0{,}000\,3$, et $0{,}000\,3^{-1/4} \approx 7{,}6$.
+
+Si un meilleur modèle donne 0,1, 0,5, 0,6 et 0,4 aux mêmes mots, la somme des $-\ln q$ vaut $2{,}30 + 0{,}69 + 0{,}51 + 0{,}92 = 4{,}42$, la perte moyenne 1,11, et la perplexité $e^{1{,}11} \approx 3{,}0$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : quelle perte donne une perplexité de 2 ? De 100 ? Que se passe-t-il quand la perte vaut 0 ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Une perplexité de 2 correspond à une perte de $\ln 2 \approx 0{,}69$ nat : le modèle hésite comme une pièce. Une perplexité de 100 demande une perte de $\ln 100 \approx 4{,}61$.
+
+Avec une perte de 0, la perplexité vaut 1 : une seule case, le modèle prédit chaque mot avec certitude et ne se trompe jamais. C'est impossible sur un vrai texte. Remarque aussi que la relation est exponentielle : baisser la perte de 0,1 nat réduit la perplexité d'environ 10 %, quelle que soit sa valeur de départ.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Comparer des modèles de langage.** À texte de test et découpage en mots identiques, le modèle de plus faible perplexité est celui qui prédit le mieux, un critère utilisé depuis les [n-grammes](/concepts/ngrammes/).
+- **Suivre l'entraînement.** La perte de [pré-entraînement](/concepts/pretraining/) d'un LLM est une entropie croisée ; sa perplexité sur un texte mis de côté dit s'il progresse ou s'il surapprend.
+- **Les lois d'échelle.** Les [lois d'échelle](/concepts/lois-echelle/) décrivent comment la perte, et donc la perplexité, baisse quand on augmente la taille du modèle, des données et du calcul.
+
+## Les pièges classiques
+
+**« On peut comparer les perplexités de n'importe quels modèles. »** La perplexité dépend du découpage du texte en unités : un modèle qui découpe en morceaux de mots n'a pas la même échelle qu'un modèle qui découpe en mots entiers. Il faut le même texte et le même découpage.
+
+**« Une perplexité basse garantit des réponses justes. »** Elle mesure la capacité à prédire un texte, pas la vérité de ce qu'il affirme. Un modèle peut prédire parfaitement un style d'écriture tout en inventant des faits.
+
+**« Perplexité et perte, ce sont deux mesures différentes. »** C'est la même information : l'une est l'exponentielle de l'autre. On choisit l'une ou l'autre selon ce qui se lit le mieux.
+
+## Entraîne-toi
+
+**Exercice 1.** Un modèle a une perte moyenne de 3 nats par mot. Quelle est sa perplexité ?
+
+<Depliable titre="Corrigé">
+
+$e^3 \approx 20{,}1$.
+
+</Depliable>
+
+**Exercice 2.** Un modèle donne la probabilité 0,25 à chacun des vrais mots d'un texte. Quelle est sa perplexité ?
+
+<Depliable titre="Corrigé">
+
+Perte moyenne $-\ln 0{,}25 = \ln 4$, perplexité 4. C'est un choix uniforme entre 4 mots.
+
+</Depliable>
+
+**Exercice 3.** Un modèle passe d'une perplexité de 20 à 15 après un entraînement plus long. De combien sa perte moyenne a-t-elle baissé ?
+
+<Depliable titre="Corrigé">
+
+$\ln 20 - \ln 15 = \ln(20/15) \approx 0{,}288$ nat par mot.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "perplexité", en: "perplexity", definition: "Exponentielle de l'entropie croisée moyenne par mot : le nombre de choix équiprobables équivalent." },
+  { fr: "moyenne géométrique", en: "geometric mean", definition: "Racine n-ième du produit de n nombres ; la perplexité est l'inverse de celle des probabilités des vrais mots." },
+  { fr: "texte de test", en: "held-out text", definition: "Texte jamais vu à l'entraînement, sur lequel on mesure la perplexité." }
+]} />
