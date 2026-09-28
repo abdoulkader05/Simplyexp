@@ -1,0 +1,149 @@
+---
+id: variables-aleatoires
+type: maths
+titre: "Variables aléatoires : quand le hasard devient un nombre"
+sous_titre: "Variables discrètes et continues, distributions"
+domaine: probabilites
+niveau: 2
+prerequis: [probabilites-bases, fonctions]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), variables aléatoires discrètes et continues, fonctions de masse et de densité"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.2 à 3.3 (variables aléatoires, distributions discrètes et densités)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Les [probabilités](/maths/probabilites-bases/) parlent d'événements : « le SMS est une arnaque », « il pleut ». Mais l'IA manipule des nombres : un prix, un temps d'attente, le numéro d'un mot dans un vocabulaire. Une variable aléatoire est justement une [fonction](/maths/fonctions/) qui transforme le résultat d'une expérience aléatoire en nombre. C'est le point de départ de l'[espérance et de la variance](/maths/esperance-variance/), de la [loi catégorielle](/maths/loi-categorielle/) des LLM et du [maximum de vraisemblance](/maths/maximum-vraisemblance/).
+
+## L'intuition
+
+Une boutique voit passer quatre clients. Chacun paie en espèces ou par mobile money, au hasard, avec une chance sur deux pour chaque mode. Le résultat de l'expérience est une liste comme « espèces, mobile, mobile, espèces ». La question qui intéresse la gérante est plus simple : combien de clients ont payé par mobile money ? Ce nombre, 0, 1, 2, 3 ou 4, est une variable aléatoire.
+
+Sa loi (ou distribution) donne la probabilité de chaque valeur. Deux paiements mobiles est le plus probable, parce qu'il y a beaucoup de façons de l'obtenir ; quatre est rare, parce qu'il n'y en a qu'une. Change le nombre de clients et la probabilité de payer par mobile money, et regarde la forme de la loi.
+
+<Simulation
+  rendu="loi-binomiale"
+  label="Loi du nombre de clients qui paient par mobile money"
+  parametres={[
+    { nom: "n", label: "Nombre de clients n", min: 1, max: 20, pas: 1, valeur: 4, role: "entree" },
+    { nom: "p", label: "Probabilité p de payer par mobile money", min: 0.05, max: 0.95, pas: 0.05, valeur: 0.5, role: "parametre", decimales: 2 }
+  ]}
+  legende="Chaque barre est la probabilité d'une valeur de X. Toutes les barres ensemble valent 1."
+/>
+
+## La définition
+
+Une variable aléatoire (*random variable*) $X$ est une fonction qui associe un nombre à chaque résultat d'une expérience aléatoire.
+
+- Elle est discrète si elle prend des valeurs isolées (0, 1, 2…). Sa loi est donnée par sa fonction de masse (*probability mass function*) :
+
+$$
+p_X(k) = P(X = k), \qquad \sum_{k} p_X(k) = 1
+$$
+
+- Elle est continue si elle prend toutes les valeurs d'un intervalle, comme un temps d'attente. Sa loi est donnée par une densité (*probability density function*) $f_X \ge 0$, et les probabilités sont des aires sous la courbe :
+
+$$
+P(a \le X \le b) = \int_a^b f_X(x)\, dx, \qquad \int_{-\infty}^{+\infty} f_X(x)\, dx = 1
+$$
+
+où :
+- $P(X = k)$ est la probabilité que $X$ prenne la valeur $k$ ;
+- $\int_a^b f_X(x)\,dx$ est l'aire sous la courbe de $f_X$ entre $a$ et $b$.
+
+Autrement dit : une variable aléatoire met un nombre sur le hasard, et sa loi dit comment la probabilité totale, 1, se répartit entre les valeurs possibles.
+
+<Depliable titre="La loi du nombre de succès, démontrée">
+
+Chaque client paie par mobile money avec la probabilité $p$, indépendamment des autres. Une liste précise avec $k$ paiements mobiles et $n - k$ en espèces a, par [indépendance](/maths/independance/), la probabilité $p^k (1 - p)^{n-k}$.
+
+Combien de listes contiennent exactement $k$ paiements mobiles ? Autant que de façons de choisir les $k$ clients concernés parmi $n$, un nombre noté $\binom{n}{k} = \frac{n!}{k!\,(n-k)!}$. Ces listes sont incompatibles deux à deux, donc on additionne :
+
+$$
+P(X = k) = \binom{n}{k}\, p^k\, (1 - p)^{n - k}
+$$
+
+C'est la loi binomiale (*binomial distribution*). Avec $n = 4$ et $p = 0{,}5$, chaque liste a la probabilité $0{,}5^4 = 1/16$, et les nombres de listes valent $\binom{4}{0} = 1$, $\binom{4}{1} = 4$, $\binom{4}{2} = 6$, $\binom{4}{3} = 4$, $\binom{4}{4} = 1$. D'où les probabilités $1/16$, $4/16$, $6/16$, $4/16$ et $1/16$, dont la somme vaut bien 1.
+
+</Depliable>
+
+## Un exemple à la main
+
+**Une variable discrète.** Avec 4 clients et $p = 0{,}5$ :
+
+- $P(X = 2) = 6/16 = 0{,}375$ ;
+- $P(X \ge 3) = 4/16 + 1/16 = 5/16 \approx 0{,}31$ ;
+- $P(X = 0) = 1/16 \approx 0{,}06$ : aucun paiement mobile, c'est rare.
+
+**Une variable continue.** Un gbaka passe toutes les 10 minutes, et tu arrives à l'arrêt à un moment quelconque. Ton temps d'attente $T$ est uniforme entre 0 et 10 minutes : sa densité vaut $f_T(t) = 0{,}1$ sur $[0\,;\,10]$ et 0 ailleurs.
+
+- $P(T \le 3) = 3 \times 0{,}1 = 0{,}3$ : l'aire d'un rectangle de largeur 3 et de hauteur 0,1.
+- $P(T = 3)$, exactement 3 minutes et 0 seconde : 0. Pour une variable continue, une valeur précise a une probabilité nulle ; seuls les intervalles comptent.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec $n = 4$, fais varier $p$ de 0,05 à 0,95. Que devient la valeur la plus probable ? Puis passe à $n = 20$ avec $p = 0{,}5$ : quelle forme prend la loi ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $n = 4$, la valeur la plus probable suit $p$ : 0 pour $p = 0{,}05$, 2 pour $p = 0{,}5$, 4 pour $p = 0{,}95$. La loi se décale vers la droite quand les paiements mobiles deviennent courants.
+
+Avec $n = 20$ et $p = 0{,}5$, la loi prend une forme de cloche symétrique autour de 10. Ce n'est pas un hasard : quand on additionne beaucoup de petits hasards indépendants, la loi obtenue ressemble à la [loi normale](/maths/loi-normale/).
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Décrire les sorties d'un modèle.** Le mot suivant choisi par un LLM est une variable aléatoire discrète, qui suit une [loi catégorielle](/maths/loi-categorielle/) sur tout le vocabulaire.
+- **Décrire les données et le bruit.** Une mesure bruitée, comme un prix de trajet, se modélise par une variable continue ; la [loi normale](/maths/loi-normale/) est le choix le plus courant.
+- **Résumer par des nombres.** L'[espérance et la variance](/maths/esperance-variance/) résument une variable aléatoire par sa valeur moyenne et sa dispersion ; le [maximum de vraisemblance](/maths/maximum-vraisemblance/) choisit les paramètres d'une loi à partir de données.
+
+## Les pièges classiques
+
+**« Une variable aléatoire est une variable au sens de l'algèbre. »** Malgré son nom, c'est une fonction : elle transforme chaque résultat possible en nombre. Avant l'expérience, sa valeur n'est pas connue, mais sa loi l'est.
+
+**« Une densité est une probabilité. »** Une densité peut dépasser 1, par exemple 2 sur l'intervalle $[0\,;\,0{,}5]$. Seules les aires sous la courbe sont des probabilités.
+
+**« P(X = 3) = 0 veut dire que 3 est impossible. »** Pour une variable continue, toute valeur précise a une probabilité nulle, et pourtant une valeur finit toujours par se produire. On raisonne sur des intervalles.
+
+## Entraîne-toi
+
+**Exercice 1.** On lance deux dés et $S$ est la somme. Calcule $P(S = 7)$ et $P(S = 2)$.
+
+<Depliable titre="Corrigé">
+
+36 résultats équiprobables. $S = 7$ : 6 résultats, donc $6/36 = 1/6$. $S = 2$ : seulement (1, 1), donc $1/36$.
+
+</Depliable>
+
+**Exercice 2.** Avec $n = 3$ clients et $p = 0{,}8$, calcule la loi du nombre de paiements mobiles.
+
+<Depliable titre="Corrigé">
+
+$P(0) = 0{,}2^3 = 0{,}008$ ; $P(1) = 3 \times 0{,}8 \times 0{,}04 = 0{,}096$ ; $P(2) = 3 \times 0{,}64 \times 0{,}2 = 0{,}384$ ; $P(3) = 0{,}8^3 = 0{,}512$. Somme : 1.
+
+</Depliable>
+
+**Exercice 3.** Le temps d'attente est uniforme sur $[0\,;\,10]$ minutes. Quelle est la probabilité d'attendre entre 4 et 7 minutes ? Plus de 8 minutes ?
+
+<Depliable titre="Corrigé">
+
+$P(4 \le T \le 7) = 3 \times 0{,}1 = 0{,}3$. $P(T > 8) = 2 \times 0{,}1 = 0{,}2$.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "variable aléatoire", en: "random variable", definition: "Fonction qui associe un nombre à chaque résultat d'une expérience aléatoire." },
+  { fr: "loi, distribution", en: "distribution", definition: "Description de la façon dont la probabilité se répartit entre les valeurs d'une variable." },
+  { fr: "fonction de masse", en: "probability mass function", definition: "Pour une variable discrète, la probabilité de chaque valeur." },
+  { fr: "densité", en: "probability density function", definition: "Pour une variable continue, fonction dont les aires donnent les probabilités." },
+  { fr: "loi binomiale", en: "binomial distribution", definition: "Loi du nombre de succès parmi n essais indépendants de probabilité p." }
+]} />
