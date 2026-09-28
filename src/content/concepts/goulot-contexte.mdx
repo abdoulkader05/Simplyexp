@@ -1,0 +1,228 @@
+---
+id: goulot-contexte
+type: concept
+titre: "Le goulot d'étranglement : quand toute une phrase doit tenir dans un seul vecteur"
+sous_titre: "Limite du vecteur de contexte fixe dans les modèles seq2seq"
+domaine: langage
+niveau: 4
+prerequis: [encoder-decoder]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Cho, van Merriënboer, Bahdanau, Bengio, « On the Properties of Neural Machine Translation: Encoder–Decoder Approaches », 2014 — https://arxiv.org/abs/1409.1259 — résumé (les performances se dégradent rapidement quand la longueur de la phrase et le nombre de mots inconnus augmentent)"
+  - "Bahdanau, Cho, Bengio, « Neural Machine Translation by Jointly Learning to Align and Translate », 2014 — https://arxiv.org/abs/1409.0473 — résumé (le vecteur de longueur fixe est conjecturé comme goulot d'étranglement ; proposition de laisser le modèle chercher les parties utiles de la phrase source)"
+  - "Sutskever, Vinyals, Le, « Sequence to Sequence Learning with Neural Networks », 2014 — https://arxiv.org/abs/1409.3215 — phrase représentée par 8 000 nombres"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Dans l'architecture [encodeur-décodeur](/concepts/encoder-decoder/), le décodeur ne voit jamais la phrase source : il ne reçoit que le vecteur de contexte, de taille fixe. Une phrase de cinq mots et un paragraphe de soixante mots doivent tenir dans le même nombre de cases. En 2014, Cho et ses collègues analysent ces modèles et constatent que la qualité des traductions se dégrade rapidement quand les phrases s'allongent. La même année, Bahdanau, Cho et Bengio avancent l'explication : ce vecteur de longueur fixe est un **goulot d'étranglement**.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Plus la phrase source est longue, plus il faut compresser d'informations dans un vecteur de taille fixe, et plus les premiers mots, lus il y a longtemps, y sont effacés.
+</PhraseCle>
+
+## En image
+
+Imagine qu'on te demande de résumer un texte sur un papier de la taille d'un ticket de caisse, puis de le raconter à quelqu'un sans le relire.
+
+- Pour un message de trois lignes, le ticket suffit : tu peux presque tout recopier.
+- Pour une page entière, tu dois choisir : des détails disparaissent, surtout ceux du début, que tu as lus il y a longtemps.
+- Pour un chapitre, le ticket ne contient plus qu'une vague idée, et ton récit devient approximatif.
+
+Là où l'image s'arrête : le réseau ne choisit pas consciemment quoi garder, et il ne sait pas qu'il a oublié quelque chose ; il produit une traduction fluide mais fausse, avec la même assurance.
+
+## Comment ça marche
+
+Deux effets se cumulent.
+
+**1. La capacité ne grandit pas avec la phrase.** Si le vecteur de contexte a $d$ composantes et la phrase $n$ tokens, il reste en moyenne $d / n$ nombres par token. Le système de Sutskever et ses collègues représentait chaque phrase par 8 000 nombres : c'est beaucoup pour 10 mots, mais cela ne double pas quand la phrase double.
+
+**2. Les premiers tokens pèsent moins.** Reprenons un [RNN](/concepts/rnn/) linéaire à un poids, $\mathbf{h}_t = w\, \mathbf{h}_{t-1} + \mathbf{x}_t$, avec $\mathbf{h}_0 = \mathbf{0}$. Le vecteur de contexte est son dernier état :
+
+$$
+\mathbf{c} = \mathbf{h}_n = \sum_{i=1}^{n} w^{\,n-i}\, \mathbf{x}_i
+$$
+
+où :
+- $\mathbf{x}_i$ est l'embedding du token numéro $i$ ;
+- $n$ est la longueur de la phrase ;
+- $w$ est le poids récurrent, ici un nombre entre 0 et 1 ;
+- $w^{\,n-i}$ est le poids du token $i$ dans le contexte : 1 pour le dernier, $w^{\,n-1}$ pour le premier.
+
+Exemple : avec $w = 0{,}9$ et $n = 20$, le premier token pèse $0{,}9^{19} \approx 0{,}135$, le dernier pèse 1. Le contexte est dominé par la fin de la phrase. Une [LSTM](/concepts/lstm/) atténue cet effet grâce à ses portes, mais ne supprime pas la limite de capacité. Fais défiler : le vecteur de contexte a ici 8 cases.
+
+<PasAPas rendu="goulot-entonnoir" label="Des phrases de plus en plus longues versées dans un vecteur de 8 nombres">
+  <Etape etat="initial">
+    **5 tokens** pour 8 nombres : 1,6 nombre par token. Le premier token pèse encore $0{,}9^4 \approx 0{,}66$ dans le contexte.
+  </Etape>
+  <Etape etat="n10">
+    **10 tokens** : 0,8 nombre par token. Le premier pèse $0{,}9^9 \approx 0{,}39$.
+  </Etape>
+  <Etape etat="n20">
+    **20 tokens** : 0,4 nombre par token. Le premier pèse $0{,}135$ : les mots du début sont à peine visibles.
+  </Etape>
+  <Etape etat="n40">
+    **40 tokens** : 0,2 nombre par token, et le premier pèse $0{,}016$. Pour le décodeur, le début de la phrase a presque disparu.
+  </Etape>
+  <Etape etat="attention">
+    **La sortie du goulot.** Au lieu de tout compresser, on garde les états de l'encodeur après chaque token, et le décodeur va consulter ceux dont il a besoin à chaque pas. C'est l'idée de Bahdanau et ses collègues : l'[attention](/concepts/attention/).
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient la somme pondérée par les puissances de w">
+
+On déroule la récurrence $\mathbf{h}_t = w\, \mathbf{h}_{t-1} + \mathbf{x}_t$ en partant de $\mathbf{h}_0 = \mathbf{0}$ :
+
+$$
+\begin{aligned}
+\mathbf{h}_1 &= \mathbf{x}_1 && w \times \mathbf{0} + \mathbf{x}_1 \\
+\mathbf{h}_2 &= w\, \mathbf{x}_1 + \mathbf{x}_2 && \text{on remplace } \mathbf{h}_1 \\
+\mathbf{h}_3 &= w^2\, \mathbf{x}_1 + w\, \mathbf{x}_2 + \mathbf{x}_3 && \text{on remplace } \mathbf{h}_2 \\
+\mathbf{h}_n &= \sum_{i=1}^{n} w^{\,n-i}\, \mathbf{x}_i && \text{par récurrence}
+\end{aligned}
+$$
+
+À chaque pas, tout ce qui était déjà dans l'état est multiplié une fois de plus par $w$. Le token $i$ a subi $n - i$ multiplications : son poids est $w^{\,n-i}$. Avec $w < 1$, ce poids décroît exponentiellement avec l'ancienneté du token. Avec $w > 1$, ce sont au contraire les premiers tokens qui écraseraient les derniers, et l'état exploserait. Un vrai RNN ajoute des matrices et des $\tanh$, mais l'effet d'ensemble reste le même : un état de taille fixe, réécrit à chaque pas.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Combien de nombres par mot ?" niveau="facile" reponse={200} tolerance={0.001}>
+
+Le système de Sutskever et ses collègues résumait chaque phrase en 8 000 nombres. Combien de nombres cela laisse-t-il par token pour une phrase de 40 tokens ? Et pour une phrase de 10 tokens ?
+
+<div slot="solution">
+
+$8\,000 / 40 = 200$ nombres par token, contre $8\,000 / 10 = 800$ pour 10 tokens. La phrase est quatre fois plus longue, chaque token dispose de quatre fois moins de place.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le poids du premier mot" niveau="moyen" reponse={0.107} tolerance={0.01}>
+
+Un RNN linéaire a pour poids récurrent $w = 0{,}8$. Il lit une question d'un client de 11 tokens, qui commence par « Pourquoi ». Quel est le poids de « Pourquoi » dans le vecteur de contexte ?
+
+<div slot="solution">
+
+$w^{\,n-1} = 0{,}8^{10} \approx 0{,}107$. Le mot qui dit quel type de réponse est attendu pèse environ dix fois moins que le dernier mot de la question.
+
+</div>
+</Exercice>
+
+<Exercice titre="Au-delà de quelle longueur ?" niveau="defi" reponse={45} tolerance={0.001}>
+
+Avec $w = 0{,}9$, à partir de quelle longueur de phrase $n$ le poids du premier token, $0{,}9^{\,n-1}$, devient-il inférieur à 1 % ?
+
+<div slot="indice">
+
+Il faut $0{,}9^{\,n-1} < 0{,}01$. Prends le logarithme des deux côtés, sans oublier que $\ln 0{,}9$ est négatif, ce qui inverse l'inégalité.
+
+</div>
+
+<div slot="solution">
+
+$(n - 1) \ln 0{,}9 < \ln 0{,}01$, donc $n - 1 > \ln 0{,}01 / \ln 0{,}9 \approx 43{,}7$, soit $n - 1 \geq 44$ et $n = 45$. Vérification : $0{,}9^{43} \approx 0{,}0108$ et $0{,}9^{44} \approx 0{,}0097$. Au-delà de 45 tokens, une phrase de longueur moyenne pour un texte juridique ou scientifique, le premier token ne compte presque plus.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : on compresse des phrases aléatoires de longueurs croissantes dans un vecteur de contexte, et on mesure ce qu'il reste du premier token.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+d, w = 16, 0.9
+
+def contexte(X):
+    h = np.zeros(d)
+    for x in X:                      # RNN linéaire : h = w h + x
+        h = w * h + x
+    return h
+
+def cos(a, b):
+    return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
+
+for n in [5, 10, 20, 40]:
+    sims = []
+    for _ in range(200):
+        X = rng.normal(size=(n, d))  # n embeddings de tokens, au hasard
+        sims.append(cos(contexte(X), X[0]))
+    print(f"n = {n:2d}  poids du 1er token = {w ** (n - 1):.3f}  "
+          f"similarité moyenne c / 1er token = {np.mean(sims):.3f}")
+```
+
+Plus la phrase est longue, moins le vecteur de contexte ressemble au premier token : l'information s'est diluée. Avec PyTorch, on voit que la sortie d'un encodeur récurrent contient déjà un état par token, que l'architecture de base jette pour ne garder que le dernier :
+
+```python
+# no-run
+import torch
+encodeur = torch.nn.LSTM(input_size=64, hidden_size=256, batch_first=True)
+x = torch.randn(1, 40, 64)
+tous_les_etats, (h_final, c_final) = encodeur(x)
+print(tous_les_etats.shape)   # (1, 40, 256) : ce que l'attention utilisera
+print(h_final.shape)          # (1, 1, 256)  : le seul vecteur transmis en seq2seq de base
+```
+
+## Les pièges classiques
+
+**« Il suffit d'agrandir le vecteur de contexte. »** Cela repousse le problème sans le résoudre : quelle que soit sa taille, un vecteur fixe finit par être trop petit pour un texte assez long, et un plus grand vecteur coûte plus cher à chaque pas.
+
+**« Une LSTM règle le problème. »** Ses portes aident à garder les mots importants plus longtemps. Mais tout doit toujours passer par un état de taille fixe : la contrainte de capacité reste.
+
+**« Le modèle signale quand il a oublié. »** Non : le décodeur produit une traduction fluide à partir de ce qu'il a, même si une partie du sens a disparu. C'est ce qui rend l'erreur difficile à repérer.
+
+## Dans la vraie vie
+
+Ce goulot se voit dès qu'on traduit des phrases longues avec un encodeur-décodeur de base : la fin de la traduction est correcte, le début est approximatif ou omis. Le même problème existe partout où l'on résume une longue entrée en un seul vecteur, par exemple quand on calcule un unique embedding pour un long document dans une [recherche sémantique](/concepts/recherche-semantique/) : c'est une raison pour laquelle on découpe les documents en passages avant de les indexer. La réponse architecturale, garder tous les états et laisser le décodeur choisir où regarder, est le mécanisme d'attention, point de départ des transformers.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi parle-t-on de goulot d'étranglement ?",
+    choix: ["Parce que le décodeur est plus petit que l'encodeur", "Parce que toute la phrase source doit passer par un seul vecteur de taille fixe", "Parce que l'entraînement est lent", "Parce que le vocabulaire est limité"],
+    bonne: 1,
+    explication: "Quelle que soit la longueur de la phrase, le décodeur ne reçoit que le vecteur de contexte."
+  },
+  {
+    question: "Dans un RNN linéaire de poids w = 0,5, quel est le poids du premier token d'une phrase de 4 tokens ?",
+    choix: ["0,5", "0,25", "0,125", "1"],
+    bonne: 2,
+    explication: "w puissance (n − 1) = 0,5 au cube = 0,125."
+  },
+  {
+    question: "Quelle idée a permis de sortir de ce goulot ?",
+    choix: ["Supprimer l'encodeur", "Garder tous les états de l'encodeur et laisser le décodeur consulter ceux dont il a besoin", "Traduire mot à mot", "Utiliser un vocabulaire plus grand"],
+    bonne: 1,
+    explication: "C'est le mécanisme d'attention proposé par Bahdanau, Cho et Bengio."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi les modèles seq2seq de base traduisent-ils mal les phrases longues ?">
+
+Toute l'information de la phrase source doit être comprimée dans le dernier état de l'encodeur, un vecteur de taille fixe, dont la capacité ne grandit pas avec la longueur. De plus, comme cet état est réécrit à chaque pas, les premiers tokens y sont atténués ; les LSTM limitent cet effet sans supprimer la contrainte de capacité. Empiriquement, la qualité chute avec la longueur, ce que Cho et ses collègues ont observé en 2014. Les remèdes historiques ont été d'inverser la phrase source, qui rapproche les débuts des deux phrases, puis surtout l'attention : on conserve tous les états de l'encodeur et le décodeur calcule à chaque pas une combinaison pondérée de ces états, adaptée au mot qu'il est en train de produire.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "goulot d'étranglement", en: "bottleneck", definition: "Passage obligé de taille fixe par lequel toute l'information doit transiter." },
+  { fr: "vecteur de contexte", en: "context vector", definition: "Dernier état de l'encodeur, seul lien entre la phrase source et le décodeur dans un seq2seq de base." },
+  { fr: "biais de récence", en: "recency bias", definition: "Tendance d'un état réécrit à chaque pas à surtout refléter les derniers éléments lus." }
+]} />
