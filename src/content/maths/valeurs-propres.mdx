@@ -1,0 +1,170 @@
+---
+id: valeurs-propres
+type: maths
+titre: "Valeurs propres : les directions qu'une matrice préfère"
+sous_titre: "Vecteurs et valeurs propres, intuition géométrique"
+domaine: algebre-lineaire
+niveau: 3
+prerequis: [produit-matriciel]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 4 (Matrix Decompositions), déterminant, valeurs et vecteurs propres"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), décomposition en éléments propres"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un réseau récurrent multiplie son état par la même matrice à chaque pas de temps. Après 50 pas, certaines directions ont explosé et d'autres ont disparu. Lesquelles ? Les valeurs propres répondent : elles disent de combien une matrice étire chacune de ses directions préférées. Elles expliquent le [gradient qui disparaît](/concepts/gradient-evanescent/) et préparent la [SVD](/maths/svd/).
+
+## L'intuition
+
+Une matrice agit sur un vecteur par le [produit matriciel](/maths/produit-matriciel/). En général, elle le fait tourner et le change de longueur. Mais il existe parfois des directions privilégiées : la matrice y étire le vecteur, ou le rétrécit, sans le faire tourner du tout.
+
+Fais tourner $\mathbf{v}$ avec le curseur et regarde $\mathbf{A}\mathbf{v}$, en doré. La plupart du temps, les deux flèches font un angle. À quelques positions précises, elles s'alignent : $\mathbf{v}$ est alors un vecteur propre.
+
+<Simulation
+  rendu="vecteur-propre"
+  label="Un vecteur v de longueur 1 qui tourne et son image A v"
+  parametres={[
+    { nom: "theta", label: "Direction de v", min: 0, max: 359, pas: 1, valeur: 20, role: "entree", unite: "°" }
+  ]}
+  legende="Le cercle pointillé contient tous les v de longueur 1 ; la courbe dorée, toutes leurs images Av."
+/>
+
+## La définition
+
+Soit $\mathbf{A}$ une matrice carrée de taille $n \times n$. Un vecteur non nul $\mathbf{v}$ est un vecteur propre (*eigenvector*) de $\mathbf{A}$ s'il existe un nombre $\lambda$ tel que :
+
+$$
+\mathbf{A}\mathbf{v} = \lambda\, \mathbf{v}
+$$
+
+où :
+- $\mathbf{v}$ est le vecteur propre, obligatoirement différent de $\mathbf{0}$ ;
+- $\lambda$ est la valeur propre (*eigenvalue*) associée : le facteur d'étirement ;
+- $\mathbf{A}\mathbf{v}$ est le produit de la matrice par le vecteur.
+
+Autrement dit : un vecteur propre garde sa direction quand on lui applique la matrice ; la valeur propre dit par combien sa longueur est multipliée. Si $\lambda$ est négatif, il fait en plus demi-tour.
+
+Pour une matrice $2 \times 2$, on trouve les valeurs propres avec le déterminant (*determinant*), défini par :
+
+$$
+\det \begin{pmatrix} a & b \\ c & d \end{pmatrix} = ad - bc
+$$
+
+où :
+- $a$, $b$, $c$, $d$ sont les quatre éléments de la matrice ;
+- $|ad - bc|$ est l'aire du parallélogramme construit sur les deux colonnes, vue dans la fiche sur le [rang](/maths/rang-matrice/).
+
+Les valeurs propres de $\mathbf{A}$ sont les nombres $\lambda$ tels que $\det(\mathbf{A} - \lambda \mathbf{I}) = 0$, où $\mathbf{I} = \begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix}$ est la matrice identité (*identity matrix*).
+
+<Depliable titre="Pourquoi le déterminant doit s'annuler">
+
+On part de la définition et on regroupe tout d'un côté :
+
+$$
+\begin{aligned}
+\mathbf{A}\mathbf{v} = \lambda \mathbf{v}
+&\iff \mathbf{A}\mathbf{v} - \lambda \mathbf{I}\mathbf{v} = \mathbf{0} && \mathbf{I}\mathbf{v} = \mathbf{v} \\
+&\iff (\mathbf{A} - \lambda \mathbf{I})\,\mathbf{v} = \mathbf{0} && \text{distributivité du produit matriciel}
+\end{aligned}
+$$
+
+Écris $\mathbf{v} = (v_1\,;\,v_2)$ et appelle $\mathbf{k}_1$, $\mathbf{k}_2$ les colonnes de $\mathbf{A} - \lambda\mathbf{I}$. L'égalité dit $v_1 \mathbf{k}_1 + v_2 \mathbf{k}_2 = \mathbf{0}$ avec $v_1$ et $v_2$ pas tous deux nuls. Les deux colonnes sont donc liées : le rang de $\mathbf{A} - \lambda\mathbf{I}$ est inférieur à 2, le parallélogramme de ses colonnes est plat, et son aire $|\det(\mathbf{A} - \lambda\mathbf{I})|$ vaut 0.
+
+Avec $\mathbf{A} = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix}$ :
+
+$$
+\begin{aligned}
+\det(\mathbf{A} - \lambda \mathbf{I}) &= (2 - \lambda)(2 - \lambda) - 1 \times 1 && \text{formule } ad - bc \\
+&= (2 - \lambda)^2 - 1 && \\
+&= (2 - \lambda - 1)(2 - \lambda + 1) && x^2 - 1 = (x - 1)(x + 1) \\
+&= (1 - \lambda)(3 - \lambda) &&
+\end{aligned}
+$$
+
+Ce produit s'annule pour $\lambda = 1$ ou $\lambda = 3$ : ce sont les deux valeurs propres.
+
+</Depliable>
+
+## Un exemple à la main
+
+Avec $\mathbf{A} = \begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix}$ :
+
+- $\mathbf{A}\,(1\,;\,1) = (2 + 1\,;\,1 + 2) = (3\,;\,3) = 3\,(1\,;\,1)$ : vecteur propre, valeur propre 3.
+- $\mathbf{A}\,(1\,;\,-1) = (2 - 1\,;\,1 - 2) = (1\,;\,-1)$ : vecteur propre, valeur propre 1.
+- $\mathbf{A}\,(1\,;\,0) = (2\,;\,1)$ : ce n'est pas un multiple de $(1\,;\,0)$, donc pas un vecteur propre.
+
+Pourquoi c'est utile : applique $\mathbf{A}$ dix fois à $(1\,;\,0)$. On écrit d'abord $(1\,;\,0) = \frac{1}{2}(1\,;\,1) + \frac{1}{2}(1\,;\,-1)$. Chaque morceau est un vecteur propre, donc chaque application le multiplie par sa valeur propre :
+
+$$
+\mathbf{A}^{10}\,(1\,;\,0) = \tfrac{1}{2} \times 3^{10}\,(1\,;\,1) + \tfrac{1}{2} \times 1^{10}\,(1\,;\,-1) = (29\,525\,;\,29\,524)
+$$
+
+Le calcul tient en une ligne, au lieu de dix produits matriciels. Et on voit que la direction de valeur propre 3 écrase tout le reste.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve les quatre directions où $\mathbf{v}$ et $\mathbf{A}\mathbf{v}$ sont alignés, et lis la valeur propre à chaque fois. Où $\mathbf{A}\mathbf{v}$ est-il le plus long ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Les flèches s'alignent à 45° et 225°, avec $\mathbf{A}\mathbf{v} = 3\,\mathbf{v}$, puis à 135° et 315°, avec $\mathbf{A}\mathbf{v} = \mathbf{v}$. Deux directions opposées donnent la même valeur propre : si $\mathbf{v}$ est propre, $-\mathbf{v}$ l'est aussi.
+
+$\mathbf{A}\mathbf{v}$ est le plus long à 45° et 225°, sur le grand axe de la courbe dorée, et le plus court à 135° et 315°. Pour cette matrice symétrique, les axes de la courbe sont exactement les directions propres.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Les gradients qui explosent ou disparaissent.** Répéter une multiplication par une matrice multiplie chaque direction propre par $\lambda^k$. Si $|\lambda| > 1$, elle explose ; si $|\lambda| < 1$, elle s'éteint. C'est le mécanisme du [gradient qui disparaît](/concepts/gradient-evanescent/) dans les réseaux récurrents.
+- **La SVD.** La [SVD](/maths/svd/) s'obtient à partir des valeurs et vecteurs propres de $\mathbf{A}^\top\mathbf{A}$. Elle sert à compresser et à réduire la dimension.
+- **L'optimisation.** Autour d'un minimum, la forme de la [fonction de perte](/maths/fonction-perte/) est décrite par une matrice symétrique. Ses valeurs propres disent dans quelles directions la vallée est raide ou plate, ce qui limite le [learning rate](/maths/learning-rate/) utilisable.
+
+## Les pièges classiques
+
+**« Le vecteur nul est un vecteur propre. »** On a bien $\mathbf{A}\,\mathbf{0} = \lambda\,\mathbf{0}$ pour tout $\lambda$. C'est justement pour ça qu'on l'exclut : il donnerait toutes les valeurs propres à la fois. La définition exige $\mathbf{v} \neq \mathbf{0}$.
+
+**« Toute matrice a des vecteurs propres réels. »** La rotation d'un quart de tour $\begin{pmatrix} 0 & -1 \\ 1 & 0 \end{pmatrix}$ fait tourner toutes les directions : aucune ne reste en place. Son déterminant $\det(\mathbf{A} - \lambda \mathbf{I}) = \lambda^2 + 1$ ne s'annule pour aucun nombre réel.
+
+**« Il y a un seul vecteur propre par valeur propre. »** Si $\mathbf{v}$ est propre, $2\,\mathbf{v}$ et $-\mathbf{v}$ le sont aussi, avec la même valeur propre. Ce qui est unique, c'est la direction (et encore, pas toujours).
+
+## Entraîne-toi
+
+**Exercice 1.** Vérifie que $(1\,;\,2)$ est un vecteur propre de $\begin{pmatrix} 3 & 0 \\ 4 & 1 \end{pmatrix}$, et donne sa valeur propre.
+
+<Depliable titre="Corrigé">
+
+$\begin{pmatrix} 3 & 0 \\ 4 & 1 \end{pmatrix}(1\,;\,2) = (3\,;\,4 + 2) = (3\,;\,6) = 3\,(1\,;\,2)$. C'est un vecteur propre, de valeur propre 3.
+
+</Depliable>
+
+**Exercice 2.** Trouve les valeurs propres de $\begin{pmatrix} 4 & 1 \\ 2 & 3 \end{pmatrix}$.
+
+<Depliable titre="Corrigé">
+
+$\det(\mathbf{A} - \lambda\mathbf{I}) = (4 - \lambda)(3 - \lambda) - 2 = \lambda^2 - 7\lambda + 10 = (\lambda - 2)(\lambda - 5)$. Les valeurs propres sont 2 et 5. Vérification : pour $\lambda = 5$, le vecteur $(1\,;\,1)$ donne $(5\,;\,5)$.
+
+</Depliable>
+
+**Exercice 3.** Un réseau récurrent simplifié multiplie son état par $\mathbf{W} = \begin{pmatrix} 0{,}5 & 0 \\ 0 & 1{,}2 \end{pmatrix}$ à chaque pas. Que deviennent les deux coordonnées d'un état $(1\,;\,1)$ après 20 pas ? Lien avec l'apprentissage ?
+
+<Depliable titre="Corrigé">
+
+La matrice est diagonale : $(1\,;\,0)$ est propre de valeur 0,5, et $(0\,;\,1)$ propre de valeur 1,2. Après 20 pas : $0{,}5^{20} \approx 0{,}000\,001$ et $1{,}2^{20} \approx 38{,}3$. La première coordonnée a disparu, la seconde a été multipliée par plus de 38. Les gradients qui remontent le temps subissent le même sort : c'est pourquoi on a inventé les [LSTM](/concepts/lstm/).
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "vecteur propre", en: "eigenvector", definition: "Vecteur non nul dont la direction ne change pas quand on lui applique la matrice." },
+  { fr: "valeur propre", en: "eigenvalue", definition: "Facteur λ par lequel la matrice multiplie un vecteur propre : Av = λv." },
+  { fr: "déterminant", en: "determinant", definition: "Pour une matrice 2 × 2, ad − bc ; sa valeur absolue est l'aire du parallélogramme des colonnes." },
+  { fr: "matrice identité", en: "identity matrix", definition: "Matrice carrée avec des 1 sur la diagonale et des 0 ailleurs ; elle ne change aucun vecteur." }
+]} />
