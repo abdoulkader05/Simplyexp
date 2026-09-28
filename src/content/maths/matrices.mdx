@@ -1,0 +1,207 @@
+---
+id: matrices
+type: maths
+titre: "Les matrices : le tableur qui fait tourner les réseaux de neurones"
+sous_titre: "Matrices, dimensions et opérations de base"
+domaine: algebre-lineaire
+niveau: 1
+prerequis: [vecteurs]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 2 (Linear Algebra), section sur les matrices"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), scalaires, vecteurs, matrices et transposée"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape, Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un jeu de données, c'est beaucoup de [vecteurs](/maths/vecteurs/) de même dimension, un par exemple. Empilés, ils forment un tableau de nombres : une matrice. Les poids d'une couche de réseau de neurones forment eux aussi une matrice, et le [produit matriciel](/maths/produit-matriciel/) fait travailler l'une sur l'autre. Avant de multiplier, il faut savoir lire.
+
+## L'intuition
+
+Une vendeuse du marché tient un cahier. Chaque jour, elle écrit une ligne : ce qu'elle a vendu de tomates (en kg), d'oignons (en kg) et de piment (en tas). Au bout de trois jours, son cahier est un tableau de trois lignes et trois colonnes. Ce tableau, lu par un mathématicien, s'appelle une matrice. Fais défiler : chaque étape montre une façon de le lire.
+
+<PasAPas rendu="matrice-lecture" label="Lecture d'une matrice de ventes">
+  <Etape etat="initial">
+    Voici le cahier de la semaine, recopié tel quel. Une ligne par jour, une colonne par produit. On l'appelle $\mathbf{A}$.
+  </Etape>
+  <Etape etat="ligne">
+    **Une ligne, c'est un jour.** La deuxième ligne, $(3\,;\,5\,;\,1)$, raconte mardi : 3 kg de tomates, 5 kg d'oignons, 1 tas de piment. Chaque ligne est un vecteur.
+  </Etape>
+  <Etape etat="colonne">
+    **Une colonne, c'est un produit.** La troisième colonne, $(6\,;\,1\,;\,8)$, suit le piment d'un jour à l'autre. Chaque colonne est aussi un vecteur.
+  </Etape>
+  <Etape etat="element">
+    **Un élément, c'est une case.** On le repère par deux numéros, toujours dans le même ordre : d'abord la ligne, ensuite la colonne. L'élément $a_{23}$ est à la ligne 2, colonne 3 : mardi, piment, il vaut 1.
+  </Etape>
+  <Etape etat="transposee">
+    **La transposée retourne le tableau.** Les lignes deviennent des colonnes. La matrice $\mathbf{A}^\top$ a une ligne par produit et une colonne par jour. La case $a_{23}$ se retrouve en position $(3, 2)$.
+  </Etape>
+</PasAPas>
+
+## La définition
+
+Une matrice de taille $m \times n$ est un tableau de nombres réels à $m$ lignes et $n$ colonnes :
+
+$$
+\mathbf{A} = \begin{pmatrix} a_{11} & a_{12} & \cdots & a_{1n} \\ a_{21} & a_{22} & \cdots & a_{2n} \\ \vdots & \vdots & & \vdots \\ a_{m1} & a_{m2} & \cdots & a_{mn} \end{pmatrix} \in \mathbb{R}^{m \times n}
+$$
+
+où :
+- $\mathbf{A}$ est la matrice, écrite en majuscule grasse ;
+- $a_{ij}$ est l'élément de la ligne $i$ et de la colonne $j$ ;
+- $m$ est le nombre de lignes, $n$ le nombre de colonnes ;
+- $\mathbb{R}^{m \times n}$ est l'ensemble des matrices de cette taille.
+
+Trois opérations de base, pour $\mathbf{A}$ et $\mathbf{B}$ de même taille et un nombre $k$ :
+
+$$
+(\mathbf{A} + \mathbf{B})_{ij} = a_{ij} + b_{ij} \qquad (k\,\mathbf{A})_{ij} = k\,a_{ij} \qquad (\mathbf{A}^\top)_{ij} = a_{ji}
+$$
+
+où :
+- $(\mathbf{A} + \mathbf{B})_{ij}$ est l'élément $(i, j)$ de la somme, calculé case par case ;
+- $k\,\mathbf{A}$ multiplie chaque case par $k$ ;
+- $\mathbf{A}^\top$ est la transposée (*transpose*) : si $\mathbf{A}$ est de taille $m \times n$, alors $\mathbf{A}^\top$ est de taille $n \times m$.
+
+Autrement dit : une matrice est un vecteur rangé en tableau. On l'additionne et on l'étire case par case, comme un vecteur, et on peut en plus la retourner.
+
+<Depliable titre="Deux propriétés de la transposée">
+
+**Transposer deux fois ramène au départ.** Pour toute case $(i, j)$ :
+
+$$
+\begin{aligned}
+\big((\mathbf{A}^\top)^\top\big)_{ij} &= (\mathbf{A}^\top)_{ji} && \text{définition de la transposée, appliquée à } \mathbf{A}^\top \\
+&= a_{ij} && \text{définition de la transposée, appliquée à } \mathbf{A}
+\end{aligned}
+$$
+
+Donc $(\mathbf{A}^\top)^\top = \mathbf{A}$.
+
+**La transposée d'une somme est la somme des transposées.**
+
+$$
+\begin{aligned}
+\big((\mathbf{A} + \mathbf{B})^\top\big)_{ij} &= (\mathbf{A} + \mathbf{B})_{ji} && \text{définition de la transposée} \\
+&= a_{ji} + b_{ji} && \text{définition de la somme} \\
+&= (\mathbf{A}^\top)_{ij} + (\mathbf{B}^\top)_{ij} && \text{définition de la transposée, deux fois}
+\end{aligned}
+$$
+
+Donc $(\mathbf{A} + \mathbf{B})^\top = \mathbf{A}^\top + \mathbf{B}^\top$.
+
+</Depliable>
+
+## Un exemple à la main
+
+Le cahier de la première semaine et celui de la deuxième :
+
+$$
+\mathbf{A} = \begin{pmatrix} 4 & 2 & 6 \\ 3 & 5 & 1 \\ 2 & 2 & 8 \end{pmatrix} \qquad \mathbf{B} = \begin{pmatrix} 1 & 0 & 2 \\ 2 & 1 & 0 \\ 3 & 1 & 1 \end{pmatrix}
+$$
+
+Ventes cumulées, case par case. Première ligne : $4 + 1 = 5$, $2 + 0 = 2$, $6 + 2 = 8$. Et ainsi de suite :
+
+$$
+\mathbf{A} + \mathbf{B} = \begin{pmatrix} 5 & 2 & 8 \\ 5 & 6 & 1 \\ 5 & 3 & 9 \end{pmatrix}
+$$
+
+Si la vendeuse double tout la semaine suivante, elle vend $2\,\mathbf{A}$ : première ligne $(8\,;\,4\,;\,12)$.
+
+La transposée de $\mathbf{A}$ s'obtient en écrivant chaque colonne de $\mathbf{A}$ comme une ligne :
+
+$$
+\mathbf{A}^\top = \begin{pmatrix} 4 & 3 & 2 \\ 2 & 5 & 2 \\ 6 & 1 & 8 \end{pmatrix}
+$$
+
+Vérification sur une case : $(\mathbf{A}^\top)_{32} = a_{23} = 1$.
+
+Un tableau non carré, maintenant. Si la vendeuse ne note que les tomates et les oignons sur trois jours, son cahier est une matrice $3 \times 2$, et sa transposée est de taille $2 \times 3$.
+
+## Essaie toi-même
+
+Choisis une ligne $i$ et une colonne $j$ : la case $a_{ij}$ s'allume.
+
+<Simulation
+  rendu="matrice-lecture"
+  label="Matrice des ventes avec la case choisie mise en évidence"
+  parametres={[
+    { nom: "i", label: "Ligne i", min: 1, max: 3, pas: 1, valeur: 2, role: "entree" },
+    { nom: "j", label: "Colonne j", min: 1, max: 3, pas: 1, valeur: 3, role: "entree" }
+  ]}
+  legende="Le premier indice désigne toujours la ligne, le second la colonne."
+/>
+
+Consigne : trouve $a_{32}$ puis $a_{23}$. Sont-ils égaux ? Existe-t-il une case $a_{ij}$ avec $i \neq j$ égale à sa symétrique $a_{ji}$ ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+$a_{32} = 2$ : mercredi, oignons. $a_{23} = 1$ : mardi, piment. Ils sont différents : échanger les indices change de case.
+
+Il n'y a que trois paires à tester : $a_{12} = 2$ contre $a_{21} = 3$, $a_{13} = 6$ contre $a_{31} = 2$, et $a_{23} = 1$ contre $a_{32} = 2$. Aucune n'est égale : $\mathbf{A}$ est différente de sa transposée. Une matrice qui l'est, comme $\begin{pmatrix} 2 & 1 \\ 1 & 2 \end{pmatrix}$, est dite symétrique (*symmetric*). On en recroisera dans la fiche [valeurs propres](/maths/valeurs-propres/).
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Les données.** Un jeu de $m$ exemples décrits chacun par $n$ nombres forme une matrice $m \times n$ : une ligne par exemple, une colonne par caractéristique. C'est ainsi qu'on la donne à la [régression linéaire](/concepts/regression-lineaire/).
+- **Les images.** Une photo en niveaux de gris est une matrice : l'élément $a_{ij}$ est la luminosité du pixel de la ligne $i$, colonne $j$.
+- **Les poids.** Une couche de réseau de neurones range ses poids dans une matrice, et la fait agir sur les données par le [produit matriciel](/maths/produit-matriciel/). La transposée y apparaît sans cesse, par exemple dans $\mathbf{Q}\mathbf{K}^\top$ au cœur des Transformers.
+
+## Les pièges classiques
+
+**« Une matrice $3 \times 2$ a 3 colonnes. »** On y croit parce qu'on lit souvent la largeur en premier. Mais la convention est fixe : d'abord les lignes, ensuite les colonnes. Une matrice $3 \times 2$ a 3 lignes et 2 colonnes.
+
+**« $a_{23}$ et $a_{32}$, c'est pareil. »** On y croit parce que ce sont les mêmes chiffres. Mais l'ordre compte : dans le cahier, $a_{23}$ est le piment de mardi, $a_{32}$ les oignons de mercredi. Ils valent 1 et 2.
+
+**« La transposée garde la taille. »** C'est vrai seulement pour une matrice carrée. Une matrice $3 \times 2$ devient $2 \times 3$. Oublier ce changement est la première cause d'erreurs de dimension dans du code NumPy ou PyTorch.
+
+## Entraîne-toi
+
+**Exercice 1.** Soit $\mathbf{M} = \begin{pmatrix} 1 & -2 & 0 \\ 4 & 3 & 5 \end{pmatrix}$. Donne sa taille, $m_{21}$, $m_{13}$ et $\mathbf{M}^\top$.
+
+<Depliable titre="Corrigé">
+
+$\mathbf{M}$ a 2 lignes et 3 colonnes : taille $2 \times 3$. $m_{21} = 4$ (ligne 2, colonne 1) et $m_{13} = 0$.
+
+$$
+\mathbf{M}^\top = \begin{pmatrix} 1 & 4 \\ -2 & 3 \\ 0 & 5 \end{pmatrix}
+$$
+
+de taille $3 \times 2$.
+
+</Depliable>
+
+**Exercice 2.** Calcule $2\,\mathbf{A} - \mathbf{B}$ pour $\mathbf{A} = \begin{pmatrix} 1 & 2 \\ 0 & 3 \end{pmatrix}$ et $\mathbf{B} = \begin{pmatrix} 2 & 2 \\ 1 & 5 \end{pmatrix}$.
+
+<Depliable titre="Corrigé">
+
+$2\,\mathbf{A} = \begin{pmatrix} 2 & 4 \\ 0 & 6 \end{pmatrix}$, puis on soustrait case par case :
+
+$$
+2\,\mathbf{A} - \mathbf{B} = \begin{pmatrix} 2 - 2 & 4 - 2 \\ 0 - 1 & 6 - 5 \end{pmatrix} = \begin{pmatrix} 0 & 2 \\ -1 & 1 \end{pmatrix}
+$$
+
+</Depliable>
+
+**Exercice 3.** Une agence mobile money enregistre, pour 500 clients, 4 nombres : âge, nombre de transferts du mois, montant moyen, ancienneté. Quelle est la taille de la matrice des données ? Que représente une colonne ? Quelle est la taille de sa transposée ?
+
+<Depliable titre="Corrigé">
+
+Une ligne par client, une colonne par caractéristique : la matrice est de taille $500 \times 4$. Une colonne regroupe une même caractéristique pour les 500 clients, par exemple tous les âges. La transposée est de taille $4 \times 500$ : une ligne par caractéristique.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "matrice", en: "matrix", definition: "Tableau de nombres à m lignes et n colonnes." },
+  { fr: "élément", en: "entry", definition: "Le nombre a_ij situé à la ligne i et à la colonne j." },
+  { fr: "transposée", en: "transpose", definition: "Matrice obtenue en échangeant lignes et colonnes : (Aᵀ)ij = aji." },
+  { fr: "matrice symétrique", en: "symmetric matrix", definition: "Matrice carrée égale à sa transposée." }
+]} />
