@@ -79,6 +79,8 @@ Pour 8 issues équiprobables, $H = \log_2 8 = 3$ bits : il faut en moyenne trois
 - Surprise s'il fait sec : $-\log_2 0{,}9 \approx 0{,}152$ bit.
 - Entropie : $0{,}1 \times 3{,}32 + 0{,}9 \times 0{,}152 \approx 0{,}332 + 0{,}137 = 0{,}469$ bit.
 
+Pourquoi un logarithme pour mesurer la surprise ? Parce qu'on veut que l'information de deux événements indépendants s'additionne. Apprendre qu'il pleuvra demain **et** que le dé est tombé sur 6 doit apporter l'information de la pluie plus celle du dé. Comme les probabilités se multiplient ($0{,}1 \times 1/6$), il faut une fonction qui transforme les produits en sommes : c'est exactement le logarithme, et $-\log_2(0{,}1/6) = 3{,}32 + 2{,}58 = 5{,}91$ bits.
+
 **La saison des pluies** : $p = 0{,}5$. Entropie : $0{,}5 \times 1 + 0{,}5 \times 1 = 1$ bit, le maximum pour deux issues.
 
 **Le mot suivant.** Après « je vais au », un modèle donne (0,4 ; 0,25 ; 0,15 ; 0,1 ; 0,1) à cinq mots. Entropie : $0{,}4 \times 1{,}32 + 0{,}25 \times 2 + 0{,}15 \times 2{,}74 + 2 \times 0{,}1 \times 3{,}32 \approx 0{,}529 + 0{,}5 + 0{,}411 + 0{,}664 = 2{,}10$ bits. Avec cinq mots équiprobables, on aurait $\log_2 5 \approx 2{,}32$ bits : le modèle est un peu moins incertain que s'il hésitait au hasard.
