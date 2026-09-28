@@ -1,0 +1,201 @@
+---
+id: connexions-residuelles
+type: concept
+titre: "Les connexions résiduelles : l'autoroute qui permet d'empiler 100 couches"
+sous_titre: "Skip connections et réseaux résiduels"
+domaine: deep-learning
+niveau: 4
+prerequis: [gradient-evanescent]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "He, Zhang, Ren, Sun, « Deep Residual Learning for Image Recognition », arXiv 1512.03385, v1 du 10 décembre 2015 — https://arxiv.org/abs/1512.03385 — résumé, introduction et figure 1 (réseaux simples de 20 et 56 couches sur CIFAR-10), section 3.1 (F(x) + x), résultats ImageNet (152 couches, 3,57 %)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.1 (connexion résiduelle autour de chaque sous-couche, LayerNorm(x + Sublayer(x)))"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Même avec des ReLU et une bonne initialisation, empiler des couches finissait par nuire. En 2015, une équipe de Microsoft Research menée par Kaiming He observe un fait déroutant : sur le jeu d'images CIFAR-10, un réseau « simple » de 56 couches a une erreur d'*entraînement* plus élevée qu'un réseau de 20 couches. Ce n'est pas du [surapprentissage](/concepts/surapprentissage/), puisque le grand réseau fait moins bien sur ses propres données. C'est un problème d'optimisation : les couches en trop ne parviennent même pas à apprendre à ne rien faire. Leur solution tient en un signe « + ».
+
+## L'idée en une phrase
+
+<PhraseCle>
+Au lieu de demander à chaque bloc de couches de tout recalculer, on lui fait ajouter une correction à son entrée, qui passe telle quelle par un raccourci.
+</PhraseCle>
+
+## En image
+
+Sur un grand axe routier, un chauffeur de car doit aller d'Abidjan à Yamoussoukro. La route principale traverse une vingtaine de villages, avec des arrêts à chacun. Une autoroute contourne les villages : on peut rester dessus et ne faire que les détours utiles.
+
+- L'autoroute est le raccourci, la connexion résiduelle, qui transmet l'entrée sans la modifier.
+- Chaque détour par un village est une branche de couches qui calcule une correction $F$.
+- Arriver à destination, c'est la somme de la route directe et des détours choisis.
+- Pendant l'apprentissage, le signal d'erreur peut lui aussi revenir par l'autoroute, sans s'arrêter dans chaque village.
+
+Là où l'image s'arrête : un car doit choisir entre l'autoroute et le village. Dans un réseau résiduel, les deux chemins sont toujours empruntés en même temps, et leurs résultats s'additionnent.
+
+## Comment ça marche
+
+Un bloc résiduel (*residual block*) calcule :
+
+<FormuleVivante
+  tex="\htmlClass{t-y}{\mathbf{h}_{k+1}} = \htmlClass{t-x}{\mathbf{h}_k} + \htmlClass{t-F}{F}(\htmlClass{t-x}{\mathbf{h}_k})"
+  termes={{
+    x: { role: "entree", texte: "l'entrée du bloc, qui passe aussi par le raccourci" },
+    F: { role: "parametre", texte: "la branche : quelques couches (linéaires, activations, normalisation) avec des poids appris" },
+    y: { role: "sortie", texte: "la sortie : l'entrée plus la correction calculée par la branche" }
+  }}
+  label="Bloc résiduel"
+/>
+
+où :
+- $\mathbf{h}_k$ est l'entrée du bloc ;
+- $F$ est la branche résiduelle, par exemple deux couches linéaires avec une ReLU entre elles ;
+- $\mathbf{h}_{k+1}$ est la sortie, de même dimension que l'entrée pour que l'addition ait un sens.
+
+He et ses coauteurs le formulent ainsi : si la transformation qu'on voudrait apprendre est $H(\mathbf{x})$, on laisse les couches apprendre plutôt le résidu $F(\mathbf{x}) = H(\mathbf{x}) - \mathbf{x}$. Si le meilleur choix est de ne rien faire, il suffit que <Terme id="F">la branche</Terme> apprenne $F = 0$, ce qui est bien plus facile que d'apprendre l'identité avec des poids.
+
+Le vrai gain se voit dans la passe arrière. En dimension 1, $h_{k+1} = h_k + F(h_k)$ donne $\frac{\partial h_{k+1}}{\partial h_k} = 1 + F'(h_k)$. Si la branche a une pente $b = 0{,}1$, un réseau simple multiplie le gradient par 0,1 à chaque couche ; sur 30 couches, la première reçoit $0{,}1^{29} = 10^{-29}$ fois le gradient de la dernière. Avec les raccourcis, le facteur devient $1{,}1$, et la première couche reçoit $1{,}1^{29} \approx 15{,}9$ fois le gradient. Avec une pente $b = -0{,}02$, on obtient $0{,}98^{29} \approx 0{,}56$ : le gradient arrive presque intact.
+
+<Simulation
+  rendu="residuel-gradient"
+  label="Gradient reçu par chaque couche, sans et avec connexions résiduelles"
+  parametres={[
+    { nom: "couches", label: "Nombre de couches", min: 2, max: 40, pas: 1, valeur: 30, role: "entree" },
+    { nom: "pente", label: "Pente de la branche b", min: -0.3, max: 0.3, pas: 0.01, valeur: 0.1, role: "parametre", decimales: 2 }
+  ]}
+  legende="Échelle logarithmique. Le trait pointillé marque un gradient égal à celui de la dernière couche."
+/>
+
+Grâce à ce principe, l'équipe de He a entraîné des réseaux de 152 couches sur ImageNet, huit fois plus profonds que les réseaux VGG de l'époque ; un ensemble de ces réseaux a obtenu 3,57 % d'erreur sur le test d'ImageNet et la première place de la compétition ILSVRC 2015.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Le gradient à travers plusieurs blocs.** Pour des vecteurs, notons $\mathbf{J}_k$ la matrice des dérivées de la branche $F$ au bloc $k$. La règle de la chaîne donne, entre le bloc $j$ et le bloc $L$ :
+
+$$
+\frac{\partial \mathbf{h}_L}{\partial \mathbf{h}_j} = \prod_{k=j}^{L-1} \big(\mathbf{I} + \mathbf{J}_k\big)
+$$
+
+où $\mathbf{I}$ est la matrice identité. En développant ce produit, on obtient $\mathbf{I}$ plus des termes qui contiennent au moins un $\mathbf{J}_k$ :
+
+$$
+\prod_{k} (\mathbf{I} + \mathbf{J}_k) = \mathbf{I} + \sum_{k} \mathbf{J}_k + \sum_{k < k'} \mathbf{J}_{k'} \mathbf{J}_k + \dots
+$$
+
+Le premier terme, $\mathbf{I}$, transporte le gradient de la sortie jusqu'au bloc $j$ **sans aucune atténuation**, quelle que soit la profondeur. Dans un réseau simple, au contraire, il n'y a que le dernier terme, le produit de toutes les matrices $\mathbf{J}_k$, qui s'éteint exponentiellement si elles sont « petites ».
+
+**Une somme de chemins.** On peut lire ce développement comme la somme de tous les chemins possibles à travers le réseau : chaque bloc est soit traversé, soit court-circuité. Un réseau résiduel de $n$ blocs contient ainsi $2^n$ chemins de longueurs variées, dont beaucoup sont courts, et c'est par eux que le gradient passe facilement.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec 30 couches, cherche une pente de branche pour laquelle le réseau simple reçoit encore un gradient raisonnable. Puis cherche les pentes pour lesquelles le réseau résiduel pose problème.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Pour le réseau simple, aucune pente entre $-0{,}3$ et $0{,}3$ ne marche : même avec $|b| = 0{,}3$, la première couche reçoit $0{,}3^{29} \approx 7 \times 10^{-16}$ fois le gradient. Il faudrait une pente proche de 1 à chaque couche, ce que rien ne garantit.
+
+Le réseau résiduel reste raisonnable tant que la pente est petite, par exemple entre $-0{,}1$ et $0{,}1$ : le facteur $(1 + b)^{29}$ va d'environ 0,05 à 16. Avec $b = 0{,}3$, il atteint environ 2 000 : les connexions résiduelles n'empêchent pas l'explosion si les branches sont trop fortes. C'est pourquoi on les combine avec la [normalisation](/concepts/normalisation-couches/) et une initialisation qui garde les branches petites au départ.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : un réseau de 50 couches, avec et sans raccourcis.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+d, profondeur = 32, 50
+W = [rng.normal(0, 0.5 / np.sqrt(d), (d, d)) for _ in range(profondeur)]
+relu = lambda z: np.maximum(0, z)
+
+def gradient_entree(residuel):
+    h, pentes = rng.normal(size=d), []
+    for Wk in W:                               # passe avant
+        z = Wk @ h
+        pentes.append((z > 0).astype(float))
+        h = h + relu(z) if residuel else relu(z)
+    g = np.ones(d)                             # gradient arrivant en sortie
+    for Wk, p in zip(reversed(W), reversed(pentes)):
+        branche = Wk.T @ (g * p)
+        g = g + branche if residuel else branche
+    return np.linalg.norm(g) / np.sqrt(d)
+
+print("sans raccourcis :", f"{gradient_entree(False):.1e}")
+print("avec raccourcis :", f"{gradient_entree(True):.2f}")
+```
+
+En vrai, en PyTorch, le raccourci est une simple addition dans la méthode `forward` :
+
+```python
+# no-run
+class BlocResiduel(torch.nn.Module):
+    def __init__(self, d):
+        super().__init__()
+        self.branche = torch.nn.Sequential(torch.nn.Linear(d, d), torch.nn.ReLU(), torch.nn.Linear(d, d))
+    def forward(self, h):
+        return h + self.branche(h)
+```
+
+## Les pièges classiques
+
+**« Le raccourci ajoute des paramètres. »** L'identité ne coûte rien : ni poids, ni calcul, à part une addition. C'est ce qui a permis de construire des réseaux très profonds sans les alourdir.
+
+**« Avec des raccourcis, les couches ne servent plus à rien. »** Les branches apprennent des corrections, souvent petites mais essentielles. Le raccourci garantit seulement qu'ajouter un bloc ne peut pas, au départ, rendre le réseau plus difficile à optimiser.
+
+**« On peut additionner n'importe quelles couches. »** L'addition exige que l'entrée et la sortie du bloc aient la même forme. Quand la dimension change, on ajoute une projection linéaire sur le raccourci, ce que prévoit aussi le paper de He.
+
+## Dans la vraie vie
+
+Les connexions résiduelles sont partout. Chaque [bloc Transformer](/concepts/bloc-transformer/) en contient deux : une autour de l'attention et une autour du réseau feed-forward, sous la forme $\mathrm{LayerNorm}(\mathbf{x} + \mathrm{Sublayer}(\mathbf{x}))$ dans le paper d'origine (Vaswani et ses coauteurs, 2017). Sans elles, les LLM de plusieurs dizaines de couches seraient impossibles à entraîner. Les réseaux de vision de la famille ResNet, issus directement du paper de 2015, restent une référence.
+
+Cette idée de « garder l'original et n'ajouter que la correction » se retrouve bien au-delà des réseaux de neurones. Un traducteur qui relit un texte machine ne le réécrit pas de zéro : il garde la phrase et corrige ce qui cloche. C'est exactement ce qu'on demande à chaque branche résiduelle.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un bloc résiduel reçoit h = (2 ; −1) et sa branche calcule F(h) = (0,3 ; 0,5). Que vaut la sortie ?",
+    choix: ["(0,3 ; 0,5)", "(2,3 ; −0,5)", "(2 ; −1)", "(0,6 ; −0,5)"],
+    bonne: 1,
+    explication: "h + F(h) = (2 + 0,3 ; −1 + 0,5) = (2,3 ; −0,5)."
+  },
+  {
+    question: "Que doit apprendre la branche F pour qu'un bloc résiduel ne change rien à son entrée ?",
+    choix: ["L'identité", "F = 0", "F = −h", "Rien n'est possible"],
+    bonne: 1,
+    explication: "Si F(h) = 0, alors h + F(h) = h. Mettre des poids à zéro est bien plus facile que d'apprendre l'identité."
+  },
+  {
+    question: "Dans un bloc résiduel en dimension 1, la dérivée de la sortie par rapport à l'entrée vaut…",
+    choix: ["F′(h)", "1 + F′(h)", "1", "F′(h)²"],
+    bonne: 1,
+    explication: "La dérivée de h + F(h) est 1 + F′(h) : le « 1 » vient du raccourci et garde le gradient vivant."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi les connexions résiduelles permettent-elles d'entraîner des réseaux très profonds ?">
+
+Un bloc résiduel calcule h + F(h). Pendant la rétropropagation, sa dérivée par rapport à l'entrée est I + J, où J est la dérivée de la branche. Le produit de ces facteurs sur tous les blocs contient toujours le terme identité, qui transmet le gradient de la sortie jusqu'aux premières couches sans atténuation ; le réseau se comporte comme une somme de chemins de longueurs variées. Par ailleurs, apprendre F = 0 suffit pour qu'un bloc supplémentaire ne dégrade rien, ce qui supprime le problème de dégradation observé sur les réseaux simples. Les raccourcis ne coûtent presque rien ; on les combine avec la normalisation et une initialisation qui garde les branches petites, pour éviter l'explosion.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "connexion résiduelle", en: "residual connection, skip connection", definition: "Raccourci qui ajoute l'entrée d'un bloc à sa sortie." },
+  { fr: "bloc résiduel", en: "residual block", definition: "Bloc qui calcule h + F(h), où F est une petite pile de couches." },
+  { fr: "réseau résiduel", en: "residual network (ResNet)", definition: "Réseau construit en empilant des blocs résiduels." },
+  { fr: "problème de dégradation", en: "degradation problem", definition: "Un réseau simple plus profond a une erreur d'entraînement plus élevée qu'un réseau moins profond." }
+]} />
