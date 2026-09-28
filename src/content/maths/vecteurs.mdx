@@ -1,0 +1,170 @@
+---
+id: vecteurs
+type: maths
+titre: "Les vecteurs : comment l'IA transforme tout en listes de nombres"
+sous_titre: "Vecteurs, dimensions et représentation des données"
+domaine: algebre-lineaire
+niveau: 1
+prerequis: []
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 2 (Linear Algebra)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un modèle d'IA ne voit jamais une photo, un mot ou un client. Il ne voit que des nombres, rangés dans un ordre fixe. Cette liste ordonnée, c'est un vecteur. Tout le reste du site en dépend : le [produit scalaire](/maths/produit-scalaire/) compare deux vecteurs, les [matrices](/maths/matrices/) en transforment, et le [gradient](/maths/gradient/) est lui-même un vecteur.
+
+## L'intuition
+
+Tu es à un carrefour. On te dit : « trois rues vers l'est, puis une rue vers le nord ». Ce déplacement tient en deux nombres, dans un ordre convenu : d'abord l'est, ensuite le nord. On l'écrit $(3\,;\,1)$ et on le dessine comme une flèche.
+
+Fais maintenant un second déplacement, $(1\,;\,2)$. Au total, tu t'es déplacé de $3 + 1 = 4$ rues vers l'est et de $1 + 2 = 3$ vers le nord. Additionner deux déplacements, c'est additionner les nombres qui sont à la même place.
+
+Bouge les curseurs : la flèche dorée est toujours la somme des deux autres. Elle ferme le parallélogramme dessiné en pointillés clairs.
+
+<Simulation
+  rendu="vecteurs-somme"
+  label="Plan quadrillé avec les vecteurs u, v et leur somme"
+  parametres={[
+    { nom: "vx", label: "Première coordonnée de v", min: -3, max: 3, pas: 1, valeur: 1, role: "entree" },
+    { nom: "vy", label: "Seconde coordonnée de v", min: -3, max: 3, pas: 1, valeur: 2, role: "entree" }
+  ]}
+  legende="u = (3 ; 1) est fixe. La somme u + v se lit coordonnée par coordonnée."
+/>
+
+Le même principe marche avec plus de deux nombres. Un client mobile money peut se résumer par cinq nombres : nombre de dépôts, de retraits, de transferts, montant moyen, ancienneté en mois. On ne sait plus dessiner la flèche, mais on calcule exactement de la même façon.
+
+## La définition
+
+$$
+\mathbf{x} = (x_1\,;\,x_2\,;\,\dots\,;\,x_d) \in \mathbb{R}^d
+$$
+
+où :
+- $\mathbf{x}$ est le vecteur, écrit en gras ;
+- $x_i$ est sa coordonnée numéro $i$, un nombre réel ;
+- $d$ est la dimension : le nombre de coordonnées ;
+- $\mathbb{R}^d$ est l'ensemble de tous les vecteurs de dimension $d$.
+
+Deux opérations suffisent pour commencer. Pour deux vecteurs $\mathbf{u}$ et $\mathbf{v}$ de même dimension, et un nombre $k$ :
+
+$$
+\mathbf{u} + \mathbf{v} = (u_1 + v_1\,;\,\dots\,;\,u_d + v_d) \qquad k\,\mathbf{u} = (k u_1\,;\,\dots\,;\,k u_d)
+$$
+
+où :
+- $\mathbf{u} + \mathbf{v}$ est la somme, calculée coordonnée par coordonnée ;
+- $k\,\mathbf{u}$ est le produit de $\mathbf{u}$ par le nombre $k$, qu'on appelle un scalaire (*scalar*).
+
+Autrement dit : un vecteur est une liste ordonnée de nombres, et on l'additionne ou on l'étire case par case.
+
+<Depliable titre="Pourquoi l'ordre des additions ne compte pas">
+
+Pour chaque coordonnée $i$, la somme de deux nombres réels ne dépend pas de l'ordre :
+
+$$
+\begin{aligned}
+(\mathbf{u} + \mathbf{v})_i &= u_i + v_i && \text{définition de la somme} \\
+&= v_i + u_i && \text{commutativité de l'addition des nombres} \\
+&= (\mathbf{v} + \mathbf{u})_i && \text{définition de la somme}
+\end{aligned}
+$$
+
+Toutes les coordonnées sont égales, donc $\mathbf{u} + \mathbf{v} = \mathbf{v} + \mathbf{u}$. C'est le parallélogramme de l'animation : on arrive au même coin par les deux chemins.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prends $\mathbf{u} = (3\,;\,1)$ et $\mathbf{v} = (1\,;\,2)$.
+
+- Somme : $\mathbf{u} + \mathbf{v} = (3 + 1\,;\,1 + 2) = (4\,;\,3)$.
+- Multiplication : $2\,\mathbf{u} = (2 \times 3\,;\,2 \times 1) = (6\,;\,2)$.
+- Combinaison : $\mathbf{u} - \mathbf{v} = \mathbf{u} + (-1)\,\mathbf{v} = (3 - 1\,;\,1 - 2) = (2\,;\,-1)$.
+
+Un exemple en dimension 3, au marché. Awa achète 2 kg de tomates, 1 kg d'oignons et 3 tas de piment : son panier est $\mathbf{a} = (2\,;\,1\,;\,3)$. Son voisin achète $\mathbf{b} = (1\,;\,2\,;\,0)$. Ensemble, ils emportent $\mathbf{a} + \mathbf{b} = (3\,;\,3\,;\,3)$. Si Awa revient la semaine suivante avec la même liste, sur deux semaines elle aura acheté $2\,\mathbf{a} = (4\,;\,2\,;\,6)$.
+
+## Essaie toi-même
+
+Cette fois, $\mathbf{v} = (1\,;\,2)$ est fixe et tu changes le nombre $k$ qui le multiplie.
+
+<Simulation
+  rendu="vecteurs-somme"
+  label="Plan quadrillé avec u, k fois v et leur somme"
+  parametres={[
+    { nom: "k", label: "Multiplicateur k", min: -2, max: 2, pas: 0.5, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="La flèche claire est k v ; la flèche dorée est u + k v."
+/>
+
+Consigne : mets $k$ à $-1$, puis à $0$, puis à $2$. Que devient la flèche de $k\,\mathbf{v}$ ? Et où se promène le bout de la flèche dorée ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $k = -1$, la flèche de $k\,\mathbf{v}$ fait demi-tour : $-\mathbf{v} = (-1\,;\,-2)$, et la somme vaut $(2\,;\,-1)$. Avec $k = 0$, elle disparaît et la somme redevient $\mathbf{u}$. Avec $k = 2$, elle double de longueur sans changer de direction : $(2\,;\,4)$, et la somme vaut $(5\,;\,5)$.
+
+Le bout de la flèche dorée glisse sur une droite, qui passe par le bout de $\mathbf{u}$ et suit la direction de $\mathbf{v}$. Multiplier par un nombre étire, rétrécit ou retourne un vecteur. Jamais il ne le fait tourner.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Représenter les données.** Chaque exemple d'entraînement devient un vecteur : les pixels d'une image, les mesures d'un capteur, les caractéristiques d'un client. La dimension $d$ est le nombre de mesures.
+- **Représenter les mots.** Les [embeddings](/concepts/embeddings/) associent à chaque mot un vecteur de plusieurs centaines de coordonnées. Des mots de sens proches reçoivent des vecteurs proches, ce que mesure la [similarité cosinus](/maths/similarite-cosinus/).
+- **Apprendre.** Les paramètres d'un modèle forment un grand vecteur. L'apprentissage le déplace petit à petit dans la direction opposée au [gradient](/maths/gradient/), qui est lui aussi un vecteur.
+
+## Les pièges classiques
+
+**« L'ordre des coordonnées n'a pas d'importance. »** On y croit parce que $(3\,;\,1)$ et $(1\,;\,3)$ contiennent les mêmes nombres. Mais ce sont deux déplacements différents : trois rues vers l'est ou trois rues vers le nord. Chaque position a un sens fixe, décidé une fois pour toutes.
+
+**« On peut additionner n'importe quels vecteurs. »** On y croit parce que l'addition de nombres marche toujours. Mais $(2\,;\,1\,;\,3) + (1\,;\,2)$ n'a pas de sens : il manque une coordonnée en face du piment. Deux vecteurs ne s'additionnent que s'ils ont la même dimension.
+
+**« Un vecteur, c'est une flèche. »** La flèche aide en dimension 2 ou 3. Un vecteur de 768 coordonnées ne se dessine plus. La définition qui compte est la liste ordonnée de nombres, avec ses deux opérations.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $\mathbf{u} + \mathbf{v}$ et $3\,\mathbf{u} - \mathbf{v}$ pour $\mathbf{u} = (2\,;\,-1\,;\,0)$ et $\mathbf{v} = (1\,;\,4\,;\,-2)$.
+
+<Depliable titre="Corrigé">
+
+$\mathbf{u} + \mathbf{v} = (2 + 1\,;\,-1 + 4\,;\,0 - 2) = (3\,;\,3\,;\,-2)$.
+
+$3\,\mathbf{u} = (6\,;\,-3\,;\,0)$, donc $3\,\mathbf{u} - \mathbf{v} = (6 - 1\,;\,-3 - 4\,;\,0 + 2) = (5\,;\,-7\,;\,2)$.
+
+</Depliable>
+
+**Exercice 2.** Trouve le nombre $k$ tel que $k\,(2\,;\,6) = (-1\,;\,-3)$. Existe-t-il un $k$ tel que $k\,(2\,;\,6) = (1\,;\,2)$ ?
+
+<Depliable titre="Corrigé">
+
+Il faut $2k = -1$ et $6k = -3$. Les deux égalités donnent $k = -0{,}5$ : c'est la réponse.
+
+Pour $(1\,;\,2)$, il faudrait $2k = 1$, donc $k = 0{,}5$, et $6k = 2$, donc $k = 1/3$. Les deux valeurs diffèrent : aucun $k$ ne convient. Le vecteur $(1\,;\,2)$ n'a pas la même direction que $(2\,;\,6)$.
+
+</Depliable>
+
+**Exercice 3.** Une boutique de transfert d'argent décrit chaque journée par le vecteur (nombre de dépôts ; nombre de retraits ; nombre de transferts). Lundi : $(40\,;\,25\,;\,12)$. Mardi : $(35\,;\,30\,;\,10)$. Calcule le total des deux jours, puis la moyenne par jour. Quelle opération sur les vecteurs as-tu utilisée pour la moyenne ?
+
+<Depliable titre="Corrigé">
+
+Total : $(40 + 35\,;\,25 + 30\,;\,12 + 10) = (75\,;\,55\,;\,22)$.
+
+Moyenne : $\frac{1}{2}\,(75\,;\,55\,;\,22) = (37{,}5\,;\,27{,}5\,;\,11)$. On a additionné deux vecteurs, puis multiplié le résultat par le scalaire $\frac{1}{2}$. Un modèle qui calcule la moyenne de ses données d'entraînement fait exactement la même chose, en dimension bien plus grande.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "vecteur", en: "vector", definition: "Liste ordonnée de nombres, qu'on additionne et qu'on multiplie par un nombre coordonnée par coordonnée." },
+  { fr: "coordonnée", en: "component", definition: "Un des nombres du vecteur, repéré par sa position." },
+  { fr: "dimension", en: "dimension", definition: "Nombre de coordonnées d'un vecteur." },
+  { fr: "scalaire", en: "scalar", definition: "Un simple nombre, par opposition à un vecteur." }
+]} />
