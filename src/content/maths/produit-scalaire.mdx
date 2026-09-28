@@ -1,0 +1,166 @@
+---
+id: produit-scalaire
+type: maths
+titre: "Le produit scalaire : l'opération qui fait tourner toute l'IA"
+sous_titre: "Définition, interprétation géométrique et usages en IA"
+domaine: algebre-lineaire
+niveau: 1
+prerequis: [vecteurs]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 3 (Analytic Geometry), produit scalaire et orthogonalité"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un neurone artificiel multiplie chaque entrée par un poids et additionne le tout. Un mécanisme d'[attention](/concepts/attention/) note chaque mot en le comparant à ce qu'il cherche. Dans les deux cas, le calcul est le même : un produit scalaire entre deux [vecteurs](/maths/vecteurs/). C'est l'opération la plus répétée dans un réseau de neurones.
+
+## L'intuition
+
+Au marché, Awa achète 2 kg de tomates, 1 kg d'oignons et 3 tas de piment. Les prix du jour sont 500 F le kilo de tomates, 400 F le kilo d'oignons et 100 F le tas de piment. Pour payer, la vendeuse multiplie chaque quantité par son prix, puis additionne : $2 \times 500 + 1 \times 400 + 3 \times 100 = 1\,700$ F.
+
+Deux listes de même longueur entrent, un seul nombre sort. C'est un produit scalaire.
+
+Ce nombre dit aussi quelque chose de géométrique. Dans le plan, fais tourner $\mathbf{v}$ autour de l'origine. Quand $\mathbf{v}$ est du même côté que $\mathbf{u}$, dans la zone dorée, le produit est positif. Sur la ligne pointillée, perpendiculaire à $\mathbf{u}$, il vaut zéro. De l'autre côté, il devient négatif.
+
+<Simulation
+  rendu="produit-scalaire-angle"
+  label="Plan avec u fixe, v qui tourne, et la zone où le produit scalaire est positif"
+  parametres={[
+    { nom: "theta", label: "Direction de v", min: 0, max: 359, pas: 1, valeur: 60, role: "entree", unite: "°" }
+  ]}
+  legende="u = (3 ; 1) est fixe ; v garde toujours la même longueur et tourne."
+/>
+
+## La définition
+
+$$
+\mathbf{u} \cdot \mathbf{v} = \sum_{i=1}^{d} u_i\, v_i = u_1 v_1 + u_2 v_2 + \dots + u_d v_d
+$$
+
+où :
+- $\mathbf{u}$ et $\mathbf{v}$ sont deux vecteurs de même dimension $d$ ;
+- $u_i$ et $v_i$ sont leurs coordonnées numéro $i$ ;
+- $\sum_{i=1}^{d}$ signifie qu'on additionne les termes pour $i$ allant de 1 à $d$ ;
+- le résultat $\mathbf{u} \cdot \mathbf{v}$ est un nombre, pas un vecteur.
+
+Autrement dit : on multiplie les coordonnées qui se font face, puis on additionne tous ces produits.
+
+Deux vecteurs dont le produit scalaire vaut zéro sont dits orthogonaux (*orthogonal*) : en dimension 2 ou 3, ils sont perpendiculaires. Le lien entre le signe et l'angle, visible dans l'animation, sera démontré dans la fiche [similarité cosinus](/maths/similarite-cosinus/) ; on l'admet ici.
+
+<Depliable titre="Deux propriétés qu'on utilisera partout">
+
+**La symétrie.** Pour chaque $i$, $u_i v_i = v_i u_i$, donc :
+
+$$
+\mathbf{u} \cdot \mathbf{v} = \sum_{i} u_i v_i = \sum_{i} v_i u_i = \mathbf{v} \cdot \mathbf{u}
+$$
+
+**La distributivité.** Pour trois vecteurs $\mathbf{u}$, $\mathbf{v}$, $\mathbf{w}$ de même dimension et un nombre $k$ :
+
+$$
+\begin{aligned}
+\mathbf{u} \cdot (\mathbf{v} + k\,\mathbf{w})
+&= \sum_{i} u_i\,(v_i + k\,w_i) && \text{définition de la somme de vecteurs} \\
+&= \sum_{i} \big(u_i v_i + k\,u_i w_i\big) && \text{distributivité sur les nombres} \\
+&= \sum_{i} u_i v_i + k \sum_{i} u_i w_i && \text{on sépare la somme, on sort } k \\
+&= \mathbf{u} \cdot \mathbf{v} + k\,(\mathbf{u} \cdot \mathbf{w}) && \text{définition du produit scalaire}
+\end{aligned}
+$$
+
+Au marché : si Awa double son panier, la facture double. Si deux clients paient aux mêmes prix, la somme des factures est la facture du panier commun.
+
+**Pourquoi la perpendiculaire donne zéro, en dimension 2.** Les vecteurs perpendiculaires à $\mathbf{u} = (a\,;\,b)$ sont les multiples de $(-b\,;\,a)$, obtenu en tournant $\mathbf{u}$ d'un quart de tour. Et $(a\,;\,b) \cdot (-kb\,;\,ka) = -kab + kab = 0$.
+
+</Depliable>
+
+## Un exemple à la main
+
+Le panier d'Awa et les prix du jour :
+
+$$
+\mathbf{q} = (2\,;\,1\,;\,3) \qquad \mathbf{p} = (500\,;\,400\,;\,100)
+$$
+
+- Produits face à face : $2 \times 500 = 1\,000$, puis $1 \times 400 = 400$, puis $3 \times 100 = 300$.
+- Somme : $\mathbf{q} \cdot \mathbf{p} = 1\,000 + 400 + 300 = 1\,700$.
+
+Awa paie 1 700 F. Dans le plan, avec $\mathbf{u} = (3\,;\,1)$ :
+
+- $\mathbf{u} \cdot (1\,;\,2) = 3 + 2 = 5$, positif ;
+- $\mathbf{u} \cdot (-1\,;\,3) = -3 + 3 = 0$, perpendiculaires ;
+- $\mathbf{u} \cdot (-2\,;\,-1) = -6 - 1 = -7$, négatif.
+
+Un dernier usage, plus proche de l'IA : comparer des goûts. Une vendeuse note, pour trois clientes, ce qu'elles achètent chaque semaine, en kilos de tomates, d'oignons et de riz. Awa achète $(2\,;\,1\,;\,0)$, Fatou $(3\,;\,1\,;\,0)$ et Mariam $(0\,;\,0\,;\,5)$.
+
+- Awa et Fatou : $2 \times 3 + 1 \times 1 + 0 \times 0 = 7$.
+- Awa et Mariam : $2 \times 0 + 1 \times 0 + 0 \times 5 = 0$.
+
+Awa et Fatou achètent les mêmes produits : leur produit scalaire est grand. Awa et Mariam n'ont aucun produit en commun : il vaut zéro. Un système de recommandation raisonne ainsi, avec des milliers de coordonnées au lieu de trois.
+
+## Essaie toi-même
+
+Reprends l'animation ci-dessus. Consigne : trouve les deux directions de $\mathbf{v}$ pour lesquelles le produit scalaire vaut zéro. Puis trouve la direction qui donne le plus grand produit.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le produit s'annule vers 108° et vers 288°, sur la ligne pointillée. Ces deux directions sont perpendiculaires à $\mathbf{u}$ : ce sont celles de $(-1\,;\,3)$ et de $(1\,;\,-3)$.
+
+Le plus grand produit arrive vers 18°, quand $\mathbf{v}$ pointe exactement comme $\mathbf{u}$ : il vaut alors environ 6,32. Le plus petit, environ $-6{,}32$, arrive à l'opposé, vers 198°. À longueur fixée, le produit scalaire mesure donc à quel point deux vecteurs vont dans le même sens.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Le neurone.** Un [neurone artificiel](/concepts/neurone-artificiel/) calcule $\mathbf{w} \cdot \mathbf{x}$, le produit scalaire entre ses poids et ses entrées, avant d'appliquer sa fonction d'activation.
+- **L'attention.** Dans l'[attention](/concepts/attention/), le score d'un mot est le produit scalaire entre l'état du décodeur et le vecteur de ce mot.
+- **Les matrices.** Le [produit matriciel](/maths/produit-matriciel/) n'est qu'un tableau de produits scalaires, calculés ligne par colonne. Les [normes](/maths/normes-distances/) s'en déduisent aussi.
+
+## Les pièges classiques
+
+**« Le produit scalaire de deux vecteurs est un vecteur. »** On y croit parce que la somme de deux vecteurs en est un. Mais on additionne tous les produits à la fin : il ne reste qu'un nombre. La facture d'Awa est 1 700 F, pas une liste de prix.
+
+**« On peut calculer $(2\,;\,1\,;\,3) \cdot (500\,;\,400)$. »** On y croit parce qu'on peut toujours multiplier des nombres. Mais il n'y a pas de prix en face du piment. Le produit scalaire exige deux vecteurs de même dimension.
+
+**« Un produit scalaire nul veut dire qu'un des vecteurs est nul. »** C'est vrai pour les nombres : si $ab = 0$, alors $a = 0$ ou $b = 0$. Pour les vecteurs, c'est faux : $(3\,;\,1) \cdot (-1\,;\,3) = 0$ alors qu'aucun des deux n'est nul. Ils sont seulement perpendiculaires.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $(1\,;\,-2\,;\,4) \cdot (3\,;\,0\,;\,-1)$.
+
+<Depliable titre="Corrigé">
+
+$1 \times 3 + (-2) \times 0 + 4 \times (-1) = 3 + 0 - 4 = -1$.
+
+</Depliable>
+
+**Exercice 2.** Trouve le nombre $k$ tel que $(2\,;\,k)$ soit orthogonal à $(3\,;\,-6)$.
+
+<Depliable titre="Corrigé">
+
+Il faut $(2\,;\,k) \cdot (3\,;\,-6) = 0$, c'est-à-dire $6 - 6k = 0$. Donc $k = 1$. Vérification : $(2\,;\,1) \cdot (3\,;\,-6) = 6 - 6 = 0$.
+
+</Depliable>
+
+**Exercice 3.** Un neurone reçoit $\mathbf{x} = (1\,;\,0\,;\,2)$ et ses poids sont $\mathbf{w} = (0{,}5\,;\,-1\,;\,0{,}25)$. Calcule $\mathbf{w} \cdot \mathbf{x}$. Quelle coordonnée de $\mathbf{x}$ n'a aucune influence sur le résultat, et pourquoi ?
+
+<Depliable titre="Corrigé">
+
+$\mathbf{w} \cdot \mathbf{x} = 0{,}5 \times 1 + (-1) \times 0 + 0{,}25 \times 2 = 0{,}5 + 0 + 0{,}5 = 1$.
+
+Ici, la deuxième entrée vaut 0 : elle n'apporte rien, quel que soit son poids. Inversement, une entrée dont le poids vaut 0 serait ignorée quelle que soit sa valeur. Apprendre, pour un neurone, c'est justement régler ces poids pour décider quelles entrées comptent.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "produit scalaire", en: "dot product", definition: "Somme des produits des coordonnées qui se font face ; le résultat est un nombre." },
+  { fr: "orthogonaux", en: "orthogonal", definition: "Se dit de deux vecteurs dont le produit scalaire vaut zéro ; perpendiculaires en dimension 2 ou 3." }
+]} />
