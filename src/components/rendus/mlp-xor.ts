@@ -11,8 +11,8 @@ const lin = X.map(([a, b]) => [a + b, a + b - 1]);
 const relu = lin.map(([u, v]) => [Math.max(0, u), Math.max(0, v)]);
 const Y = relu.map(([u, v]) => u - 2 * v);
 
-const px = (u: number) => 70 + u * 80;
-const py = (v: number) => 150 - v * 80;
+const px = (u: number) => 70 + u * 88;
+const py = (v: number) => 128 - v * 68;
 
 // t va de 0 (entrées) à 1 (W x + c) puis 2 (ReLU) ; s (0 ou 1) affiche la sortie.
 export const etats: Record<string, Etat> = {
@@ -51,10 +51,10 @@ export function dessiner(scene: HTMLElement, e: Etat) {
   // Dans l'espace caché, la droite h₁ − 2h₂ = 0,5 sépare les deux classes.
   q(svg, '[data-sep]').style.opacity = String(Math.max(0, e.t - 1.5) * 2);
   attrs(q(svg, '[data-sep]'), { x1: px(0.5), y1: py(0), x2: px(2.5), y2: py(1) });
-  const titres = ['Les quatre entrées : aucune droite ne sépare les points dorés des bleus.',
-    'Après W x + c : (0 ; 1) et (1 ; 0) tombent au même endroit.',
-    'Après ReLU : (0 ; −1) remonte en (0 ; 0). Une droite sépare les classes.',
-    'Sortie y = h₁ − 2 h₂ : exactement XOR.'];
+  const titres = ['Aucune droite ne sépare les dorés des bleus.',
+    '(0 ; 1) et (1 ; 0) tombent au même endroit.',
+    '(0 ; −1) remonte en (0 ; 0) : une droite sépare.',
+    'y = h₁ − 2 h₂ : exactement le ou exclusif.'];
   const n = e.s > 0.5 ? 3 : e.t > 1.5 ? 2 : e.t > 0.5 ? 1 : 0;
   texte(svg, '[data-t1]', ['entrées x', 'couche linéaire', 'activation ReLU', 'sortie'][n]);
   texte(svg, '[data-t2]', titres[n]);
