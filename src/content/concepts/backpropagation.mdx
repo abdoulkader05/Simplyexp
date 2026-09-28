@@ -1,0 +1,217 @@
+---
+id: backpropagation
+type: concept
+titre: "La rétropropagation : remonter la chaîne des responsabilités"
+sous_titre: "Backpropagation et calcul des gradients dans un réseau"
+domaine: deep-learning
+niveau: 4
+prerequis: [mlp, regle-chaine]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Rumelhart, Hinton, Williams, « Learning representations by back-propagating errors », Nature 323, 1986 — fiche rumelhart-1986 du graphe ; Wikipédia (anglais), « Backpropagation » — https://en.wikipedia.org/wiki/Backpropagation — sections Motivation et History, consultée le 2026-09-28"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.5 (rétropropagation et graphes de calcul)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Un [perceptron multicouche](/concepts/mlp/) a des milliers, puis des milliards de poids. Pour l'entraîner par [descente de gradient](/maths/descente-gradient/), il faut, à chaque pas, la dérivée de la perte par rapport à *chacun* de ces poids. Les calculer une par une, en faisant bouger chaque poids séparément, serait bien trop lent. En 1986, David Rumelhart, Geoffrey Hinton et Ronald Williams montrent dans *Nature* qu'une méthode, la rétropropagation, permet d'entraîner des réseaux à couches cachées qui apprennent des représentations internes utiles. L'idée : obtenir tous les gradients d'un coup, en un seul passage à rebours dans le réseau.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On calcule le réseau de l'entrée vers la sortie, puis on remonte de la sortie vers l'entrée en multipliant les dérivées locales, et chaque poids reçoit sa part de responsabilité dans l'erreur.
+</PhraseCle>
+
+## En image
+
+Une coopérative de transformation de manioc produit du gari en trois étapes : épluchage, râpage, cuisson. Un lot de gari sort trop sec. Pour savoir qui doit corriger quoi, la responsable remonte la chaîne depuis la fin.
+
+- Le lot final et son défaut sont la sortie et la perte.
+- Chaque étape de production est une opération du réseau.
+- Chaque réglage d'une étape (temps de cuisson, finesse de la râpe) est un poids.
+- La responsable part du défaut constaté et remonte : de combien la cuisson a-t-elle joué, puis, à travers la cuisson, de combien le râpage a-t-il joué.
+- La part de responsabilité de chaque réglage est son gradient.
+
+Là où l'image s'arrête : dans une coopérative, remonter la chaîne demande des discussions. Dans un réseau, chaque étape connaît exactement sa dérivée locale, et la remontée n'est qu'une suite de multiplications, sans aucune ambiguïté.
+
+## Comment ça marche
+
+Prenons le plus petit réseau possible : une entrée $x = 2$, un neurone caché ReLU de poids $w_1 = 0{,}5$, un neurone de sortie linéaire de poids $w_2 = 3$, sans biais pour alléger. La cible est $t = 1$ et la perte est $L = \frac{1}{2}(y - t)^2$. On dessine le calcul comme un graphe de calcul (*computational graph*) : chaque nœud est une valeur, chaque flèche une opération.
+
+<PasAPas rendu="backprop-graphe" label="Passe avant puis passe arrière dans un petit réseau">
+  <Etape etat="initial">
+    Le graphe de calcul : $x \to z = w_1 x \to h = \mathrm{ReLU}(z) \to y = w_2 h \to L = \frac{1}{2}(y - t)^2$. Les poids $w_1$ et $w_2$ sont ce qu'on veut corriger.
+  </Etape>
+  <Etape etat="avant">
+    **Passe avant** (*forward pass*). On calcule de gauche à droite en gardant chaque valeur en mémoire : $z = 0{,}5 \times 2 = 1$, puis $h = \mathrm{ReLU}(1) = 1$, puis $y = 3 \times 1 = 3$, et enfin $L = \frac{1}{2}(3 - 1)^2 = 2$.
+  </Etape>
+  <Etape etat="arriere1">
+    **Passe arrière** (*backward pass*), en commençant par la fin. La dérivée de la perte par rapport à la sortie est $\frac{\partial L}{\partial y} = y - t = 2$.
+  </Etape>
+  <Etape etat="arriere2">
+    **On remonte d'une opération.** Comme $y = w_2 h$ : $\frac{\partial L}{\partial w_2} = \frac{\partial L}{\partial y} \times h = 2 \times 1 = 2$ et $\frac{\partial L}{\partial h} = \frac{\partial L}{\partial y} \times w_2 = 2 \times 3 = 6$.
+  </Etape>
+  <Etape etat="arriere3">
+    **Encore une.** La ReLU a une pente de 1 car $z > 0$ : $\frac{\partial L}{\partial z} = 6 \times 1 = 6$. Et comme $z = w_1 x$ : $\frac{\partial L}{\partial w_1} = 6 \times x = 12$. Tous les gradients sont connus, en un seul passage.
+  </Etape>
+</PasAPas>
+
+Chaque étape de la remontée applique la [règle de la chaîne](/maths/regle-chaine/) : le gradient qui arrive d'en haut est multiplié par la dérivée locale de l'opération. On peut vérifier le résultat en bougeant un poids d'un tout petit peu : avec $w_1 = 0{,}501$, on trouve $y = 3{,}006$ et $L = 2{,}012$ environ ; la perte a augmenté d'environ $12 \times 0{,}001$, comme prévu.
+
+Avec ces gradients, un pas de descente avec $\eta = 0{,}05$ donne $w_1 = 0{,}5 - 0{,}05 \times 12 = -0{,}1$ et $w_2 = 3 - 0{,}05 \times 2 = 2{,}9$. On recommence ensuite passe avant, passe arrière, mise à jour : c'est la boucle d'entraînement de tous les réseaux de neurones.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**La règle de la chaîne, en cascade.** Le réseau est une composée de fonctions : $L = \ell(y)$, $y = w_2 h$, $h = \mathrm{ReLU}(z)$, $z = w_1 x$. La règle de la chaîne donne :
+
+$$
+\begin{aligned}
+\frac{\partial L}{\partial w_1}
+&= \frac{\partial L}{\partial y} \cdot \frac{\partial y}{\partial h} \cdot \frac{\partial h}{\partial z} \cdot \frac{\partial z}{\partial w_1} && \text{règle de la chaîne} \\
+&= (y - t) \cdot w_2 \cdot \mathbb{1}[z > 0] \cdot x && \text{dérivées locales} \\
+&= 2 \times 3 \times 1 \times 2 = 12 && \text{valeurs de la passe avant}
+\end{aligned}
+$$
+
+où $\mathbb{1}[z > 0]$ vaut 1 si $z > 0$ et 0 sinon (la dérivée de la ReLU).
+
+**Pourquoi remonter plutôt que descendre.** Les trois premiers facteurs, $\frac{\partial L}{\partial y} \cdot \frac{\partial y}{\partial h} \cdot \frac{\partial h}{\partial z}$, sont communs à tous les poids situés avant $z$. En partant de la sortie, on calcule ce produit une seule fois et on le réutilise. Pour un réseau à $P$ poids, le coût d'une passe arrière est du même ordre que celui d'une passe avant, au lieu de $P$ passes avant si on estimait chaque dérivée en bougeant un poids à la fois.
+
+**Avec des matrices.** Pour une couche $\mathbf{h} = \varphi(\mathbf{W}\mathbf{x} + \mathbf{b})$, si $\boldsymbol{\delta} = \frac{\partial L}{\partial \mathbf{z}}$ est le gradient qui arrive sur les pré-activations, alors :
+
+$$
+\frac{\partial L}{\partial \mathbf{W}} = \boldsymbol{\delta}\, \mathbf{x}^\top \qquad \frac{\partial L}{\partial \mathbf{b}} = \boldsymbol{\delta} \qquad \frac{\partial L}{\partial \mathbf{x}} = \mathbf{W}^\top \boldsymbol{\delta}
+$$
+
+La troisième formule transmet le gradient à la couche précédente, qui multiplie ensuite par la dérivée de sa propre activation, et ainsi de suite.
+
+</Depliable>
+
+## Essaie toi-même
+
+Règle les deux poids : les valeurs et les gradients se recalculent.
+
+<Simulation
+  rendu="backprop-graphe"
+  label="Petit réseau avec ses valeurs et ses gradients pour des poids réglables"
+  parametres={[
+    { nom: "w1", label: "Poids w₁", min: -1, max: 2, pas: 0.05, valeur: 0.5, role: "parametre", decimales: 2 },
+    { nom: "w2", label: "Poids w₂", min: -2, max: 4, pas: 0.1, valeur: 3, role: "parametre", decimales: 1 }
+  ]}
+  legende="Entrée x = 2 et cible t = 1 fixes."
+/>
+
+Consigne : trouve un réglage où la perte est nulle. Puis mets $w_1$ à une valeur négative : que deviennent les gradients de $w_1$ et de $w_2$ ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+La perte est nulle quand $y = 1$, par exemple avec $w_1 = 0{,}5$ et $w_2 = 1$ ($h = 1$, $y = 1$), ou $w_1 = 1$ et $w_2 = 0{,}5$. Tous les gradients valent alors 0 : il n'y a plus rien à corriger.
+
+Avec $w_1 < 0$, la pré-activation $z = 2 w_1$ est négative et la ReLU renvoie 0. Alors $h = 0$, $y = 0$ et la perte vaut 0,5. Mais les gradients de $w_1$ et de $w_2$ sont nuls tous les deux : la ReLU coupe le signal, et la descente de gradient ne sait plus comment bouger. C'est le « neurone mort » de la fiche sur les [fonctions d'activation](/concepts/fonctions-activation/), vu depuis la rétropropagation. Dans l'exemple du texte, un pas trop grand ($\eta = 0{,}05$) amène justement $w_1$ à $-0{,}1$ : un pas plus prudent l'aurait évité.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : passe avant, passe arrière et vérification numérique.
+
+```python
+import numpy as np
+
+def perte(w1, w2, x=2.0, t=1.0):
+    z = w1 * x
+    h = max(0.0, z)
+    y = w2 * h
+    return 0.5 * (y - t) ** 2, (z, h, y)
+
+w1, w2, x, t = 0.5, 3.0, 2.0, 1.0
+L, (z, h, y) = perte(w1, w2)
+print("passe avant : z =", z, "h =", h, "y =", y, "L =", L)
+
+# Passe arrière : on remonte en multipliant les dérivées locales
+dL_dy = y - t
+dL_dw2 = dL_dy * h
+dL_dh = dL_dy * w2
+dL_dz = dL_dh * (1.0 if z > 0 else 0.0)
+dL_dw1 = dL_dz * x
+print("gradients : dL/dw1 =", dL_dw1, " dL/dw2 =", dL_dw2)           # 12.0 et 2.0
+
+# Vérification par différences finies
+eps = 1e-6
+num_w1 = (perte(w1 + eps, w2)[0] - perte(w1 - eps, w2)[0]) / (2 * eps)
+num_w2 = (perte(w1, w2 + eps)[0] - perte(w1, w2 - eps)[0]) / (2 * eps)
+print("vérification :", round(num_w1, 4), round(num_w2, 4))
+```
+
+En vrai, PyTorch construit le graphe de calcul et fait la passe arrière tout seul :
+
+```python
+# no-run
+import torch
+w1 = torch.tensor(0.5, requires_grad=True); w2 = torch.tensor(3.0, requires_grad=True)
+L = 0.5 * (w2 * torch.relu(w1 * 2.0) - 1.0) ** 2
+L.backward()
+print(w1.grad, w2.grad)          # tensor(12.) tensor(2.)
+```
+
+## Les pièges classiques
+
+**« La rétropropagation est un algorithme d'apprentissage. »** Elle calcule seulement les gradients. C'est la descente de gradient, ou Adam, qui s'en sert ensuite pour mettre à jour les poids. On confond souvent les deux parce qu'on les enchaîne toujours.
+
+**« La passe arrière peut se faire sans la passe avant. »** Les dérivées locales dépendent des valeurs calculées à l'aller : $h$ pour $w_2$, le signe de $z$ pour la ReLU, $x$ pour $w_1$. Il faut les garder en mémoire, ce qui explique pourquoi l'entraînement demande bien plus de mémoire que l'utilisation du réseau.
+
+**« Un gradient nul veut dire qu'on est au minimum. »** Dans l'exemple, avec $w_1 < 0$, les gradients sont nuls alors que la perte vaut 0,5. Un gradient nul peut venir d'un neurone éteint, d'un plateau ou d'une saturation.
+
+## Dans la vraie vie
+
+Tous les réseaux de neurones actuels sont entraînés avec la rétropropagation. Les bibliothèques comme PyTorch l'automatisent entièrement : elles enregistrent chaque opération pendant la passe avant, puis appliquent la règle de la chaîne à rebours, comme dans le code plus haut. Ce mécanisme, appelé différentiation automatique (*automatic differentiation*) en mode inverse, permet d'obtenir les gradients de milliards de paramètres en un seul passage arrière.
+
+Le principe de remonter les responsabilités à partir de l'erreur finale sert aussi à comprendre un modèle entraîné. On peut calculer le gradient de la sortie par rapport à l'entrée elle-même, pour voir quels mots d'un message ou quels pixels d'une image ont le plus pesé dans une décision.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans l'exemple, si la cible était t = 3 au lieu de 1, que vaudrait ∂L/∂w₁ ?",
+    choix: ["12", "6", "0", "−12"],
+    bonne: 2,
+    explication: "y = 3 = t, donc ∂L/∂y = 0 : tous les gradients qui en découlent sont nuls. Il n'y a rien à corriger."
+  },
+  {
+    question: "Pourquoi garde-t-on en mémoire les valeurs de la passe avant ?",
+    choix: ["Pour afficher le résultat", "Parce que les dérivées locales en dépendent", "Pour accélérer la passe avant", "Ce n'est pas nécessaire"],
+    bonne: 1,
+    explication: "∂y/∂w₂ = h, la dérivée de la ReLU dépend du signe de z, ∂z/∂w₁ = x : sans ces valeurs, pas de passe arrière."
+  },
+  {
+    question: "Une couche calcule z = W x + b et reçoit le gradient δ = ∂L/∂z. Quel gradient transmet-elle à la couche précédente ?",
+    choix: ["W δ", "Wᵀ δ", "δ xᵀ", "δ"],
+    bonne: 1,
+    explication: "∂L/∂x = Wᵀ δ. La formule δ xᵀ donne le gradient des poids W, et δ celui des biais."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi la rétropropagation est-elle efficace, et quel est son coût en mémoire ?">
+
+La perte est une composée de nombreuses fonctions simples. La rétropropagation applique la règle de la chaîne de la sortie vers l'entrée, en réutilisant à chaque couche le gradient déjà calculé pour la couche suivante : obtenir les dérivées par rapport à tous les paramètres coûte du même ordre qu'une passe avant, au lieu d'une passe par paramètre. En contrepartie, il faut garder en mémoire les activations intermédiaires de la passe avant, ce qui domine souvent la mémoire à l'entraînement. Des techniques comme le recalcul des activations (gradient checkpointing) échangent de la mémoire contre du calcul.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "rétropropagation", en: "backpropagation", definition: "Calcul de tous les gradients d'un réseau en remontant de la sortie vers l'entrée par la règle de la chaîne." },
+  { fr: "graphe de calcul", en: "computational graph", definition: "Représentation d'un calcul en nœuds (valeurs) et flèches (opérations)." },
+  { fr: "passe avant", en: "forward pass", definition: "Calcul du réseau de l'entrée vers la sortie, en gardant les valeurs intermédiaires." },
+  { fr: "passe arrière", en: "backward pass", definition: "Remontée de la sortie vers l'entrée qui calcule les gradients." },
+  { fr: "différentiation automatique", en: "automatic differentiation", definition: "Calcul exact des dérivées d'un programme par application systématique de la règle de la chaîne." }
+]} />
