@@ -1,0 +1,162 @@
+---
+id: regle-produit
+type: maths
+titre: "La règle du produit : écrire une phrase comme une chaîne de probabilités"
+sous_titre: "Factorisation d'une probabilité jointe, base des modèles autorégressifs"
+domaine: probabilites
+niveau: 2
+prerequis: [probabilite-conditionnelle]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), règle du produit"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.6 (règle de la chaîne des probabilités conditionnelles)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Comment donner une probabilité à une phrase entière ? Le nombre de phrases possibles est astronomique : impossible de les compter une à une. La règle du produit découpe le problème : la probabilité d'une phrase est un produit de [probabilités conditionnelles](/maths/probabilite-conditionnelle/), une par mot, chacune sachant les mots précédents. C'est exactement ce que calcule un [modèle de langage](/concepts/modele-langage/), et c'est pour cela qu'un LLM écrit mot après mot.
+
+## L'intuition
+
+Pour qu'un gbaka arrive à l'heure, il faut qu'il parte à l'heure, **puis**, sachant qu'il est parti à l'heure, qu'il ne tombe pas en panne, **puis**, sachant tout cela, qu'il passe le pont sans embouteillage. La probabilité de l'ensemble est le produit de ces probabilités, chacune calculée en tenant compte de ce qui s'est déjà passé.
+
+Une phrase se construit de la même façon. La probabilité de « je vais au marché » est celle de commencer par « je », multipliée par celle de continuer par « vais » sachant « je », et ainsi de suite. Fais défiler pour construire la phrase.
+
+<PasAPas rendu="produit-phrase" label="Construction de la probabilité d'une phrase mot par mot">
+  <Etape etat="initial">
+    Avant le premier mot, la phrase est vide ; sa probabilité vaut 1. Chaque mot ajouté va la multiplier par un nombre plus petit que 1.
+  </Etape>
+  <Etape etat="m1">
+    **Premier mot.** Parmi tous les débuts de phrase possibles, « je » a une probabilité de 0,05.
+  </Etape>
+  <Etape etat="m2">
+    **Deuxième mot.** Sachant que la phrase commence par « je », « vais » a une probabilité de 0,2. Probabilité de « je vais » : $0{,}05 \times 0{,}2 = 0{,}01$.
+  </Etape>
+  <Etape etat="m3">
+    **Troisième mot.** Sachant « je vais », « au » a une probabilité de 0,3. On arrive à $0{,}01 \times 0{,}3 = 0{,}003$.
+  </Etape>
+  <Etape etat="m4">
+    **Quatrième mot.** Sachant « je vais au », « marché » a une probabilité de 0,1. La phrase entière a une probabilité de $0{,}000\,3$.
+  </Etape>
+</PasAPas>
+
+## La définition
+
+Pour deux événements, la règle du produit (*product rule*) s'écrit :
+
+$$
+P(A \cap B) = P(A)\; P(B \mid A)
+$$
+
+Pour une suite $x_1, x_2, \dots, x_n$, on l'applique de proche en proche :
+
+$$
+P(x_1, \dots, x_n) = P(x_1) \prod_{t=2}^{n} P(x_t \mid x_1, \dots, x_{t-1})
+$$
+
+où :
+- $x_t$ est l'élément numéro $t$ de la suite, par exemple le mot numéro $t$ ;
+- $x_1, \dots, x_{t-1}$ sont les éléments précédents, qu'on appelle le contexte ;
+- $\prod$ désigne le produit des facteurs pour $t$ allant de 2 à $n$.
+
+Cette écriture est toujours vraie : elle ne suppose aucune indépendance. Un modèle qui produit une suite élément par élément en estimant ces facteurs s'appelle un modèle autorégressif (*autoregressive model*).
+
+Autrement dit : la probabilité d'une suite est la probabilité de son premier élément, multipliée par celle de chaque élément suivant sachant tout ce qui précède.
+
+<Depliable titre="La démonstration pas à pas">
+
+**Pour deux événements**, c'est la définition de la probabilité conditionnelle retournée : $P(B \mid A) = \frac{P(A \cap B)}{P(A)}$, donc $P(A \cap B) = P(A)\,P(B \mid A)$.
+
+**Pour trois éléments**, on applique la règle deux fois, en regroupant les deux premiers :
+
+$$
+\begin{aligned}
+P(x_1, x_2, x_3) &= P(x_1, x_2)\; P(x_3 \mid x_1, x_2) && \text{règle à deux termes, avec } A = (x_1, x_2) \\
+&= P(x_1)\; P(x_2 \mid x_1)\; P(x_3 \mid x_1, x_2) && \text{règle à deux termes sur } P(x_1, x_2)
+\end{aligned}
+$$
+
+On continue de la même façon pour $n$ éléments : c'est une récurrence.
+
+**Le lien avec l'indépendance.** Si les éléments étaient indépendants, chaque facteur $P(x_t \mid x_1, \dots, x_{t-1})$ serait simplement $P(x_t)$, et l'on retrouverait le produit de la fiche sur l'[indépendance](/maths/independance/). La règle du produit est la version générale, qui garde toutes les dépendances.
+
+</Depliable>
+
+## Un exemple à la main
+
+La phrase « je vais au marché », avec les probabilités de l'animation :
+
+- $P(\text{je}) = 0{,}05$ ;
+- $P(\text{vais} \mid \text{je}) = 0{,}2$ ;
+- $P(\text{au} \mid \text{je vais}) = 0{,}3$ ;
+- $P(\text{marché} \mid \text{je vais au}) = 0{,}1$ ;
+- produit : $0{,}05 \times 0{,}2 \times 0{,}3 \times 0{,}1 = 0{,}000\,3$.
+
+En logarithmes : $\ln 0{,}05 + \ln 0{,}2 + \ln 0{,}3 + \ln 0{,}1 \approx -3{,}00 - 1{,}61 - 1{,}20 - 2{,}30 = -8{,}11$. La somme est plus facile à manipuler que le produit, surtout pour des textes de milliers de mots.
+
+Comparons avec « je vais au marchés », faute d'accord. Si le modèle donne $P(\text{marchés} \mid \text{je vais au}) = 0{,}000\,1$, la phrase fautive a une probabilité mille fois plus faible. Un bon modèle de langage « sait » l'orthographe parce qu'il donne des probabilités très basses aux suites incorrectes.
+
+## Essaie toi-même
+
+Refais le calcul avec une autre suite. Consigne : dans le même modèle, $P(\text{vais} \mid \text{je}) = 0{,}2$ mais $P(\text{au} \mid \text{je vais}) = 0{,}3$ et $P(\text{à} \mid \text{je vais}) = 0{,}25$. Puis $P(\text{la} \mid \text{je vais à}) = 0{,}4$ et $P(\text{boutique} \mid \text{je vais à la}) = 0{,}05$. Quelle phrase est la plus probable : « je vais au marché » ou « je vais à la boutique » ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+« Je vais à la boutique » : $0{,}05 \times 0{,}2 \times 0{,}25 \times 0{,}4 \times 0{,}05 = 0{,}000\,05$. « Je vais au marché » : $0{,}000\,3$, six fois plus probable.
+
+Remarque que la phrase la plus longue est désavantagée : chaque mot supplémentaire multiplie par un nombre inférieur à 1. C'est pourquoi, pour comparer des textes de longueurs différentes, on regarde souvent la moyenne des $-\ln p$ par mot plutôt que la probabilité totale ; la fiche sur la [perplexité](/maths/perplexite/) en fait une mesure.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Les modèles de langage.** Un [modèle de langage](/concepts/modele-langage/) estime chaque facteur $P(x_t \mid x_1, \dots, x_{t-1})$ ; un LLM génère un texte en tirant un mot, puis le suivant sachant le premier, et ainsi de suite.
+- **L'entraînement.** La perte d'un LLM sur un texte est la somme des $-\ln P(x_t \mid \text{contexte})$ sur tous les mots : c'est l'[entropie croisée](/maths/entropie-croisee/) appliquée à la règle du produit.
+- **Les modèles plus simples.** Les [n-grammes](/concepts/ngrammes/) approchent chaque facteur en ne gardant que les derniers mots du contexte.
+
+## Les pièges classiques
+
+**« La règle du produit suppose que les mots sont indépendants. »** C'est l'inverse : elle est exacte même quand ils dépendent les uns des autres. C'est $P(A \cap B) = P(A)\,P(B)$ qui suppose l'indépendance.
+
+**« L'ordre des facteurs est imposé. »** Mathématiquement, on peut factoriser dans n'importe quel ordre, par exemple en partant de la fin. Les LLM choisissent l'ordre de lecture, de gauche à droite, parce qu'il permet de générer le texte dans le sens où on l'écrit.
+
+**« Une phrase de probabilité faible est une mauvaise phrase. »** Toute phrase longue a une probabilité minuscule. Pour juger un texte, il faut comparer à longueur égale, ou regarder la probabilité moyenne par mot.
+
+## Entraîne-toi
+
+**Exercice 1.** Une urne contient 3 boules rouges et 2 bleues. On tire deux boules sans remise. Quelle est la probabilité de tirer rouge puis rouge ?
+
+<Depliable titre="Corrigé">
+
+$P(R_1) = 3/5$ et $P(R_2 \mid R_1) = 2/4$. Donc $P(R_1 \cap R_2) = 3/5 \times 1/2 = 3/10$.
+
+</Depliable>
+
+**Exercice 2.** Écris $P(x_1, x_2, x_3, x_4)$ avec la règle du produit.
+
+<Depliable titre="Corrigé">
+
+$P(x_1)\,P(x_2 \mid x_1)\,P(x_3 \mid x_1, x_2)\,P(x_4 \mid x_1, x_2, x_3)$.
+
+</Depliable>
+
+**Exercice 3.** Un modèle donne à chaque mot d'une phrase de 10 mots la probabilité 0,2, sachant les précédents. Quelle est la probabilité de la phrase ? La moyenne des $-\ln p$ par mot ?
+
+<Depliable titre="Corrigé">
+
+$0{,}2^{10} \approx 1{,}0 \times 10^{-7}$. Moyenne des $-\ln p$ : $-\ln 0{,}2 \approx 1{,}61$ par mot. Ce nombre ne dépend pas de la longueur de la phrase, contrairement à la probabilité totale.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "règle du produit", en: "product rule, chain rule of probability", definition: "P(A ∩ B) = P(A) P(B | A), étendue à toute une suite d'événements." },
+  { fr: "contexte", en: "context", definition: "Les éléments déjà observés d'une suite, sur lesquels on conditionne." },
+  { fr: "modèle autorégressif", en: "autoregressive model", definition: "Modèle qui produit une suite élément par élément, chacun sachant les précédents." }
+]} />
