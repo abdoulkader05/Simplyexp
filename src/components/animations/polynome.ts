@@ -10,6 +10,14 @@ const tirer = (n: number) => Array.from({ length: n }, (_, i) => {
   return [h, vraie(h) + gaussien(alea) * 0.8] as [number, number];
 });
 export const TRAIN = tirer(10);
+/** Un nouveau jeu d'entraînement de 10 comptages, tiré avec sa propre graine. */
+export function jeu(graine: number, n = 10): [number, number][] {
+  const a = generateur(graine);
+  return Array.from({ length: n }, (_, i) => {
+    const h = 6 + (12 * (i + 0.2 + 0.6 * a())) / n;
+    return [h, vraie(h) + gaussien(a) * 0.8];
+  });
+}
 export const TEST = tirer(40);
 
 const u = (h: number) => (h - 12) / 6; // on ramène les heures dans [−1 ; 1] pour la stabilité

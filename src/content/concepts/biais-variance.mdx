@@ -1,0 +1,213 @@
+---
+id: biais-variance
+type: concept
+titre: "Le compromis biais-variance : trop simple ou trop compliqué ?"
+sous_titre: "Décomposition de l'erreur de généralisation"
+domaine: machine-learning
+niveau: 3
+prerequis: [surapprentissage, esperance-variance]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.4.4 (compromis entre biais et variance pour minimiser l'erreur quadratique moyenne) ; chapitre 7, sections 7.11 (bagging et ensembles de modèles) et 7.12 (dropout vu comme un ensemble)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+La fiche sur le [surapprentissage](/concepts/surapprentissage/) a montré deux façons d'échouer : un modèle trop simple rate la tendance, un modèle trop souple colle au bruit. Mais ces deux défauts semblent de nature différente, et on ne sait pas encore les comparer. Combien coûte chacun ? Pourquoi l'erreur de test dessine-t-elle un creux quand on augmente la capacité ? Une décomposition, simple et exacte, répond aux deux questions à la fois.
+
+## L'idée en une phrase
+
+<PhraseCle>
+L'erreur moyenne d'un modèle sur des données nouvelles est la somme de trois parts : son erreur systématique, sa sensibilité au hasard des données d'entraînement, et un bruit que personne ne peut éliminer.
+</PhraseCle>
+
+## En image
+
+Plusieurs tireurs s'entraînent sur une cible, chacun avec son propre fusil.
+
+- Chaque fusil est un modèle entraîné sur un jeu de données différent, tiré au hasard.
+- Le centre de la cible est la vraie valeur à prédire.
+- Le centre du groupe d'impacts est la prédiction moyenne des modèles.
+- Le biais est la distance entre le centre du groupe et le centre de la cible : un viseur mal réglé tire toujours à côté, au même endroit.
+- La variance est l'étalement du groupe : un fusil qui tremble disperse ses tirs.
+- Le bruit, c'est le vent au moment du tir : il déplace l'impact au hasard, quel que soit le fusil.
+
+Là où l'image s'arrête : un tireur peut régler son viseur sans faire trembler davantage son fusil. Pour un modèle, les deux réglages sont liés : augmenter la capacité réduit le biais mais augmente la variance. C'est ce lien qui oblige à un compromis.
+
+## Comment ça marche
+
+On reprend le marché ouvert de 6 h à 18 h de la fiche précédente. Mais au lieu d'un seul jeu de 10 comptages, on en imagine 50, tirés chacun au hasard autour de la même tendance, avec le même bruit (écart type 0,8, donc variance 0,64). Sur chaque jeu, on ajuste un polynôme de degré $d$. L'animation en montre 20, en traits fins, et leur moyenne en doré. La vraie tendance est en pointillés.
+
+Pour un point de test à l'heure $h$, avec une vraie valeur $y = f(h) + \varepsilon$, l'erreur quadratique attendue du modèle se décompose ainsi :
+
+<FormuleVivante
+  tex="\mathbb{E}\big[(\htmlClass{t-yhat}{\hat{y}} - y)^2\big] = \underbrace{\big(\mathbb{E}[\htmlClass{t-yhat}{\hat{y}}] - \htmlClass{t-f}{f}\big)^2}_{\htmlClass{t-b}{\text{biais}^2}} + \underbrace{\mathrm{Var}(\htmlClass{t-yhat}{\hat{y}})}_{\htmlClass{t-v}{\text{variance}}} + \htmlClass{t-s}{\sigma^2}"
+  termes={{
+    yhat: { role: "sortie", texte: "la prédiction du modèle, qui dépend du jeu d'entraînement tiré" },
+    f: { role: "entree", texte: "la vraie tendance f(h), inconnue du modèle" },
+    b: { role: "perte", texte: "le biais au carré : l'écart entre la prédiction moyenne et la vérité" },
+    v: { role: "perte", texte: "la variance : la dispersion des prédictions d'un jeu de données à l'autre" },
+    s: { role: "perte", texte: "le bruit σ² des données, que rien ne peut réduire" }
+  }}
+  label="Décomposition biais-variance"
+/>
+
+où :
+- $\hat{y}$ est la prédiction en $h$ d'un modèle entraîné sur un jeu tiré au hasard ;
+- $\mathbb{E}[\hat{y}]$ est la moyenne de cette prédiction sur tous les jeux possibles (la courbe dorée) ;
+- $f$ est la vraie tendance en $h$, et $\varepsilon$ un bruit de moyenne nulle et de variance $\sigma^2$ ;
+- l'espérance porte à la fois sur le jeu d'entraînement et sur le bruit du point de test.
+
+On mesure <Terme id="b">le biais</Terme> et <Terme id="v">la variance</Terme> en moyenne sur toute la journée. Voici ce que donne la simulation :
+
+- degré 1 : biais² environ 2,89 et variance 0,12 ; erreur attendue $2{,}89 + 0{,}12 + 0{,}64 \approx 3{,}65$ ;
+- degré 5 : biais² 0,64 et variance 0,73 ; erreur attendue environ 2,02, la plus basse ;
+- degré 7 : biais² 0,01 et variance 2,46 ; erreur attendue environ 3,11.
+
+Le biais baisse quand le degré augmente, la variance monte, et leur somme passe par un creux. Au-delà du degré 7, les courbes deviennent si instables que même leur moyenne s'éloigne de la vérité : au degré 9, la variance dépasse 300. Le bruit, lui, ne bouge pas : il vaut 0,64 à tous les degrés, et c'est le plancher sous lequel aucune erreur attendue ne peut descendre.
+
+<Simulation
+  rendu="biais-variance-faisceau"
+  label="Vingt polynômes ajustés sur vingt jeux de données différents, leur moyenne et la vraie tendance"
+  parametres={[
+    { nom: "degre", label: "Degré du polynôme", min: 0, max: 9, pas: 1, valeur: 3, role: "parametre" }
+  ]}
+  legende="Traits fins : un modèle par jeu de données. Doré : leur moyenne. Pointillés : la vraie tendance."
+/>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+On fixe l'heure $h$ et on note $m = \mathbb{E}[\hat{y}]$. Le bruit du point de test $\varepsilon$ est de moyenne nulle, de variance $\sigma^2$, et indépendant du jeu d'entraînement, donc de $\hat{y}$.
+
+**Étape 1 : isoler le bruit.**
+
+$$
+\begin{aligned}
+\mathbb{E}\big[(\hat{y} - y)^2\big] &= \mathbb{E}\big[(\hat{y} - f - \varepsilon)^2\big] && y = f + \varepsilon \\
+&= \mathbb{E}\big[(\hat{y} - f)^2\big] - 2\,\mathbb{E}\big[(\hat{y} - f)\,\varepsilon\big] + \mathbb{E}[\varepsilon^2] && \text{développement du carré} \\
+&= \mathbb{E}\big[(\hat{y} - f)^2\big] - 2\,\mathbb{E}[\hat{y} - f]\,\mathbb{E}[\varepsilon] + \sigma^2 && \text{indépendance, et } \mathbb{E}[\varepsilon^2] = \sigma^2 \\
+&= \mathbb{E}\big[(\hat{y} - f)^2\big] + \sigma^2 && \mathbb{E}[\varepsilon] = 0
+\end{aligned}
+$$
+
+**Étape 2 : séparer biais et variance**, en ajoutant et retranchant $m$.
+
+$$
+\begin{aligned}
+\mathbb{E}\big[(\hat{y} - f)^2\big] &= \mathbb{E}\big[\big((\hat{y} - m) + (m - f)\big)^2\big] && \text{on ajoute } 0 = -m + m \\
+&= \mathbb{E}\big[(\hat{y} - m)^2\big] + 2\,(m - f)\,\mathbb{E}[\hat{y} - m] + (m - f)^2 && m - f \text{ est une constante} \\
+&= \mathrm{Var}(\hat{y}) + (m - f)^2 && \mathbb{E}[\hat{y} - m] = 0
+\end{aligned}
+$$
+
+En combinant les deux étapes, on obtient la formule. Chaque terme est positif ou nul : aucune part ne peut compenser une autre.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : fais varier le degré de 0 à 7 et note le biais² et la variance. Pour quel degré leur somme est-elle la plus petite ? Regarde ensuite le degré 9 : que deviennent les traits fins ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Au degré 0, les vingt modèles sont presque identiques (variance 0,06) mais tous plats, loin des deux pics : biais² environ 2,99. En montant, le faisceau suit de mieux en mieux la tendance, et s'élargit. La somme biais² + variance est la plus petite au degré 5 (environ 1,38), ce qui donne une erreur attendue d'environ 2,02 avec le bruit.
+
+Au degré 9, chaque modèle passe exactement par ses 10 points et oscille violemment entre eux ; les traits fins partent dans tous les sens, hors du cadre. La variance dépasse 300. Un seul modèle de degré 9 peut sembler parfait sur ses données ; c'est la famille entière, vue d'un jeu de données à l'autre, qui révèle son instabilité.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : estimer biais² et variance par simulation.
+
+```python
+import numpy as np
+rng = np.random.default_rng(2)
+
+def tendance(h):
+    return 2 + 6 * np.exp(-((h - 10) / 2.2) ** 2) + 3 * np.exp(-((h - 16) / 1.6) ** 2)
+
+grille = np.linspace(6, 18, 49)
+u = lambda h: (h - 12) / 6
+
+for d in [1, 5, 7]:
+    predictions = []
+    for _ in range(200):                              # 200 jeux de 10 comptages
+        h = 6 + 12 * (np.arange(10) + rng.uniform(0.2, 0.8, 10)) / 10
+        y = tendance(h) + rng.normal(0, 0.8, 10)
+        predictions.append(np.polyval(np.polyfit(u(h), y, d), u(grille)))
+    predictions = np.array(predictions)
+    moyenne = predictions.mean(axis=0)
+    biais2 = np.mean((moyenne - tendance(grille)) ** 2)
+    variance = np.mean(predictions.var(axis=0))
+    print(f"degré {d} : biais² {biais2:.2f}, variance {variance:.2f}, total {biais2 + variance + 0.64:.2f}")
+```
+
+En vrai, la décomposition sert à raisonner plus qu'à calculer : sur un vrai problème, on ne connaît ni $f$ ni la loi des données. On l'estime parfois en réentraînant le modèle sur des échantillons tirés avec remise :
+
+```python
+# no-run
+from sklearn.utils import resample
+modeles = [modele.fit(*resample(X_train, y_train, random_state=s)) for s in range(50)]
+```
+
+## Les pièges classiques
+
+**« Le biais du modèle, c'est le paramètre b. »** Le même mot désigne deux choses. Le biais $b$ d'une [régression linéaire](/concepts/regression-lineaire/) est une constante apprise. Le biais de cette fiche est une erreur systématique : l'écart entre la prédiction moyenne et la vérité.
+
+**« On peut ramener l'erreur à zéro avec le bon modèle. »** Le bruit $\sigma^2$ reste, quel que soit le modèle : ici, 0,64. Même la vraie tendance, si on la connaissait, ferait cette erreur-là en moyenne.
+
+**« Plus de données réduit le biais. »** Plus de données réduit surtout la variance : chaque jeu d'entraînement ressemble davantage aux autres. Le biais vient de la forme du modèle ; un polynôme de degré 1 reste une droite, même avec un million de points.
+
+## Dans la vraie vie
+
+La décomposition guide les choix de tous les jours en apprentissage automatique. Face à un modèle qui se trompe, on se demande d'abord s'il se trompe aussi sur l'entraînement (plutôt du biais : il faut plus de capacité) ou seulement sur la validation (plutôt de la variance : il faut plus de données ou de la [régularisation](/concepts/regularisation/)). Moyenner plusieurs modèles entraînés sur des échantillons différents, comme le font les forêts aléatoires, réduit la variance sans toucher au biais ; le [dropout](/concepts/dropout/) s'en inspire pour les réseaux de neurones.
+
+Le même raisonnement éclaire un choix très concret : pour prévoir la fréquentation d'un marché à partir de quelques semaines de comptages seulement, mieux vaut un modèle simple, un peu biaisé, qu'un modèle souple qui changera du tout au tout à chaque nouvelle semaine de données.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Des modèles entraînés sur des jeux différents donnent des prédictions très différentes les unes des autres. Quel terme est grand ?",
+    choix: ["Le biais", "La variance", "Le bruit", "Aucun"],
+    bonne: 1,
+    explication: "La variance mesure la dispersion des prédictions d'un jeu d'entraînement à l'autre."
+  },
+  {
+    question: "Biais² = 0,5, variance = 0,3, bruit = 0,64. Quelle est l'erreur quadratique attendue ?",
+    choix: ["0,8", "1,44", "0,64", "0,5"],
+    bonne: 1,
+    explication: "On additionne les trois parts : 0,5 + 0,3 + 0,64 = 1,44."
+  },
+  {
+    question: "Doubler la quantité de données d'entraînement agit surtout sur…",
+    choix: ["le bruit", "le biais", "la variance", "rien du tout"],
+    bonne: 2,
+    explication: "Avec plus de données, les modèles entraînés sur des jeux différents se ressemblent davantage : la variance baisse. Le biais dépend de la forme du modèle, le bruit des données elles-mêmes."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez le compromis biais-variance et ses conséquences pratiques.">
+
+L'erreur quadratique attendue sur des données nouvelles vaut biais² + variance + bruit. Le biais vient d'un modèle trop rigide pour représenter la vraie relation ; la variance, d'un modèle si souple que ses prédictions changent beaucoup selon le jeu d'entraînement ; le bruit est irréductible. Augmenter la capacité baisse le biais et monte la variance, d'où un creux de l'erreur de test. En pratique : si l'erreur d'entraînement est déjà haute, on augmente la capacité ; si l'écart entre entraînement et validation est grand, on réduit la variance par plus de données, de la régularisation ou des ensembles de modèles.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "biais (d'un estimateur)", en: "bias", definition: "Écart entre la prédiction moyenne des modèles et la vraie valeur." },
+  { fr: "variance (d'un modèle)", en: "variance", definition: "Dispersion des prédictions d'un modèle quand on change de jeu d'entraînement." },
+  { fr: "bruit irréductible", en: "irreducible noise", definition: "Partie aléatoire des données qu'aucun modèle ne peut prédire." },
+  { fr: "compromis biais-variance", en: "bias-variance tradeoff", definition: "Augmenter la capacité réduit le biais mais augmente la variance." }
+]} />
