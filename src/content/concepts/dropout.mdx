@@ -1,0 +1,201 @@
+---
+id: dropout
+type: concept
+titre: "Dropout : éteindre des neurones au hasard pour mieux apprendre"
+sous_titre: "Régularisation par dropout dans les réseaux de neurones"
+domaine: deep-learning
+niveau: 4
+prerequis: [mlp, regularisation]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Srivastava, Hinton, Krizhevsky, Sutskever, Salakhutdinov, « Dropout: A Simple Way to Prevent Neural Networks from Overfitting », Journal of Machine Learning Research 15, 2014, p. 1929-1958 — https://jmlr.org/papers/v15/srivastava14a.html — résumé (réseaux amincis, poids réduits au test, approximation d'une moyenne de modèles)"
+  - "Devlin et al., « BERT », 2018 — https://arxiv.org/abs/1810.04805 — annexe A.2 (dropout de 0,1 sur toutes les couches)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 7, section 7.12 (dropout vu comme un ensemble de sous-réseaux)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Un grand [perceptron multicouche](/concepts/mlp/) a tant de paramètres qu'il peut apprendre ses exemples par cœur : c'est le [surapprentissage](/concepts/surapprentissage/). La [régularisation](/concepts/regularisation/) L2 aide, mais un phénomène propre aux réseaux résiste : des groupes de neurones finissent par dépendre étroitement les uns des autres, chacun corrigeant les erreurs des autres sur les seuls exemples d'entraînement. En 2014, Nitish Srivastava, Geoffrey Hinton et leurs coauteurs publient une solution étonnamment simple : pendant l'entraînement, éteindre des neurones au hasard, à chaque exemple.
+
+## L'idée en une phrase
+
+<PhraseCle>
+À chaque pas d'entraînement, on éteint au hasard une partie des neurones, pour qu'aucun ne puisse compter sur un voisin précis, et on les rallume tous au moment de s'en servir.
+</PhraseCle>
+
+## En image
+
+Une équipe de football s'entraîne pour le tournoi du quartier. L'entraîneur a remarqué que tout repose sur un duo : le meneur passe toujours au même attaquant, et personne d'autre ne sait marquer. Alors, à chaque séance, il tire au sort la moitié des joueurs, qui restent sur le banc. Chacun doit apprendre à jouer avec des partenaires différents.
+
+- Les joueurs sont les neurones d'une couche.
+- Le tirage au sort de chaque séance est le masque de dropout, tiré à nouveau à chaque exemple.
+- La proportion de joueurs sur le banc est le taux $p$.
+- Le jour du match, toute l'équipe joue, et chacun est devenu utile seul : c'est le réseau complet au moment du test.
+
+Là où l'image s'arrête : sur un terrain, une équipe réduite joue différemment. Dans un réseau, on compense exactement l'absence des neurones éteints par un facteur multiplicatif, pour que l'ensemble garde la même intensité moyenne.
+
+## Comment ça marche
+
+Pendant l'entraînement, pour chaque neurone d'une couche, on tire un nombre au hasard : avec la probabilité $p$, le neurone est éteint pour cet exemple. Les neurones gardés sont multipliés par $\frac{1}{1 - p}$. C'est le dropout « inversé », la forme utilisée dans les bibliothèques actuelles :
+
+<FormuleVivante
+  tex="\htmlClass{t-y}{\tilde{h}_i} = \frac{\htmlClass{t-m}{m_i}}{1 - \htmlClass{t-p}{p}}\, \htmlClass{t-h}{h_i} \qquad \htmlClass{t-m}{m_i} = \begin{cases} 0 & \text{avec probabilité } p \\ 1 & \text{avec probabilité } 1 - p \end{cases}"
+  termes={{
+    h: { role: "entree", texte: "l'activation du neurone i, calculée normalement" },
+    m: { role: "sortie", texte: "le masque, tiré au hasard à chaque exemple : 0 éteint le neurone" },
+    p: { role: "parametre", texte: "le taux de dropout, un hyperparamètre, souvent entre 0,1 et 0,5" },
+    y: { role: "sortie", texte: "l'activation transmise à la couche suivante" }
+  }}
+  label="Dropout inversé"
+/>
+
+où :
+- $h_i$ est l'activation du neurone $i$ ;
+- $m_i$ est une variable de Bernoulli, tirée indépendamment pour chaque neurone et chaque exemple ;
+- $p$ est le taux de dropout ;
+- $\tilde{h}_i$ est ce que reçoit la couche suivante.
+
+Au test, on n'éteint rien et on ne multiplie par rien : $\tilde{h}_i = h_i$. Le paper de 2014 décrivait la version équivalente où l'on garde les activations telles quelles à l'entraînement et où l'on réduit les poids au test.
+
+Exemple à la main, avec $p = 0{,}5$ et quatre neurones d'activations $(0{,}8\,;\,1{,}5\,;\,0{,}2\,;\,1{,}1)$, de somme 3,6. Supposons que le tirage garde le premier et le troisième. Ils sont multipliés par $1/(1 - 0{,}5) = 2$ : la couche suivante reçoit $(1{,}6\,;\,0\,;\,0{,}4\,;\,0)$, de somme 2. Un autre tirage, qui garderait le deuxième et le quatrième, donnerait $(0\,;\,3\,;\,0\,;\,2{,}2)$, de somme 5,2. La <Terme id="m">somme</Terme> varie d'un tirage à l'autre, mais en moyenne sur tous les tirages, chaque neurone transmet exactement $h_i$, et la somme moyenne vaut 3,6.
+
+Avec 12 neurones de somme 11,7 et $p = 0{,}5$, l'animation montre trois tirages successifs : 5 neurones gardés (somme 10,2), puis 4 (12,0), puis 7 (14,0). La moyenne sur les vingt premiers tirages vaut environ 12,55 ; elle se rapprocherait de 11,7 avec davantage de tirages.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Pourquoi diviser par $1 - p$.** Pour un neurone, le masque vaut 1 avec la probabilité $1 - p$ :
+
+$$
+\begin{aligned}
+\mathbb{E}[\tilde{h}_i] &= \mathbb{E}\Big[\frac{m_i}{1 - p}\Big]\, h_i && h_i \text{ ne dépend pas du tirage} \\
+&= \frac{\mathbb{E}[m_i]}{1 - p}\, h_i && \text{linéarité de l'espérance} \\
+&= \frac{1 - p}{1 - p}\, h_i = h_i && \mathbb{E}[m_i] = 0 \times p + 1 \times (1 - p)
+\end{aligned}
+$$
+
+En moyenne, la couche suivante reçoit ce qu'elle recevrait sans dropout. C'est pour cela qu'au test, quand on garde tous les neurones, les ordres de grandeur ne changent pas.
+
+**Le dropout comme un immense ensemble.** Une couche de $n$ neurones peut être amincie de $2^n$ façons, une par masque possible. Chaque pas d'entraînement entraîne un de ces sous-réseaux, et tous partagent les mêmes poids. Au test, utiliser le réseau complet revient, de façon approchée, à faire la moyenne des prédictions de tous ces sous-réseaux ; c'est l'argument du paper de 2014, repris au chapitre 7 de *Deep Learning*. Or moyenner de nombreux modèles réduit la variance, comme dans la fiche sur le [compromis biais-variance](/concepts/biais-variance/).
+
+**Pourquoi ça casse les dépendances.** Un neurone ne peut plus compter sur la présence d'un voisin précis, puisque ce voisin est absent une fois sur deux (avec $p = 0{,}5$). Il doit produire un signal utile par lui-même, ou avec des partenaires variés.
+
+</Depliable>
+
+## Essaie toi-même
+
+Règle le taux de dropout et change de tirage.
+
+<Simulation
+  rendu="dropout-masque"
+  label="Activations de douze neurones avant et après dropout"
+  parametres={[
+    { nom: "p", label: "Taux de dropout p", min: 0, max: 0.9, pas: 0.05, valeur: 0.5, role: "parametre", decimales: 2 },
+    { nom: "tirage", label: "Tirage", min: 1, max: 20, pas: 1, valeur: 1, role: "entree" }
+  ]}
+  legende="Les croix rouges marquent les neurones éteints pour cet exemple."
+/>
+
+Consigne : avec $p = 0{,}5$, passe les tirages de 1 à 10 et note la somme après dropout. Puis mets $p$ à 0 et à 0,9. Que remarques-tu sur la hauteur des barres gardées ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $p = 0{,}5$, la somme varie fortement d'un tirage à l'autre, autour de la valeur sans dropout, 11,7 : c'est ce bruit qui empêche l'apprentissage par cœur.
+
+Avec $p = 0$, rien n'est éteint et rien n'est multiplié : on retrouve exactement les activations. Avec $p = 0{,}9$, un ou deux neurones seulement survivent en général, mais multipliés par 10 : la somme reste la même en moyenne, au prix d'un bruit énorme. Un taux trop fort rend l'apprentissage très lent ou impossible ; on choisit $p$ sur la [validation](/concepts/train-val-test/).
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+def dropout(h, p, entrainement=True):
+    if not entrainement or p == 0:
+        return h                                   # au test : on ne touche à rien
+    masque = rng.random(h.shape) >= p              # True avec probabilité 1 - p
+    return h * masque / (1 - p)
+
+h = np.array([0.8, 1.5, 0.2, 1.1])
+print("un tirage :", dropout(h, 0.5))
+print("au test   :", dropout(h, 0.5, entrainement=False))
+
+# L'espérance est conservée : moyenne sur 100 000 tirages
+moyenne = np.mean([dropout(h, 0.5) for _ in range(100_000)], axis=0)
+print("moyenne des tirages :", moyenne.round(3), " activations :", h)
+```
+
+En vrai, avec PyTorch, le dropout se désactive automatiquement en mode évaluation :
+
+```python
+# no-run
+import torch
+couche = torch.nn.Dropout(p=0.1)
+modele.train()   # dropout actif
+modele.eval()    # dropout désactivé
+```
+
+## Les pièges classiques
+
+**« On garde le dropout au moment de prédire. »** Au test, on veut la prédiction la plus fiable, pas une prédiction bruitée. Oublier de passer le modèle en mode évaluation est une erreur classique, qui rend les prédictions aléatoires d'un appel à l'autre.
+
+**« Sans le facteur $1/(1 - p)$, ça revient au même. »** Sans lui, la couche suivante recevrait en moyenne $(1 - p)$ fois moins de signal à l'entraînement qu'au test. Les deux régimes seraient décalés, et le réseau se tromperait au test. Il faut compenser d'un côté ou de l'autre.
+
+**« Plus de dropout, c'est toujours plus de protection. »** Au-delà d'un certain taux, le réseau n'arrive plus à apprendre : il passe du surapprentissage au sous-apprentissage. Le taux est un hyperparamètre comme un autre.
+
+## Dans la vraie vie
+
+Le dropout est l'une des méthodes de régularisation les plus répandues dans les réseaux de neurones. Le paper de 2014 rapporte des gains en vision, en reconnaissance de la parole, en classification de textes et en biologie computationnelle. BERT, par exemple, applique un dropout de 0,1 à toutes ses couches (Devlin et ses coauteurs, 2018, annexe A.2). Il se combine avec la [normalisation](/concepts/normalisation-couches/) et la régularisation L2.
+
+Le principe se transpose à toute organisation qui veut éviter les dépendances fragiles. Une agence qui fait tourner ses équipes sur les dossiers, pour que chaque dossier puisse être repris par n'importe qui, applique à sa façon l'idée du dropout : personne n'est indispensable, donc l'ensemble résiste mieux aux imprévus.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Avec p = 0,2, par combien multiplie-t-on les neurones gardés pendant l'entraînement ?",
+    choix: ["0,2", "0,8", "1,25", "5"],
+    bonne: 2,
+    explication: "1 / (1 − 0,2) = 1 / 0,8 = 1,25."
+  },
+  {
+    question: "Que fait-on au moment du test, avec le dropout inversé ?",
+    choix: ["On éteint aussi des neurones au hasard", "On garde tous les neurones, sans facteur", "On multiplie par 1 − p", "On retire les couches concernées"],
+    bonne: 1,
+    explication: "La compensation a déjà été faite à l'entraînement : au test, le réseau complet est utilisé tel quel."
+  },
+  {
+    question: "Une couche de 10 neurones utilise le dropout. Combien de sous-réseaux différents peut-elle produire ?",
+    choix: ["10", "20", "100", "1 024"],
+    bonne: 3,
+    explication: "Chaque neurone est gardé ou éteint : 2¹⁰ = 1 024 masques possibles."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment fonctionne le dropout, et pourquoi réduit-il le surapprentissage ?">
+
+Pendant l'entraînement, chaque neurone d'une couche est mis à zéro avec une probabilité p, indépendamment pour chaque exemple, et les survivants sont divisés par 1 − p pour conserver l'espérance des activations ; au test, on utilise le réseau complet sans modification. Cela empêche les neurones de co-adapter leurs rôles, puisque aucun ne peut compter sur un partenaire précis. On peut aussi y voir l'entraînement simultané de 2ⁿ sous-réseaux qui partagent leurs poids, dont le réseau complet approxime la moyenne au test : comme pour un ensemble de modèles, la variance diminue. Le taux p se règle sur la validation, typiquement entre 0,1 et 0,5, et le dropout doit être désactivé à l'inférence.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "dropout", en: "dropout", definition: "Méthode qui éteint au hasard une partie des neurones à chaque pas d'entraînement." },
+  { fr: "taux de dropout", en: "dropout rate", definition: "Probabilité p qu'un neurone soit éteint pour un exemple donné." },
+  { fr: "masque", en: "mask", definition: "Vecteur de 0 et de 1 tiré au hasard qui indique les neurones gardés." },
+  { fr: "co-adaptation", en: "co-adaptation", definition: "Dépendance étroite entre neurones qui ne sont utiles qu'ensemble." },
+  { fr: "réseau aminci", en: "thinned network", definition: "Sous-réseau obtenu en retirant les neurones éteints par un masque." }
+]} />
