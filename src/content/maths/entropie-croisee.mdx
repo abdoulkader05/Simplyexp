@@ -1,0 +1,151 @@
+---
+id: entropie-croisee
+type: maths
+titre: "L'entropie croisée : la fonction de perte de ChatGPT"
+sous_titre: "Cross-entropy loss pour la classification et les LLM"
+domaine: theorie-information
+niveau: 3
+prerequis: [entropie, loi-categorielle]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (entropie croisée et divergence KL) ; chapitre 5, section 5.5.1 (log-vraisemblance conditionnelle et entropie croisée) ; chapitre 6, section 6.2.1.1 (apprendre par maximum de vraisemblance)"
+  - "Radford et al., « Improving Language Understanding by Generative Pre-Training », OpenAI, 2018 — https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf — section 3.1 (objectif de modélisation du langage : somme des log P(u_i | contexte))"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un LLM est entraîné sur une seule tâche : prédire le mot suivant. Pour savoir s'il s'améliore, il faut mesurer, à chaque mot du texte d'entraînement, à quel point il s'attendait au vrai mot. Cette mesure est l'entropie croisée : la surprise moyenne du modèle face aux vraies données. C'est la perte standard de la classification, et celle qu'optimisent les modèles de langage de type GPT. Elle prolonge l'[entropie](/maths/entropie/) et s'applique à une [loi catégorielle](/maths/loi-categorielle/).
+
+## L'intuition
+
+Après « je vais au », les vrais textes continuent par « marché » une fois sur deux, « travail » trois fois sur dix, « champ » deux fois sur dix : c'est la vraie loi $p$. Un modèle, lui, a sa propre idée $q$ des probabilités. Chaque fois qu'un vrai texte arrive, le modèle subit une surprise $-\ln q(\text{vrai mot})$ : faible s'il avait prévu ce mot, énorme s'il ne l'attendait pas.
+
+L'entropie croisée est la surprise moyenne du modèle, quand les mots arrivent selon la vraie loi. Elle ne peut jamais descendre sous l'entropie de la vraie loi : même un modèle parfait est surpris, parce que la langue elle-même est incertaine. Règle le modèle $q$ et cherche à rapprocher l'entropie croisée de ce plancher.
+
+<Simulation
+  rendu="entropie-croisee-barres"
+  label="Vraie loi du mot suivant, loi du modèle, entropie croisée et divergence"
+  parametres={[
+    { nom: "q1", label: "q(marché)", min: 0.05, max: 0.9, pas: 0.01, valeur: 0.4, role: "parametre", decimales: 2 },
+    { nom: "q2", label: "q(travail)", min: 0.05, max: 0.9, pas: 0.01, valeur: 0.4, role: "parametre", decimales: 2 }
+  ]}
+  legende="q(champ) = 1 − q(marché) − q(travail). Logarithme népérien : les résultats sont en nats."
+/>
+
+## La définition
+
+Pour une vraie loi $p$ et une loi de modèle $q$ sur les mêmes $K$ issues, l'entropie croisée (*cross-entropy*) est :
+
+$$
+H(p, q) = -\sum_{k=1}^{K} p_k \ln q_k
+$$
+
+où :
+- $p_k$ est la vraie probabilité de l'issue $k$ ;
+- $q_k$ est la probabilité que le modèle lui attribue ;
+- $-\ln q_k$ est la surprise du modèle quand l'issue $k$ arrive ; $H(p, q)$ en est la moyenne selon la vraie loi.
+
+En entraînement, on ne connaît pas $p$ : on a des exemples. Pour un exemple dont la bonne réponse est $y$, la vraie loi est le vecteur one-hot de $y$, et l'entropie croisée devient simplement :
+
+$$
+\mathcal{L} = -\ln q_y
+$$
+
+La perte d'un modèle de langage sur un texte est la moyenne de $-\ln q(\text{mot} \mid \text{contexte})$ sur tous ses mots.
+
+Autrement dit : l'entropie croisée mesure à quel point le modèle est surpris par ce qui arrive vraiment ; on l'entraîne pour qu'il le soit le moins possible.
+
+<Depliable titre="Pourquoi elle ne descend jamais sous l'entropie, et le lien avec le maximum de vraisemblance">
+
+**Le plancher.** La différence entre entropie croisée et entropie est la [divergence KL](/maths/divergence-kl/) :
+
+$$
+H(p, q) - H(p) = -\sum_k p_k \ln q_k + \sum_k p_k \ln p_k = \sum_k p_k \ln \frac{p_k}{q_k} = D_{\mathrm{KL}}(p \,\|\, q)
+$$
+
+On admet ici (chapitre 3 de *Deep Learning*) que cette divergence est toujours positive ou nulle, et nulle seulement si $q = p$. Donc $H(p, q) \ge H(p)$, avec égalité quand le modèle a exactement la vraie loi.
+
+**Le lien avec le maximum de vraisemblance.** Sur $n$ exemples de réponses $y_1, \dots, y_n$, la perte moyenne vaut :
+
+$$
+\frac{1}{n}\sum_{i=1}^{n} -\ln q(y_i) = -\frac{1}{n} \ln \prod_{i=1}^{n} q(y_i)
+$$
+
+C'est la log-vraisemblance négative des données, divisée par $n$. Minimiser l'entropie croisée, c'est donc exactement faire du [maximum de vraisemblance](/maths/maximum-vraisemblance/). C'est aussi l'objectif écrit dans le paper qui a introduit GPT : maximiser la somme des $\log P(u_i \mid \text{contexte})$.
+
+</Depliable>
+
+## Un exemple à la main
+
+La vraie loi $p = (0{,}5\,;\,0{,}3\,;\,0{,}2)$ pour (marché, travail, champ), et un modèle $q = (0{,}4\,;\,0{,}4\,;\,0{,}2)$ :
+
+- entropie de la vraie loi : $H(p) = -(0{,}5 \ln 0{,}5 + 0{,}3 \ln 0{,}3 + 0{,}2 \ln 0{,}2) \approx 0{,}347 + 0{,}361 + 0{,}322 = 1{,}030$ nat ;
+- entropie croisée : $H(p, q) = -(0{,}5 \ln 0{,}4 + 0{,}3 \ln 0{,}4 + 0{,}2 \ln 0{,}2) \approx 0{,}458 + 0{,}275 + 0{,}322 = 1{,}055$ nat ;
+- écart : environ 0,025 nat, le prix des erreurs du modèle.
+
+Sur un seul exemple, dont le vrai mot est « marché » : la perte vaut $-\ln 0{,}4 \approx 0{,}92$. Si le modèle avait donné 0,1 à « marché », la perte serait $-\ln 0{,}1 \approx 2{,}30$ ; s'il avait donné 0,01, $\approx 4{,}61$. La perte monte sans limite quand le modèle rejette le vrai mot.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve les réglages qui donnent la plus petite entropie croisée. Puis essaie un modèle très sûr de lui, $q = (0{,}8\,;\,0{,}1\,;\,0{,}1)$, et un modèle sans avis, $q \approx (0{,}33\,;\,0{,}33\,;\,0{,}33)$ : lequel est le moins pénalisé ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le minimum est atteint pour $q = p = (0{,}5\,;\,0{,}3\,;\,0{,}2)$ : l'entropie croisée vaut alors 1,030, exactement l'entropie, et la divergence tombe à 0.
+
+Le modèle trop sûr de lui, $(0{,}8\,;\,0{,}1\,;\,0{,}1)$, obtient environ 1,263 : il met trop de probabilité sur « marché » et se fait surprendre par les deux autres mots. Le modèle sans avis obtient environ 1,099. L'excès de confiance coûte plus cher que la prudence : l'entropie croisée pousse le modèle à donner des probabilités honnêtes.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Entraîner les LLM.** La perte de [pré-entraînement](/concepts/pretraining/) d'un LLM est l'entropie croisée moyenne sur chaque mot des textes d'entraînement, sachant les précédents, grâce à la [règle du produit](/maths/regle-produit/).
+- **Entraîner les classifieurs.** Avec un [softmax](/concepts/softmax/) en sortie, c'est la perte standard de la classification à plusieurs classes ; avec deux classes, c'est la log-loss de la [régression logistique](/concepts/regression-logistique/).
+- **Évaluer.** L'entropie croisée sur un texte de test mesure la qualité d'un modèle de langage ; la [perplexité](/maths/perplexite/) en est l'exponentielle, plus facile à interpréter.
+
+## Les pièges classiques
+
+**« L'entropie croisée est symétrique. »** $H(p, q) \neq H(q, p)$ en général. L'ordre compte : on moyenne selon la vraie loi $p$ les surprises du modèle $q$.
+
+**« Une perte de 0 est possible pour un LLM. »** Il faudrait que chaque mot soit parfaitement prévisible. La langue ne l'est pas : la perte d'un modèle parfait serait l'entropie de la langue elle-même, qui n'est pas nulle.
+
+**« Donner une probabilité nulle à un mot rare ne coûte rien. »** Si ce mot apparaît une seule fois, la perte vaut $-\ln 0$, infinie. C'est pour cela que le softmax ne donne jamais une probabilité exactement nulle.
+
+## Entraîne-toi
+
+**Exercice 1.** Un classifieur à trois classes donne $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne classe est la 2e. Quelle est la perte ?
+
+<Depliable titre="Corrigé">
+
+$-\ln 0{,}2 \approx 1{,}61$.
+
+</Depliable>
+
+**Exercice 2.** Sur un texte de 4 mots, un modèle a donné aux vrais mots les probabilités 0,5, 0,25, 0,8 et 0,1. Quelle est l'entropie croisée moyenne ?
+
+<Depliable titre="Corrigé">
+
+$(0{,}693 + 1{,}386 + 0{,}223 + 2{,}303)/4 \approx 4{,}605/4 \approx 1{,}15$ nat par mot.
+
+</Depliable>
+
+**Exercice 3.** La vraie loi est $(0{,}5\,;\,0{,}5)$. Calcule $H(p, q)$ pour $q = (0{,}5\,;\,0{,}5)$ et pour $q = (0{,}9\,;\,0{,}1)$.
+
+<Depliable titre="Corrigé">
+
+Premier : $-\ln 0{,}5 \approx 0{,}693$, égal à l'entropie. Second : $-(0{,}5 \ln 0{,}9 + 0{,}5 \ln 0{,}1) \approx 0{,}053 + 1{,}151 = 1{,}204$. Le second modèle paie cher sa fausse certitude.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "entropie croisée", en: "cross-entropy", definition: "Surprise moyenne d'un modèle q face à des données qui suivent la loi p : −Σ p ln q." },
+  { fr: "perte d'entropie croisée", en: "cross-entropy loss", definition: "Pour un exemple de bonne réponse y : −ln q_y." },
+  { fr: "log-vraisemblance négative", en: "negative log-likelihood", definition: "Autre nom de la perte d'entropie croisée, vue comme maximum de vraisemblance." }
+]} />
