@@ -1,0 +1,224 @@
+---
+id: regularisation
+type: concept
+titre: "La régularisation : punir la complexité"
+sous_titre: "Régularisation L1, L2 et weight decay"
+domaine: machine-learning
+niveau: 3
+prerequis: [surapprentissage, normes-distances]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 7, sections 7.1.1 (régularisation L2, weight decay) et 7.1.2 (régularisation L1 et parcimonie)"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 9 (Linear Regression), moindres carrés régularisés"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Le polynôme de degré 9 de la fiche sur le [surapprentissage](/concepts/surapprentissage/) passait exactement par ses dix comptages, et se trompait lourdement ailleurs : erreur de test d'environ 48. On pourrait réduire le degré. Mais dans un réseau de neurones, on ne veut pas choisir à la main le nombre exact de paramètres utiles : on préfère un modèle très capable, qu'on empêche d'abuser de sa liberté. Il faut un moyen de dire à l'apprentissage : « colle aux données, mais sans contorsions ».
+
+## L'idée en une phrase
+
+<PhraseCle>
+On ajoute à la perte une pénalité qui grandit avec la taille des poids, pour que le modèle n'utilise de grands poids que lorsque les données l'exigent vraiment.
+</PhraseCle>
+
+## En image
+
+Un tailleur du marché coud une robe sur mesure à partir de dix mesures prises sur sa cliente. S'il suit chaque mesure à la lettre, y compris celle prise pendant que la cliente respirait fort, la robe aura des plis bizarres et ira mal le jour de la fête. Un bon tailleur « lisse » : il suit les mesures, mais refuse les coutures trop tordues, qui coûtent cher en tissu et en temps.
+
+- Les mesures sont les données d'entraînement, avec leurs petites erreurs.
+- Le patron de la robe est le modèle, réglé par ses poids.
+- Le prix de chaque couture tordue est la pénalité sur les poids.
+- Le choix de ce prix, cher ou bon marché, est le coefficient $\lambda$.
+- La robe qui va bien le jour de la fête est la bonne généralisation.
+
+Là où l'image s'arrête : le tailleur juge au coup d'œil ce qu'est une couture tordue. Le modèle, lui, ne mesure que la taille de ses poids ; c'est une approximation de la « complexité », qui marche bien en pratique mais ne la capture pas toujours.
+
+## Comment ça marche
+
+On garde le même modèle, polynôme de degré 9, et on change seulement ce qu'on minimise :
+
+<FormuleVivante
+  tex="\htmlClass{t-J}{J}(\htmlClass{t-w}{\mathbf{w}}) = \htmlClass{t-L}{\mathcal{L}}(\htmlClass{t-w}{\mathbf{w}}) + \htmlClass{t-lambda}{\lambda}\, \|\htmlClass{t-w}{\mathbf{w}}\|_2^2"
+  termes={{
+    L: { role: "perte", texte: "l'erreur quadratique moyenne sur les données d'entraînement" },
+    lambda: { role: "parametre", texte: "le coefficient de pénalité, un hyperparamètre choisi sur la validation" },
+    w: { role: "parametre", texte: "les poids du modèle, sans le terme constant" },
+    J: { role: "perte", texte: "l'objectif total que l'apprentissage minimise" }
+  }}
+  label="Objectif régularisé L2"
+/>
+
+où :
+- $\mathcal{L}(\mathbf{w})$ est la perte habituelle, ici l'erreur quadratique moyenne ;
+- $\|\mathbf{w}\|_2^2 = w_1^2 + \dots + w_d^2$ est le carré de la [norme L2](/maths/normes-distances/) des poids ; on ne pénalise pas le terme constant $w_0$, qui ne fait que monter ou descendre la courbe ;
+- $\lambda \ge 0$ règle le prix de la complexité : avec $\lambda = 0$, on retrouve les moindres carrés.
+
+C'est la régularisation L2 (*L2 regularization*), qu'on appelle aussi régression ridge pour un modèle linéaire, ou *weight decay* dans les réseaux de neurones. Une variante remplace $\|\mathbf{w}\|_2^2$ par la norme L1, $|w_1| + \dots + |w_d|$ : c'est la régularisation L1, ou lasso.
+
+Voici l'effet de <Terme id="lambda">λ</Terme> sur le polynôme de degré 9, avec les mêmes dix comptages. Les barres à droite montrent la taille des <Terme id="w">poids</Terme>, en échelle logarithmique.
+
+<Simulation
+  rendu="regularisation-lambda"
+  label="Polynôme de degré 9 régularisé, taille de ses coefficients, erreurs d'entraînement et de test"
+  parametres={[
+    { nom: "log", label: "Pénalité : log₁₀ λ", min: -9, max: 1, pas: 0.5, valeur: -9, role: "parametre", decimales: 1 }
+  ]}
+  legende="Le curseur règle λ en puissances de 10 : −3 correspond à λ = 0,001."
+/>
+
+Les chiffres :
+
+- $\lambda = 10^{-9}$, presque rien : erreur d'entraînement 0, erreur de test environ 48, et $\|\mathbf{w}\|_2^2$ dépasse 1,8 million ;
+- $\lambda = 10^{-5}$ : entraînement 0,09, test environ 1,62 ; les poids ont fondu ($\|\mathbf{w}\|_2^2$ environ 5 900) ;
+- $\lambda = 10^{-3}$ : entraînement 0,62, test 1,79 ;
+- $\lambda = 1$ : entraînement 3,67, test 3,60 ; la courbe est presque plate, le modèle sous-apprend.
+
+Une pénalité minuscule suffit à supprimer les contorsions. Trop forte, elle écrase tout. Comme le degré dans la fiche précédente, $\lambda$ est un hyperparamètre, à choisir sur la validation.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Pourquoi « weight decay ».** Le gradient de la pénalité est $\nabla_{\mathbf{w}}\,\lambda\|\mathbf{w}\|_2^2 = 2\lambda\,\mathbf{w}$. Un pas de [descente de gradient](/maths/descente-gradient/) sur $J$ devient :
+
+$$
+\begin{aligned}
+\mathbf{w} &\leftarrow \mathbf{w} - \eta\,\big(\nabla \mathcal{L}(\mathbf{w}) + 2\lambda\,\mathbf{w}\big) && \text{gradient de } J \\
+&= (1 - 2\eta\lambda)\,\mathbf{w} - \eta\,\nabla \mathcal{L}(\mathbf{w}) && \text{on regroupe les termes en } \mathbf{w}
+\end{aligned}
+$$
+
+À chaque pas, les poids sont d'abord multipliés par $1 - 2\eta\lambda$, un nombre un peu inférieur à 1 : ils « s'évaporent » un peu, sauf si le gradient de la perte les entretient.
+
+**Pourquoi L1 met des poids exactement à zéro, et pas L2.** Prenons un seul poids $w$, dont la valeur optimale sans pénalité serait $a > 0$, et minimisons $(w - a)^2$ plus la pénalité.
+
+Avec L2, on minimise $(w - a)^2 + \lambda w^2$. La dérivée $2(w - a) + 2\lambda w$ s'annule pour
+
+$$
+w = \frac{a}{1 + \lambda}
+$$
+
+Le poids rétrécit d'un facteur fixe, mais ne devient jamais nul si $a \neq 0$.
+
+Avec L1, on minimise $(w - a)^2 + \lambda |w|$. Pour $w > 0$, la dérivée $2(w - a) + \lambda$ s'annule en $w = a - \lambda/2$, ce qui n'est possible que si $a > \lambda/2$. Sinon, la fonction est croissante sur $w > 0$ et le minimum est en $w = 0$ :
+
+$$
+w = \max\big(a - \tfrac{\lambda}{2},\ 0\big)
+$$
+
+Tout poids dont l'utilité $a$ est inférieure à $\lambda/2$ est mis exactement à zéro. C'est pourquoi L1 sélectionne des variables, et L2 les rétrécit toutes.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : pars de $\log_{10}\lambda = -9$ et monte doucement. À partir de quelle valeur l'erreur de test passe-t-elle sous 3 ? Où est-elle la plus petite ? Que deviennent les barres des poids ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+L'erreur de test passe sous 3 dès $\lambda = 10^{-6}$ environ (2,29), et elle est la plus basse vers $10^{-5,5}$ à $10^{-5}$, autour de 1,62. Elle remonte ensuite doucement, puis nettement au-delà de $10^{-2}$ : à $\lambda = 1$, elle vaut 3,60, presque autant que le polynôme de degré 0.
+
+Pendant ce temps, les barres des poids baissent de plusieurs ordres de grandeur : de plusieurs centaines à moins de 1. La courbe perd ses boucles bien avant que les poids ne deviennent petits : il suffit d'empêcher les très grands poids, ceux qui servaient à se contorsionner.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : régression polynomiale pénalisée, par la formule fermée.
+
+```python
+import numpy as np
+rng = np.random.default_rng(1)
+
+def tendance(h):
+    return 2 + 6 * np.exp(-((h - 10) / 2.2) ** 2) + 3 * np.exp(-((h - 16) / 1.6) ** 2)
+
+h = 6 + 12 * (np.arange(10) + rng.uniform(0.2, 0.8, 10)) / 10
+y = tendance(h) + rng.normal(0, 0.8, 10)
+h_test = np.linspace(6.1, 17.9, 40)
+y_test = tendance(h_test) + rng.normal(0, 0.8, 40)
+
+def matrice(h, d=9):
+    u = (h - 12) / 6
+    return np.column_stack([u ** k for k in range(d + 1)])
+
+X, X_test = matrice(h), matrice(h_test)
+for lam in [1e-9, 1e-5, 1e-3, 1.0]:
+    P = np.eye(10); P[0, 0] = 0                        # on ne pénalise pas le terme constant
+    w = np.linalg.solve(X.T @ X + len(y) * lam * P, X.T @ y)
+    test = np.mean((X_test @ w - y_test) ** 2)
+    print(f"lambda={lam:g} : test {test:.2f}, somme des w² {np.sum(w[1:] ** 2):.1f}")
+```
+
+En vrai, avec scikit-learn pour un modèle linéaire, et dans l'optimiseur pour un réseau PyTorch :
+
+```python
+# no-run
+from sklearn.linear_model import Ridge, Lasso
+ridge = Ridge(alpha=1e-3).fit(X, y)          # pénalité L2
+lasso = Lasso(alpha=1e-3).fit(X, y)          # pénalité L1
+
+import torch
+optimiseur = torch.optim.SGD(modele.parameters(), lr=0.01, weight_decay=1e-4)
+```
+
+## Les pièges classiques
+
+**« Régulariser, c'est dégrader le modèle. »** On y croit parce que l'erreur d'entraînement augmente. Mais le but est l'erreur sur des données nouvelles : dans l'exemple, elle passe de 48 à 1,6 alors que l'erreur d'entraînement passe de 0 à 0,09.
+
+**« Il faut pénaliser aussi le terme constant. »** Pénaliser $w_0$ tirerait toute la courbe vers zéro, ce qui n'a rien à voir avec sa complexité. On l'exclut, comme les biais dans un réseau de neurones, en général.
+
+**« L1 et L2, c'est pareil avec une autre formule. »** L2 rétrécit tous les poids ; L1 en met beaucoup exactement à zéro. On choisit L1 quand on pense que peu de variables comptent vraiment, et L2 dans la plupart des autres cas.
+
+## Dans la vraie vie
+
+Dans les bibliothèques d'apprentissage profond, le *weight decay* est un simple argument de l'optimiseur, comme weight_decay dans le code PyTorch ci-dessus. La régularisation L1 sert quand on veut un modèle qui n'utilise qu'un petit nombre de variables, par exemple pour savoir lesquelles comptent vraiment. Pour les réseaux, on la complète souvent par le [dropout](/concepts/dropout/), une autre façon d'empêcher l'apprentissage par cœur.
+
+Le principe se transpose à tout modèle construit sur peu de données. Estimer la demande d'une boutique de quartier à partir de quelques mois de ventes et de dizaines de variables (jour, météo, fêtes, jour de paie) mène vite à un modèle qui explique parfaitement le passé ; une pénalité L1 garde seulement les quelques variables qui ont un vrai effet.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que se passe-t-il si on prend λ beaucoup trop grand ?",
+    choix: ["Le modèle surapprend davantage", "Les poids s'écrasent et le modèle sous-apprend", "L'erreur de test devient nulle", "Rien, λ n'a pas d'effet"],
+    bonne: 1,
+    explication: "Une pénalité trop forte pousse tous les poids vers 0 : la courbe devient presque plate et le modèle se trompe partout."
+  },
+  {
+    question: "Avec L2, le pas de descente s'écrit w ← (1 − 2ηλ) w − η ∇L. Avec η = 0,1 et λ = 0,05, par combien les poids sont-ils multipliés avant le pas habituel ?",
+    choix: ["0,9", "0,99", "0,95", "1,01"],
+    bonne: 1,
+    explication: "1 − 2 × 0,1 × 0,05 = 1 − 0,01 = 0,99."
+  },
+  {
+    question: "Un poids a une valeur optimale a = 0,3 sans pénalité. Avec L1 et λ = 1, que devient-il ?",
+    choix: ["0,3", "0,15", "0", "−0,2"],
+    bonne: 2,
+    explication: "max(a − λ/2, 0) = max(0,3 − 0,5, 0) = 0. Son utilité est trop faible face au prix : L1 le supprime."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quelle différence entre régularisation L1 et L2, et quand utiliser l'une ou l'autre ?">
+
+Les deux ajoutent à la perte une pénalité sur la taille des poids. L2 pénalise la somme des carrés : son gradient est proportionnel au poids, donc elle rétrécit tous les poids de façon proportionnelle sans les annuler ; dans un réseau, c'est le weight decay. L1 pénalise la somme des valeurs absolues : son gradient a une taille constante, ce qui met exactement à zéro les poids peu utiles et produit un modèle parcimonieux. On choisit L1 pour sélectionner des variables ou obtenir un modèle compact, L2 par défaut pour stabiliser et améliorer la généralisation. On peut aussi combiner les deux. Dans tous les cas, λ se règle sur la validation.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "régularisation", en: "regularization", definition: "Toute modification de l'apprentissage qui vise à réduire l'erreur de généralisation plutôt que l'erreur d'entraînement." },
+  { fr: "régularisation L2", en: "L2 regularization (ridge)", definition: "Pénalité proportionnelle à la somme des carrés des poids." },
+  { fr: "décroissance des poids", en: "weight decay", definition: "Forme de la pénalité L2 dans la descente de gradient : les poids sont multipliés par un facteur un peu inférieur à 1 à chaque pas." },
+  { fr: "régularisation L1", en: "L1 regularization (lasso)", definition: "Pénalité proportionnelle à la somme des valeurs absolues des poids ; elle en annule beaucoup." },
+  { fr: "parcimonie", en: "sparsity", definition: "Propriété d'un modèle dont beaucoup de poids valent exactement zéro." }
+]} />
