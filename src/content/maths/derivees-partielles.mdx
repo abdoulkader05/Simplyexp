@@ -88,6 +88,8 @@ Le terme $2y^2$ a disparu : il ne dépend pas de $x$, donc il se comporte comme 
 
 Les deux sont négatives : augmenter $w$ ou $b$ réduit l'erreur, et $w$ agit deux fois plus fort, car il est multiplié par la distance.
 
+**Et avec un million de paramètres ?** On pourrait estimer chaque dérivée partielle en poussant un paramètre de $h = 0{,}001$ et en recalculant la perte. Mais il faudrait alors un million de calculs de la perte pour un seul pas d'apprentissage. C'est pour éviter ce coût qu'on utilise la [rétropropagation](/concepts/backpropagation/), qui obtient toutes les dérivées partielles en un seul passage.
+
 ## Essaie toi-même
 
 Reprends l'animation. Consigne : place-toi en $(1\,;\,1)$. Quelle coupe est la plus raide ? Mets ensuite $y$ à 0 sans toucher à $x$ : laquelle des deux pentes change ?
