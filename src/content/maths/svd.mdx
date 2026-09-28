@@ -1,0 +1,161 @@
+---
+id: svd
+type: maths
+titre: "La SVD : compresser une matrice sans perdre l'essentiel"
+sous_titre: "Décomposition en valeurs singulières et réduction de dimension"
+domaine: algebre-lineaire
+niveau: 3
+prerequis: [valeurs-propres, rang-matrice]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 11
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 4 (Matrix Decompositions), décomposition en valeurs singulières et approximation de matrices (théorème d'Eckart-Young)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), décomposition en valeurs singulières"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La fiche sur le [rang](/maths/rang-matrice/) a montré qu'une matrice de rang faible se stocke avec peu de nombres. Mais une vraie matrice de poids, ou une vraie image, a rarement un rang faible exact. La question devient : quelle matrice de petit rang lui ressemble le plus ? La décomposition en valeurs singulières, ou SVD, répond à cette question, et la réponse est la meilleure possible.
+
+## L'intuition
+
+Une image en noir et blanc est une [matrice](/maths/matrices/) : chaque case est la luminosité d'un pixel. La SVD la découpe en couches superposées. Chaque couche est une matrice de rang 1, très simple : une colonne multipliée par une ligne. Elles sont rangées de la plus importante à la moins importante, et un nombre, la valeur singulière, mesure l'importance de chacune.
+
+Avec la première couche seule, on devine déjà la forme. Chaque couche ajoutée corrige un peu l'image. Ici, l'image est de rang 4 : à partir de 4 couches, elle est reconstruite exactement.
+
+<Simulation
+  rendu="svd-compression"
+  label="Image de 8 sur 8 pixels et sa reconstruction avec k couches de rang 1"
+  parametres={[
+    { nom: "k", label: "Nombre de couches k", min: 1, max: 8, pas: 1, valeur: 1, role: "entree" }
+  ]}
+  legende="À gauche l'image, à droite sa reconstruction. Les valeurs singulières sont rangées par ordre décroissant."
+/>
+
+## La définition
+
+Toute matrice $\mathbf{A}$ de taille $m \times n$ et de rang $r$ s'écrit comme une somme de $r$ matrices de rang 1 :
+
+$$
+\mathbf{A} = \sum_{i=1}^{r} \sigma_i\, \mathbf{u}_i\, \mathbf{v}_i^\top \qquad \text{avec } \sigma_1 \ge \sigma_2 \ge \dots \ge \sigma_r > 0
+$$
+
+où :
+- $\sigma_i$ est la $i$-ème valeur singulière (*singular value*), un nombre positif ;
+- $\mathbf{u}_i$ est un vecteur colonne de dimension $m$, et $\mathbf{v}_i$ un vecteur colonne de dimension $n$ ;
+- $\mathbf{u}_i\,\mathbf{v}_i^\top$ est une matrice $m \times n$ de rang 1, colonne fois ligne ;
+- les $\mathbf{u}_i$ sont de norme 1 et deux à deux orthogonaux ; de même pour les $\mathbf{v}_i$.
+
+On range souvent ces morceaux dans trois matrices : $\mathbf{A} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$, où les colonnes de $\mathbf{U}$ sont les $\mathbf{u}_i$, celles de $\mathbf{V}$ les $\mathbf{v}_i$, et $\boldsymbol{\Sigma}$ porte les $\sigma_i$ sur sa diagonale. On admet que cette décomposition existe toujours ; la preuve est au chapitre 4 de *Mathematics for Machine Learning*.
+
+Le résultat qui fait tout l'intérêt de la SVD est le théorème d'Eckart-Young, admis lui aussi : si on garde seulement les $k$ premiers termes,
+
+$$
+\mathbf{A}_k = \sum_{i=1}^{k} \sigma_i\, \mathbf{u}_i\, \mathbf{v}_i^\top
+$$
+
+alors $\mathbf{A}_k$ est, parmi toutes les matrices de rang au plus $k$, la plus proche de $\mathbf{A}$. L'écart se mesure avec la norme de Frobenius (*Frobenius norm*), la [norme L2](/maths/normes-distances/) de tous les éléments mis bout à bout, et il vaut :
+
+$$
+\|\mathbf{A} - \mathbf{A}_k\|_F = \sqrt{\sigma_{k+1}^2 + \dots + \sigma_r^2}
+$$
+
+où :
+- $\|\cdot\|_F$ est la norme de Frobenius : racine de la somme des carrés de tous les éléments.
+
+Autrement dit : la SVD range l'information d'une matrice par ordre d'importance, et couper la liste donne la meilleure compression possible.
+
+<Depliable titre="Le lien avec les valeurs propres">
+
+Calcule $\mathbf{A}^\top\mathbf{A}$ avec la forme $\mathbf{A} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top$. Comme les colonnes de $\mathbf{U}$ sont de norme 1 et orthogonales, $\mathbf{U}^\top\mathbf{U} = \mathbf{I}$ : la case $(i, j)$ de ce produit est $\mathbf{u}_i \cdot \mathbf{u}_j$, qui vaut 1 si $i = j$ et 0 sinon.
+
+$$
+\begin{aligned}
+\mathbf{A}^\top\mathbf{A} &= (\mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top)^\top\, \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top && \\
+&= \mathbf{V}\boldsymbol{\Sigma}^\top\mathbf{U}^\top\, \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^\top && (\mathbf{X}\mathbf{Y}\mathbf{Z})^\top = \mathbf{Z}^\top\mathbf{Y}^\top\mathbf{X}^\top \\
+&= \mathbf{V}\boldsymbol{\Sigma}^\top\boldsymbol{\Sigma}\mathbf{V}^\top && \mathbf{U}^\top\mathbf{U} = \mathbf{I}
+\end{aligned}
+$$
+
+Multiplie à droite par $\mathbf{v}_i$ : comme $\mathbf{V}^\top\mathbf{v}_i$ a un 1 en position $i$ et des 0 ailleurs, on obtient $\mathbf{A}^\top\mathbf{A}\,\mathbf{v}_i = \sigma_i^2\, \mathbf{v}_i$.
+
+Les $\mathbf{v}_i$ sont donc des [vecteurs propres](/maths/valeurs-propres/) de $\mathbf{A}^\top\mathbf{A}$, et les $\sigma_i^2$ ses valeurs propres. C'est ainsi qu'on calcule une SVD à la main : valeurs propres de $\mathbf{A}^\top\mathbf{A}$, puis racines carrées.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prends $\mathbf{A} = \begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix}$.
+
+- $\mathbf{A}\,(1\,;\,1) = (4\,;\,4)$ et $\mathbf{A}\,(1\,;\,-1) = (2\,;\,-2)$ : deux vecteurs propres, de valeurs propres 4 et 2.
+- On les ramène à une norme 1 : $\mathbf{u}_1 = \mathbf{v}_1 = \frac{1}{\sqrt{2}}(1\,;\,1)$ et $\mathbf{u}_2 = \mathbf{v}_2 = \frac{1}{\sqrt{2}}(1\,;\,-1)$. Pour cette matrice symétrique aux valeurs propres positives, les valeurs singulières sont ses valeurs propres : $\sigma_1 = 4$ et $\sigma_2 = 2$.
+- Premier morceau : $\mathbf{u}_1\mathbf{v}_1^\top = \frac{1}{2}\begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}$, donc $\sigma_1\,\mathbf{u}_1\mathbf{v}_1^\top = \begin{pmatrix} 2 & 2 \\ 2 & 2 \end{pmatrix}$.
+- Second morceau : $\mathbf{u}_2\mathbf{v}_2^\top = \frac{1}{2}\begin{pmatrix} 1 & -1 \\ -1 & 1 \end{pmatrix}$, donc $\sigma_2\,\mathbf{u}_2\mathbf{v}_2^\top = \begin{pmatrix} 1 & -1 \\ -1 & 1 \end{pmatrix}$.
+- Vérification : la somme des deux morceaux redonne bien $\begin{pmatrix} 3 & 1 \\ 1 & 3 \end{pmatrix}$.
+
+La meilleure approximation de rang 1 est $\mathbf{A}_1 = \begin{pmatrix} 2 & 2 \\ 2 & 2 \end{pmatrix}$. L'erreur est $\mathbf{A} - \mathbf{A}_1 = \begin{pmatrix} 1 & -1 \\ -1 & 1 \end{pmatrix}$, de norme de Frobenius $\sqrt{1 + 1 + 1 + 1} = 2$. C'est exactement $\sigma_2$, comme l'annonce le théorème.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : note l'erreur relative pour $k = 1, 2, 3, 4$. Que se passe-t-il au-delà de 4 ? Compare aussi le nombre de nombres à stocker avec les 64 pixels de l'image.
+
+<Depliable titre="Ce que tu devrais observer">
+
+L'erreur relative vaut environ 44,7 % pour $k = 1$, 24,5 % pour $k = 2$, 13,4 % pour $k = 3$ et 0 % pour $k = 4$. Au-delà, plus rien ne change : les valeurs singulières suivantes sont nulles, car l'image est de rang 4. Ses colonnes se répètent beaucoup, parce que le dessin est symétrique.
+
+Côté stockage, chaque couche coûte $8 + 8 + 1 = 17$ nombres. Avec $k = 4$, il en faut 68, plus que les 64 pixels. Sur une si petite image, la SVD ne compresse rien. Le gain vient avec les grandes matrices : une image $1\,000 \times 1\,000$ approchée avec 50 couches demande $50 \times 2\,001 = 100\,050$ nombres au lieu d'un million.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Compresser des poids.** Une matrice de poids approchée par ses $k$ premières couches se stocke et se multiplie plus vite. C'est la même idée de rang faible que [LoRA](/concepts/lora/), qui l'applique à la modification des poids plutôt qu'aux poids eux-mêmes.
+- **Réduire la dimension.** Appliquée à une matrice de données centrées, la SVD donne les directions où les données varient le plus. Garder les premières permet de résumer chaque exemple par quelques nombres ; c'est l'analyse en composantes principales.
+- **Comprendre un modèle.** Le spectre des valeurs singulières d'une matrice de poids montre combien de directions elle utilise vraiment, ce qui relie la SVD au [rang](/maths/rang-matrice/).
+
+## Les pièges classiques
+
+**« Les valeurs singulières sont les valeurs propres. »** C'est vrai pour une matrice symétrique aux valeurs propres positives, comme dans l'exemple. En général, c'est faux : les valeurs singulières sont les racines des valeurs propres de $\mathbf{A}^\top\mathbf{A}$. Elles existent même pour une matrice rectangulaire, qui n'a pas de valeurs propres du tout.
+
+**« $\mathbf{U}$ et $\mathbf{V}$ sont la même matrice. »** Elles n'ont même pas la même taille quand $\mathbf{A}$ n'est pas carrée : $\mathbf{U}$ vit dans l'espace des lignes ($m$), $\mathbf{V}$ dans celui des colonnes ($n$).
+
+**« Couper la SVD compresse toujours. »** Garder $k$ couches coûte $k(m + n + 1)$ nombres. C'est un gain seulement si ce total est bien plus petit que $mn$, comme le montre l'image $8 \times 8$.
+
+## Entraîne-toi
+
+**Exercice 1.** Les valeurs singulières d'une matrice sont 10, 3 et 1. Quelle est l'erreur (en norme de Frobenius) de la meilleure approximation de rang 1 ? De rang 2 ?
+
+<Depliable titre="Corrigé">
+
+Rang 1 : $\sqrt{3^2 + 1^2} = \sqrt{10} \approx 3{,}16$. Rang 2 : $\sqrt{1^2} = 1$.
+
+</Depliable>
+
+**Exercice 2.** Trouve la SVD de $\begin{pmatrix} 5 & 0 \\ 0 & 2 \end{pmatrix}$ et sa meilleure approximation de rang 1.
+
+<Depliable titre="Corrigé">
+
+$\sigma_1 = 5$ avec $\mathbf{u}_1 = \mathbf{v}_1 = (1\,;\,0)$, et $\sigma_2 = 2$ avec $\mathbf{u}_2 = \mathbf{v}_2 = (0\,;\,1)$. La meilleure approximation de rang 1 est $\begin{pmatrix} 5 & 0 \\ 0 & 0 \end{pmatrix}$, avec une erreur de 2.
+
+</Depliable>
+
+**Exercice 3.** Une matrice de poids fait $4\,096 \times 4\,096$. On la remplace par ses 64 premières couches. Combien de nombres faut-il stocker ? Quelle fraction de la taille d'origine ?
+
+<Depliable titre="Corrigé">
+
+$64 \times (4\,096 + 4\,096 + 1) = 524\,352$ nombres, contre $4\,096^2 = 16\,777\,216$. C'est environ 3,1 % de la taille d'origine. Reste à savoir si l'erreur est acceptable : elle dépend des valeurs singulières qu'on a jetées.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "décomposition en valeurs singulières", en: "singular value decomposition (SVD)", definition: "Écriture d'une matrice comme somme de matrices de rang 1, pondérées par des valeurs singulières décroissantes." },
+  { fr: "valeur singulière", en: "singular value", definition: "Nombre positif qui mesure l'importance d'une couche de la SVD ; racine d'une valeur propre de AᵀA." },
+  { fr: "norme de Frobenius", en: "Frobenius norm", definition: "Racine de la somme des carrés de tous les éléments d'une matrice." },
+  { fr: "théorème d'Eckart-Young", en: "Eckart-Young theorem", definition: "Couper la SVD après k termes donne la meilleure approximation de rang k." }
+]} />
