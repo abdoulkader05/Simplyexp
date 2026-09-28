@@ -1,0 +1,269 @@
+---
+id: appel-outils
+type: concept
+titre: "Quand un LLM appelle une fonction : l'usage d'outils"
+sous_titre: "Tool use, function calling et sorties structurées"
+domaine: agents
+niveau: 5
+prerequis: [instruction-tuning, in-context-learning]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Schick et al., « Toolformer: Language Models Can Teach Themselves to Use Tools », 2023 — https://arxiv.org/abs/2302.04761 — résumé (difficultés en arithmétique et recherche de faits) et section 2 (appels linéarisés <API> a(i) → r </API>, filtrage L⁻ − L⁺ ≥ τ_f), section 3 (outils : questions-réponses, recherche Wikipédia, calculatrice, calendrier, traduction ; modèle GPT-J à 6,7 milliards de paramètres)"
+  - "BCEAO, « Histoire du franc CFA » — https://www.bceao.int/fr/content/histoire-du-franc-cfa — parité fixe depuis le 1er janvier 1999 : 1 euro = 655,957 FCFA (exercice)"
+  - "Anthropic, documentation de l'API Messages, usage d'outils — https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview — outils décrits par name, description, input_schema ; réponse avec stop_reason tool_use et un bloc tool_use ; résultat renvoyé dans un bloc tool_result (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [modèle de langage](/concepts/modele-langage/) prédit du texte. C'est ce qui le rend si souple, et c'est aussi sa limite. Il ne connaît pas la météo de demain, puisqu'elle n'était dans aucun texte d'entraînement. Il ne sait pas la date d'aujourd'hui. Et il calcule mal : pour lui, « 1 250 × 3 » est une suite de tokens à compléter, pas une multiplication. Les auteurs de Toolformer le résument en 2023 : les modèles de langage résolvent des tâches nouvelles à partir de quelques exemples, mais peinent sur des fonctions de base, comme l'arithmétique ou la recherche de faits, où des programmes bien plus simples excellent. La solution est de laisser le modèle **demander** à un programme de faire ce qu'il fait mal.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Au lieu de répondre directement, le modèle écrit une demande structurée, nom de l'outil et arguments ; l'application exécute l'outil, lui rend le résultat, et le modèle répond en s'appuyant dessus.
+</PhraseCle>
+
+## En image
+
+Pense à une cheffe de cuisine qui ne quitte jamais ses fourneaux.
+
+- Elle ne va pas au marché elle-même : elle remplit un **bon de commande** précis, « 3 kg de tomates, 1 sac d'oignons ».
+- Un commis lit le bon, va faire les courses et **rapporte** les produits avec le ticket.
+- La cheffe cuisine avec ce qu'on lui a rapporté, et elle peut renvoyer un nouveau bon s'il manque quelque chose.
+- Le menu affiché à l'entrée de la cuisine liste les fournisseurs possibles et ce que chacun sait livrer.
+
+Là où l'image s'arrête : le « commis » est un programme ordinaire écrit par un développeur, et la « cheffe » ne voit jamais le marché, seulement le texte du résultat. Si ce texte est faux ou piégé, elle ne peut pas le savoir.
+
+## Comment ça marche
+
+Trois acteurs participent : le modèle, les outils (une fonction, une API, une base de données) et l'**application** qui les relie. L'usage d'outils (*tool use*, aussi appelé *function calling*) se déroule en boucle.
+
+1. **La description des outils.** L'application donne au modèle, dans son contexte, la liste des outils : un nom, une phrase qui dit à quoi il sert, et le format de ses arguments, souvent un schéma JSON. C'est de l'[apprentissage en contexte](/concepts/in-context-learning/) : aucun poids n'est modifié.
+2. **L'appel.** Si la question l'exige, le modèle, entraîné à suivre ce format grâce à l'[instruction tuning](/concepts/instruction-tuning/), écrit un appel structuré au lieu d'une réponse.
+3. **L'exécution.** L'application lit cet appel, lance l'outil pour de vrai et récupère le résultat.
+4. **Le retour.** Le résultat est ajouté au contexte, et le modèle reprend la génération. Il peut répondre, ou appeler un autre outil.
+
+Le modèle n'exécute jamais rien lui-même : il **écrit** des tokens qui décrivent une action. Fais défiler.
+
+<PasAPas rendu="appel-outil-boucle" label="Un appel d'outil, de la question à la réponse">
+  <Etape etat="initial">
+    **La question arrive.** « Quel temps fera-t-il demain à Dakar ? » Le modèle n'a aucun moyen de le savoir à partir de ses poids.
+  </Etape>
+  <Etape etat="appel">
+    **Le modèle écrit un appel.** Parmi les outils décrits, il choisit `meteo` et remplit les arguments. Ce sont des tokens comme les autres, mais dans un format que l'application sait lire.
+  </Etape>
+  <Etape etat="execution">
+    **L'application exécute l'outil.** Elle appelle le vrai service météo avec ces arguments et reçoit une réponse chiffrée. Les valeurs de l'exemple sont inventées.
+  </Etape>
+  <Etape etat="retour">
+    **Le résultat revient dans le contexte.** Pour le modèle, c'est simplement du texte de plus, placé juste après son appel.
+  </Etape>
+  <Etape etat="reponse">
+    **Le modèle répond.** Il reformule le résultat en langage naturel. La réponse est à jour, alors que ses poids ne le sont pas.
+  </Etape>
+</PasAPas>
+
+**Comment un modèle apprend-il qu'un appel est utile ?** Toolformer propose un critère simple. On insère des appels candidats dans des textes, on les exécute, et on regarde si le résultat aide à prédire la suite du texte. On note $L^+$ la perte, une [entropie croisée](/maths/entropie-croisee/), sur les tokens qui suivent quand l'appel **et** son résultat sont fournis, et $L^-$ la plus petite des pertes obtenues sans appel, ou avec l'appel mais sans son résultat. On garde l'appel si :
+
+$$
+L^- - L^+ \geq \tau
+$$
+
+où :
+- $L^-$ est la perte sur les tokens suivants sans l'aide de l'outil ;
+- $L^+$ est la perte sur ces mêmes tokens avec l'appel et son résultat ;
+- $\tau$ est un seuil fixé à l'avance.
+
+Exemple, en simplifiant à un seul token suivi d'une pondération uniforme : dans « 3 cahiers à 1 250 francs, soit 3 750 francs », le modèle seul donne la probabilité $0{,}02$ à « 3 750 », d'où $L^- = -\ln 0{,}02 \approx 3{,}91$. Avec l'appel `Calculatrice(3 * 1250) → 3750` juste avant, il lui donne $0{,}9$, d'où $L^+ = -\ln 0{,}9 \approx 0{,}11$. La différence, $3{,}8$, dépasse un seuil $\tau = 1$ : l'appel est gardé. Un appel au calendrier au milieu de « le chat dort » ne changerait presque rien à la perte : il serait jeté. Le modèle est ensuite ajusté par [fine-tuning](/concepts/fine-tuning/) sur les textes enrichis des seuls appels utiles.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Ce que mesure vraiment L⁻ − L⁺">
+
+Pour un seul token suivant, de probabilité $p^-$ sans l'outil et $p^+$ avec, les pertes sont des surprises :
+
+$$
+\begin{aligned}
+L^- - L^+ &= (-\ln p^-) - (-\ln p^+) && \text{définition de l'entropie croisée pour un token} \\
+&= \ln p^+ - \ln p^- && \text{on développe} \\
+&= \ln \frac{p^+}{p^-} && \text{propriété du logarithme}
+\end{aligned}
+$$
+
+Le critère $L^- - L^+ \geq \tau$ équivaut donc à $\frac{p^+}{p^-} \geq e^{\tau}$ : l'appel doit rendre la suite réelle du texte au moins $e^{\tau}$ fois plus probable. Avec $\tau = 1$, il faut un facteur $e \approx 2{,}72$. Dans l'exemple, $0{,}9 / 0{,}02 = 45$ : largement au-dessus.
+
+Pourquoi prendre pour $L^-$ le minimum entre « pas d'appel » et « appel sans résultat » ? Pour vérifier que c'est bien le **résultat** qui aide, et pas seulement le fait d'avoir écrit l'appel. Écrire `Calculatrice(3 * 1250)` rappelle déjà au modèle qu'il s'agit d'une multiplication ; le critère exige que la réponse de l'outil apporte davantage.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Outil ou pas outil ?" niveau="facile">
+
+Un assistant dispose de trois outils : `calculatrice`, `recherche_web` et `agenda` (lire et ajouter des rendez-vous). Pour chaque demande, dirais-tu qu'il doit appeler un outil, et lequel ?
+
+1. « Traduis “bonne nuit” en anglais. »
+2. « Combien font 17,5 % de 84 300 ? »
+3. « Qui a gagné le dernier match de l'équipe nationale ? »
+4. « Ajoute un rendez-vous chez le dentiste jeudi à 10 h. »
+
+<div slot="solution">
+
+1. Pas d'outil : une traduction courante est dans les compétences du modèle.
+2. `calculatrice` : $0{,}175 \times 84\,300 = 14\,752{,}5$. Le modèle pourrait tomber juste, mais un calcul exact ne doit pas dépendre d'une prédiction de tokens.
+3. `recherche_web` : l'information est postérieure à l'entraînement. Sans outil, le modèle risque d'[halluciner](/concepts/hallucinations/) un résultat plausible.
+4. `agenda` : c'est une **action** sur le monde, pas une information. Aucune réponse textuelle ne peut la remplacer.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le filtre de Toolformer" niveau="moyen" reponse={2.77} tolerance={0.01}>
+
+Dans une phrase d'entraînement, le modèle seul donne la probabilité $0{,}05$ au bon token suivant. Avec un appel à la calculatrice et son résultat, il lui donne $0{,}8$. Calcule $L^- - L^+$, en supposant que l'appel sans résultat n'aide pas. L'appel est-il gardé avec un seuil $\tau = 1$ ?
+
+<div slot="indice">
+
+$L^- - L^+ = \ln(p^+ / p^-)$. Commence par le rapport des deux probabilités.
+
+</div>
+<div slot="solution">
+
+$p^+ / p^- = 0{,}8 / 0{,}05 = 16$, donc $L^- - L^+ = \ln 16 \approx 2{,}77$. C'est plus que $\tau = 1$ : l'appel est gardé. Il aurait même passé un seuil de 2,5.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le convertisseur de devises" niveau="defi" reponse={32797.85} tolerance={0.0001} unite="FCFA">
+
+Tu décris à un modèle l'outil `convertir_devise`, avec trois arguments : `montant` (nombre), `de` et `vers` (codes de devise à trois lettres). Un utilisateur écrit : « Mon cousin m'envoie 50 euros, ça fait combien en francs CFA ? »
+
+Écris l'appel que le modèle devrait produire, puis calcule le résultat que l'outil renverra, sachant que la parité est fixe : 1 euro = 655,957 FCFA.
+
+<div slot="solution">
+
+L'appel : `{"outil": "convertir_devise", "arguments": {"montant": 50, "de": "EUR", "vers": "XOF"}}`. XOF est le code du franc CFA d'Afrique de l'Ouest.
+
+Le résultat : $50 \times 655{,}957 = 32\,797{,}85$ FCFA. Remarque le partage des rôles : le modèle a **compris** la demande et choisi les bons codes, l'outil a fait le calcul exact. C'est exactement la division du travail que vise l'usage d'outils.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un « modèle » factice, qui imite un LLM en renvoyant soit un appel au format JSON, soit une réponse, et la boucle de l'application qui fait le lien.
+
+```python
+import json
+
+# Les outils : de simples fonctions Python
+def calculatrice(expression):
+    return eval(expression, {"__builtins__": {}})  # jouet : jamais eval sur une entrée non fiable
+
+def convertir_devise(montant, de, vers):
+    taux = {("EUR", "XOF"): 655.957}
+    return round(montant * taux[(de, vers)], 2)
+
+OUTILS = {"calculatrice": calculatrice, "convertir_devise": convertir_devise}
+
+def modele_factice(contexte):
+    """Imite un LLM : s'il n'a pas encore de résultat d'outil, il écrit un appel."""
+    dernier = contexte[-1]
+    if dernier["role"] == "utilisateur":
+        return json.dumps({"outil": "convertir_devise",
+                           "arguments": {"montant": 50, "de": "EUR", "vers": "XOF"}})
+    return f"50 euros font {dernier['contenu']} francs CFA."
+
+def boucle(question):
+    contexte = [{"role": "utilisateur", "contenu": question}]
+    while True:
+        sortie = modele_factice(contexte)
+        try:
+            appel = json.loads(sortie)          # un appel d'outil ?
+        except json.JSONDecodeError:
+            return sortie                       # non : c'est la réponse finale
+        resultat = OUTILS[appel["outil"]](**appel["arguments"])
+        print("appel :", appel["outil"], appel["arguments"], "->", resultat)
+        contexte.append({"role": "outil", "contenu": resultat})
+
+print(boucle("50 euros, ça fait combien en francs CFA ?"))
+```
+
+En vrai, avec l'API d'Anthropic : on décrit l'outil, on repère le bloc `tool_use` dans la réponse, on exécute, puis on renvoie un bloc `tool_result`.
+
+```python
+# no-run
+import anthropic
+client = anthropic.Anthropic()
+outils = [{
+    "name": "convertir_devise",
+    "description": "Convertit un montant d'une devise vers une autre.",
+    "input_schema": {"type": "object",
+                     "properties": {"montant": {"type": "number"},
+                                    "de": {"type": "string"}, "vers": {"type": "string"}},
+                     "required": ["montant", "de", "vers"]},
+}]
+messages = [{"role": "user", "content": "50 euros, ça fait combien en francs CFA ?"}]
+reponse = client.messages.create(model="claude-sonnet-5", max_tokens=500, tools=outils, messages=messages)
+appel = next(b for b in reponse.content if b.type == "tool_use")
+resultat = convertir_devise(**appel.input)
+messages += [{"role": "assistant", "content": reponse.content},
+             {"role": "user", "content": [{"type": "tool_result", "tool_use_id": appel.id, "content": str(resultat)}]}]
+print(client.messages.create(model="claude-sonnet-5", max_tokens=500, tools=outils, messages=messages).content[0].text)
+```
+
+## Les pièges classiques
+
+**« Le modèle exécute le code ou appelle l'API. »** Il écrit seulement une demande. C'est l'application qui décide de l'exécuter, et c'est donc elle qui doit vérifier les arguments, limiter les droits et refuser ce qui est dangereux.
+
+**« Avec des outils, le modèle ne se trompe plus. »** Il peut choisir le mauvais outil, inventer un argument (une ville mal orthographiée, un identifiant qui n'existe pas) ou mal lire le résultat. Les outils réduisent certaines erreurs, ils n'en suppriment pas la source.
+
+**« Le résultat d'un outil est forcément fiable. »** Pour le modèle, c'est du texte ajouté au contexte. Une page web renvoyée par une recherche peut contenir des consignes cachées que le modèle risque de suivre : c'est l'[injection de prompt](/concepts/securite-agents/).
+
+## Dans la vraie vie
+
+Les assistants conversationnels actuels utilisent des outils pour chercher sur le web, exécuter du code, lire des fichiers ou consulter un agenda. Dans Toolformer, un modèle GPT-J de 6,7 milliards de paramètres apprend seul à appeler cinq outils : un système de questions-réponses, une recherche dans Wikipédia, une calculatrice, un calendrier et un système de traduction. Les grandes API de modèles proposent aujourd'hui un format standard pour décrire des outils et recevoir des appels structurés. Et quand un modèle enchaîne plusieurs appels pour mener une tâche à bien, on parle d'[agent](/concepts/agent-llm/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Qui exécute réellement l'outil ?",
+    choix: ["Le modèle, pendant la génération", "L'application qui entoure le modèle", "L'utilisateur", "Personne, le modèle imagine le résultat"],
+    bonne: 1,
+    explication: "Le modèle écrit un appel structuré ; l'application le lit, exécute l'outil et renvoie le résultat."
+  },
+  {
+    question: "Comment le modèle connaît-il les outils disponibles ?",
+    choix: ["Ils sont gravés dans ses poids", "L'application les décrit dans le contexte : nom, rôle, arguments", "Il les découvre sur Internet", "Il essaie des noms au hasard"],
+    bonne: 1,
+    explication: "La description des outils fait partie du contexte ; le modèle a été entraîné à s'en servir."
+  },
+  {
+    question: "Dans Toolformer, avec p⁻ = 0,1 et p⁺ = 0,3, que vaut L⁻ − L⁺ ?",
+    choix: ["0,2", "ln 3 ≈ 1,10", "3", "−1,10"],
+    bonne: 1,
+    explication: "L⁻ − L⁺ = ln(p⁺/p⁻) = ln(0,3/0,1) = ln 3 ≈ 1,10."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment fonctionne le function calling, et quels risques faut-il gérer côté application ?">
+
+L'application fournit au modèle la description des outils (nom, description, schéma des arguments). Le modèle, ajusté pour ce format, peut produire à la place d'une réponse un appel structuré. L'application le valide, exécute l'outil, ajoute le résultat au contexte et relance le modèle, qui répond ou enchaîne un autre appel. Les risques : des arguments invalides ou inventés (il faut valider contre le schéma), des actions irréversibles (il faut une confirmation humaine ou des droits minimaux), des résultats d'outils qui contiennent des instructions malveillantes (injection de prompt), et des boucles d'appels sans fin (il faut une limite d'itérations et de coût).
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "usage d'outils", en: "tool use, function calling", definition: "Capacité d'un modèle à écrire un appel structuré vers une fonction extérieure, que l'application exécute." },
+  { fr: "schéma d'arguments", en: "input schema", definition: "Description formelle des arguments d'un outil : noms, types, champs obligatoires." },
+  { fr: "résultat d'outil", en: "tool result", definition: "Sortie de l'outil, ajoutée au contexte du modèle sous forme de texte." },
+  { fr: "sortie structurée", en: "structured output", definition: "Texte généré dans un format lisible par un programme, comme du JSON." }
+]} />
