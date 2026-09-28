@@ -1,0 +1,167 @@
+---
+id: momentum
+type: maths
+titre: "Le momentum : prendre de l'élan pour arrêter de zigzaguer"
+sous_titre: "Momentum et moyenne mobile exponentielle des gradients"
+domaine: optimisation
+niveau: 3
+prerequis: [sgd-minibatch]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.1 (mauvais conditionnement) et section 8.3.2 (momentum)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La perte d'un réseau de neurones ressemble souvent à un ravin : très raide dans certaines directions, presque plate dans d'autres. On dit qu'elle est mal conditionnée ; on parle de mauvais conditionnement (*ill-conditioning*). La [descente de gradient](/maths/descente-gradient/), même par [mini-lots](/maths/sgd-minibatch/), y fait de mauvais pas : elle rebondit d'une paroi à l'autre et avance à peine le long du fond. Le momentum corrige ce défaut avec une idée simple, la mémoire des pas précédents. C'est la première moitié d'[Adam](/maths/adam/).
+
+## L'intuition
+
+Pousse une brouette chargée dans une ruelle en pente, étroite et bosselée. Chaque bosse la dévie un peu à gauche ou à droite, mais son poids l'empêche de changer de direction à chaque cahot. Les petites secousses de côté se compensent. La pente, elle, pousse toujours dans le même sens : la brouette prend de la vitesse le long de la ruelle.
+
+Le momentum donne ce poids aux paramètres. Chaque pas est une moyenne des gradients récents plutôt que le seul gradient du moment. Dans le bol allongé ci-dessous, les pointillés montrent la descente simple : elle zigzague d'abord, puis traîne vers le centre. Augmente $\beta$, la quantité de mémoire.
+
+<Simulation
+  rendu="momentum-bol"
+  label="Trajectoire de 40 pas de descente avec momentum dans un bol allongé, comparée à la descente simple"
+  parametres={[
+    { nom: "beta", label: "Momentum β", min: 0, max: 0.95, pas: 0.05, valeur: 0.5, role: "parametre", decimales: 2 }
+  ]}
+  legende="f(x ; y) = x² + 25y², départ (−4 ; 1), η = 0,035. Le centre des ellipses est le minimum."
+/>
+
+## La définition
+
+On garde une vitesse $\mathbf{v}$, remise à zéro au départ, et on répète :
+
+$$
+\mathbf{v}_{t+1} = \beta\, \mathbf{v}_t + \nabla_\theta \mathcal{L}(\theta_t) \qquad \theta_{t+1} = \theta_t - \eta\, \mathbf{v}_{t+1}
+$$
+
+où :
+- $\mathbf{v}_t$ est la vitesse (*velocity*), une somme pondérée des gradients passés ;
+- $\beta$ est le coefficient de momentum, entre 0 et 1, souvent 0,9 ;
+- $\nabla_\theta \mathcal{L}(\theta_t)$ est le gradient du moment, en pratique calculé sur un mini-lot ;
+- $\eta$ est le *learning rate*.
+
+Avec $\beta = 0$, on retrouve la descente simple. Le livre *Deep Learning* écrit la même méthode avec une vitesse qui inclut déjà $-\eta$ ; les deux écritures donnent les mêmes pas.
+
+Une variante très proche, qu'utilise Adam, est la moyenne mobile exponentielle (*exponential moving average*) : $\mathbf{m}_{t+1} = \beta\, \mathbf{m}_t + (1 - \beta)\, \nabla_\theta \mathcal{L}(\theta_t)$. Elle ne diffère de la vitesse que par le facteur $1 - \beta$.
+
+Autrement dit : au lieu de suivre le gradient du moment, on suit une moyenne des gradients récents, où les plus anciens comptent de moins en moins.
+
+<Depliable titre="Pourquoi les zigzags s'annulent et la pente s'accumule">
+
+On déroule la récurrence à partir de $\mathbf{v}_0 = \mathbf{0}$, en notant $\mathbf{g}_t$ le gradient au pas $t$ :
+
+$$
+\begin{aligned}
+\mathbf{v}_{t+1} &= \mathbf{g}_t + \beta\,\mathbf{v}_t && \text{définition} \\
+&= \mathbf{g}_t + \beta\,\mathbf{g}_{t-1} + \beta^2\,\mathbf{v}_{t-1} && \text{on remplace } \mathbf{v}_t \\
+&= \mathbf{g}_t + \beta\,\mathbf{g}_{t-1} + \beta^2\,\mathbf{g}_{t-2} + \dots + \beta^t\,\mathbf{g}_0 && \text{on répète}
+\end{aligned}
+$$
+
+**Un gradient constant $g$** (le long du fond du ravin) donne une somme géométrique :
+
+$$
+v = g\,(1 + \beta + \beta^2 + \dots) \longrightarrow \frac{g}{1 - \beta}
+$$
+
+Avec $\beta = 0{,}9$, le pas finit par être 10 fois plus grand que sans momentum.
+
+**Un gradient qui change de signe à chaque pas**, $g, -g, g, -g, \dots$ (les rebonds sur les parois), donne une somme alternée :
+
+$$
+v = g\,(1 - \beta + \beta^2 - \dots) \longrightarrow \frac{g}{1 + \beta}
+$$
+
+Avec $\beta = 0{,}9$, le pas est presque divisé par 2. Le momentum amplifie ce qui est régulier et amortit ce qui oscille.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prends $\beta = 0{,}5$ et suis la vitesse dans deux directions pendant quatre pas.
+
+Le long du fond, le gradient vaut toujours 2 :
+
+- $v_1 = 2$ ;
+- $v_2 = 0{,}5 \times 2 + 2 = 3$ ;
+- $v_3 = 0{,}5 \times 3 + 2 = 3{,}5$ ;
+- $v_4 = 0{,}5 \times 3{,}5 + 2 = 3{,}75$, et la limite est $2 / (1 - 0{,}5) = 4$.
+
+En travers, le gradient alterne entre $+10$ et $-10$ :
+
+- $v_1 = 10$ ;
+- $v_2 = 0{,}5 \times 10 - 10 = -5$ ;
+- $v_3 = 0{,}5 \times (-5) + 10 = 7{,}5$ ;
+- $v_4 = 0{,}5 \times 7{,}5 - 10 = -6{,}25$, et l'amplitude tend vers $10 / (1 + 0{,}5) \approx 6{,}67$.
+
+Le pas le long du fond a doublé, celui en travers a baissé d'un tiers : c'est exactement ce qu'il faut dans un ravin.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve la valeur de $\beta$ qui donne la plus petite valeur de $f$ après 40 pas. Que se passe-t-il avec $\beta = 0{,}9$, puis $\beta = 0{,}95$ ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Sans momentum, après 40 pas, $f$ vaut environ 0,048 : la trajectoire a vite fini de zigzaguer en $y$, puis elle traîne le long de l'axe $x$. Avec $\beta = 0{,}5$, $f$ tombe vers 0,000 005 ; autour de $\beta = 0{,}6$, on est pratiquement au centre.
+
+Avec $\beta = 0{,}9$, la boule a trop d'élan : elle dépasse le centre, fait de grandes boucles et finit plus loin qu'avec la descente simple ($f$ environ 0,42). Trop de mémoire rend la trajectoire lente à tourner. On règle donc $\beta$ et $\eta$ ensemble.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Entraîner plus vite.** La descente par mini-lots avec momentum, souvent avec $\beta = 0{,}9$, a longtemps été la méthode par défaut pour entraîner les réseaux de vision, et reste très utilisée.
+- **Lisser le bruit des mini-lots.** Une moyenne des gradients récents est moins bruitée qu'un gradient de mini-lot seul : le momentum joue un rôle proche d'un lot plus grand, sans en payer le calcul.
+- **La première moitié d'Adam.** [Adam](/maths/adam/) garde une moyenne mobile exponentielle des gradients, qui est un momentum, et y ajoute une moyenne des gradients au carré.
+
+## Les pièges classiques
+
+**« Plus de momentum, c'est toujours mieux. »** On y croit parce qu'un $\beta$ modéré accélère beaucoup. Mais avec trop d'élan, la trajectoire dépasse le minimum et oscille longtemps, comme le montre $\beta = 0{,}9$ dans l'animation.
+
+**« Le momentum remplace le learning rate. »** Les deux se combinent : le pas effectif le long d'une pente régulière vaut environ $\eta / (1 - \beta)$. Augmenter $\beta$ de 0,9 à 0,99 multiplie ce pas par 10 ; il faut souvent réduire $\eta$ en même temps.
+
+**« La vitesse, c'est le dernier gradient. »** La vitesse est une somme de tous les gradients passés, pondérés par $1, \beta, \beta^2, \dots$ Le dernier gradient n'y pèse que pour une part.
+
+## Entraîne-toi
+
+**Exercice 1.** Avec $\beta = 0{,}9$ et un gradient constant égal à 1, calcule $v_1$, $v_2$, $v_3$ et la limite.
+
+<Depliable titre="Corrigé">
+
+$v_1 = 1$, $v_2 = 1{,}9$, $v_3 = 0{,}9 \times 1{,}9 + 1 = 2{,}71$. La limite est $1 / (1 - 0{,}9) = 10$.
+
+</Depliable>
+
+**Exercice 2.** Dans la moyenne mobile exponentielle avec $\beta = 0{,}9$, quel poids reçoit le gradient d'il y a 10 pas, par rapport au plus récent ? Au bout de combien de pas un gradient pèse-t-il moins de 1 % du plus récent ?
+
+<Depliable titre="Corrigé">
+
+Son poids est multiplié par $0{,}9^{10} \approx 0{,}35$. Il faut $0{,}9^k < 0{,}01$, soit $k > \ln 100 / \ln(1/0{,}9) \approx 43{,}7$ : au-delà de 44 pas. En gros, la moyenne « se souvient » d'une dizaine à quelques dizaines de pas, de l'ordre de $1/(1 - \beta) = 10$.
+
+</Depliable>
+
+**Exercice 3.** Une composante du gradient alterne entre $+4$ et $-4$. Avec $\beta = 0{,}8$, vers quelle amplitude tend la vitesse dans cette direction ? Et une composante constante égale à 4 ?
+
+<Depliable titre="Corrigé">
+
+Alternée : $4 / (1 + 0{,}8) \approx 2{,}22$. Constante : $4 / (1 - 0{,}8) = 20$. Le rapport entre les deux passe de 1 sans momentum à 9 avec : la direction régulière domine nettement.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "momentum", en: "momentum", definition: "Méthode qui fait suivre aux paramètres une somme pondérée des gradients récents plutôt que le seul gradient du moment." },
+  { fr: "vitesse", en: "velocity", definition: "La somme pondérée des gradients passés que suit le momentum." },
+  { fr: "moyenne mobile exponentielle", en: "exponential moving average", definition: "Moyenne où chaque valeur ancienne est multipliée par β à chaque pas." },
+  { fr: "mauvais conditionnement", en: "ill-conditioning", definition: "Situation où la perte est bien plus courbée dans certaines directions que dans d'autres." }
+]} />
