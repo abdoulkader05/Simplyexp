@@ -43,6 +43,10 @@
     {
       "id": "llm",
       "titre": "LLM : dans la tête de ChatGPT"
+    },
+    {
+      "id": "agents",
+      "titre": "Agents : quand un LLM passe à l'action"
     }
   ],
   "concepts": [
@@ -1351,6 +1355,7 @@
         "pretraining"
       ],
       "suite": [
+        "appel-outils",
         "chain-of-thought",
         "rag"
       ],
@@ -1370,7 +1375,9 @@
       "prerequis": [
         "in-context-learning"
       ],
-      "suite": [],
+      "suite": [
+        "agent-llm"
+      ],
       "papers": [
         {
           "paper": "wei-2022",
@@ -1403,6 +1410,7 @@
         "fine-tuning"
       ],
       "suite": [
+        "appel-outils",
         "rlhf"
       ],
       "papers": [
@@ -1516,13 +1524,148 @@
         "recherche-semantique",
         "in-context-learning"
       ],
-      "suite": [],
+      "suite": [
+        "memoire-agent"
+      ],
       "papers": [
         {
           "paper": "lewis-2020",
           "relation": "introduit"
         }
       ]
+    },
+    {
+      "id": "appel-outils",
+      "titre": "Quand un LLM appelle une fonction : l'usage d'outils",
+      "sous_titre": "Tool use, function calling et sorties structurées",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "instruction-tuning",
+        "in-context-learning"
+      ],
+      "suite": [
+        "agent-llm",
+        "protocoles-outils"
+      ],
+      "papers": [
+        {
+          "paper": "schick-2023",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "agent-llm",
+      "titre": "Un agent, c'est un LLM dans une boucle",
+      "sous_titre": "Boucle observation, réflexion, action des agents LLM",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "appel-outils",
+        "chain-of-thought"
+      ],
+      "suite": [
+        "evaluation-agents",
+        "memoire-agent",
+        "react-agent",
+        "securite-agents"
+      ],
+      "papers": []
+    },
+    {
+      "id": "react-agent",
+      "titre": "ReAct : penser, agir, observer, recommencer",
+      "sous_titre": "Alterner raisonnement et actions dans un agent",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "agent-llm"
+      ],
+      "suite": [
+        "planification-agent"
+      ],
+      "papers": [
+        {
+          "paper": "yao-2022",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "planification-agent",
+      "titre": "Planifier avant d'agir : découper une tâche en étapes",
+      "sous_titre": "Planification, décomposition et auto-correction des agents",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "react-agent"
+      ],
+      "suite": [
+        "multi-agents"
+      ],
+      "papers": []
+    },
+    {
+      "id": "memoire-agent",
+      "titre": "La mémoire d'un agent : se souvenir au-delà du contexte",
+      "sous_titre": "Mémoire de travail, mémoire longue et récupération",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "agent-llm",
+        "rag"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "protocoles-outils",
+      "titre": "Brancher un agent sur le monde : le protocole MCP",
+      "sous_titre": "Model Context Protocol et standardisation des outils",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "appel-outils"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "multi-agents",
+      "titre": "Plusieurs agents qui collaborent",
+      "sous_titre": "Systèmes multi-agents, orchestrateur et sous-agents",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "planification-agent"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "securite-agents",
+      "titre": "Quand un agent se fait manipuler : l'injection de prompt",
+      "sous_titre": "Sécurité des agents, injection de prompt et garde-fous",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "agent-llm"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "evaluation-agents",
+      "titre": "Évaluer un agent : réussir la tâche, pas seulement bien parler",
+      "sous_titre": "Benchmarks, taux de réussite et coût des agents",
+      "domaine": "agents",
+      "niveau": 5,
+      "prerequis": [
+        "agent-llm"
+      ],
+      "suite": [],
+      "papers": []
     }
   ],
   "papers": [
@@ -1932,6 +2075,35 @@
       "introduit": [
         "dpo"
       ]
+    },
+    {
+      "id": "yao-2022",
+      "titre": "ReAct : quand un modèle apprend à penser et agir en même temps",
+      "titre_original": "ReAct: Synergizing Reasoning and Acting in Language Models",
+      "auteurs": "Yao et al.",
+      "annee": 2022,
+      "arxiv": "2210.03629",
+      "requiert": [
+        "agent-llm"
+      ],
+      "introduit": [
+        "react-agent"
+      ]
+    },
+    {
+      "id": "schick-2023",
+      "titre": "Toolformer : un modèle qui apprend seul à se servir d'outils",
+      "titre_original": "Toolformer: Language Models Can Teach Themselves to Use Tools",
+      "auteurs": "Schick et al.",
+      "annee": 2023,
+      "arxiv": "2302.04761",
+      "requiert": [
+        "fine-tuning",
+        "in-context-learning"
+      ],
+      "popularise": [
+        "appel-outils"
+      ]
     }
   ],
   "parcours": [
@@ -2164,6 +2336,94 @@
         "rag",
         "rlhf",
         "dpo"
+      ]
+    },
+    {
+      "id": "construire-un-agent",
+      "titre": "Construire un agent : du LLM qui parle au LLM qui agit",
+      "cibles": [
+        "multi-agents",
+        "memoire-agent",
+        "securite-agents",
+        "protocoles-outils",
+        "evaluation-agents"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "vecteurs",
+        "matrices",
+        "produit-scalaire",
+        "probabilites-bases",
+        "derivees-partielles",
+        "gradient",
+        "regle-chaine",
+        "normes-distances",
+        "produit-matriciel",
+        "similarite-cosinus",
+        "probabilite-conditionnelle",
+        "independance",
+        "regle-produit",
+        "variables-aleatoires",
+        "esperance-variance",
+        "loi-categorielle",
+        "fonction-perte",
+        "descente-gradient",
+        "tokenisation",
+        "loi-grands-nombres",
+        "maximum-vraisemblance",
+        "entropie",
+        "entropie-croisee",
+        "learning-rate",
+        "sgd-minibatch",
+        "momentum",
+        "adam",
+        "regression-lineaire",
+        "regression-logistique",
+        "softmax",
+        "neurone-artificiel",
+        "fonctions-activation",
+        "bpe",
+        "embeddings",
+        "modele-langage",
+        "ngrammes",
+        "mlp",
+        "backpropagation",
+        "gradient-evanescent",
+        "connexions-residuelles",
+        "normalisation-couches",
+        "recherche-semantique",
+        "rnn",
+        "lstm",
+        "encoder-decoder",
+        "goulot-contexte",
+        "attention",
+        "qkv",
+        "self-attention",
+        "encodage-positionnel",
+        "masque-causal",
+        "multi-head",
+        "bloc-transformer",
+        "decodage-sampling",
+        "modele-masque",
+        "bert-vs-gpt",
+        "pretraining",
+        "fine-tuning",
+        "hallucinations",
+        "in-context-learning",
+        "chain-of-thought",
+        "instruction-tuning",
+        "rag",
+        "appel-outils",
+        "agent-llm",
+        "evaluation-agents",
+        "memoire-agent",
+        "protocoles-outils",
+        "react-agent",
+        "planification-agent",
+        "multi-agents",
+        "securite-agents"
       ]
     }
   ]
