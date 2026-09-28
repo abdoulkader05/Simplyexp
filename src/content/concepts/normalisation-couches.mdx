@@ -1,0 +1,210 @@
+---
+id: normalisation-couches
+type: concept
+titre: "La normalisation : garder les signaux sous contrôle"
+sous_titre: "BatchNorm, LayerNorm et RMSNorm"
+domaine: deep-learning
+niveau: 4
+prerequis: [mlp, esperance-variance]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Ioffe, Szegedy, « Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift », arXiv 1502.03167, 2015 — https://arxiv.org/abs/1502.03167 — résumé (14 fois moins d'étapes d'entraînement)"
+  - "Ba, Kiros, Hinton, « Layer Normalization », arXiv 1607.06450, 2016 — https://arxiv.org/abs/1607.06450 — résumé (statistiques calculées sur un seul exemple, même calcul à l'entraînement et au test)"
+  - "Zhang, Sennrich, « Root Mean Square Layer Normalization », arXiv 1910.07467, 2019 — https://arxiv.org/abs/1910.07467 — résumé (temps de calcul réduit de 7 % à 64 %)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.1 (LayerNorm(x + Sublayer(x)))"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Dans un [perceptron multicouche](/concepts/mlp/) profond, chaque couche reçoit les sorties de la précédente. Or ces sorties changent sans cesse pendant l'entraînement : les poids des couches du dessous bougent, et l'échelle des signaux avec eux. Une couche qui s'était habituée à recevoir des nombres autour de 1 se retrouve avec des nombres autour de 50, ou de 0,01. Il faut alors un petit *learning rate* et une initialisation soignée, sinon tout diverge. En 2015, Sergey Ioffe et Christian Szegedy proposent d'intégrer au réseau lui-même une étape qui remet les signaux à la bonne échelle ; sur une tâche de classification d'images, ils atteignent la même précision avec 14 fois moins d'étapes d'entraînement.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Avant de passer à la couche suivante, on recentre et on remet à l'échelle les activations, puis on laisse le réseau choisir lui-même l'échelle qui lui convient.
+</PhraseCle>
+
+## En image
+
+Dans un studio de radio, plusieurs invités parlent dans des micros. L'un chuchote, l'autre crie. Avant d'envoyer le son à l'antenne, le technicien règle chaque voix pour qu'elle arrive à un niveau standard, puis ajuste le volume général selon l'émission.
+
+- Les voix des invités sont les activations d'une couche.
+- Le niveau moyen et l'écart des voix sont la moyenne et l'écart type des activations.
+- Ramener chaque voix au niveau standard, c'est la normalisation.
+- Le volume général et la tonalité choisis ensuite sont les paramètres appris $\gamma$ et $\beta$.
+- L'auditeur, qui entend toujours un son au bon niveau, est la couche suivante.
+
+Là où l'image s'arrête : le technicien règle chaque invité séparément. La normalisation, elle, calcule ses statistiques sur un groupe de nombres (les neurones d'une couche, ou les exemples d'un lot), et c'est le choix de ce groupe qui distingue BatchNorm, LayerNorm et RMSNorm.
+
+## Comment ça marche
+
+La normalisation de couche (*layer normalization*, LayerNorm) prend le vecteur $\mathbf{x}$ des $d$ activations d'une couche, pour un seul exemple :
+
+<FormuleVivante
+  tex="\htmlClass{t-y}{y_i} = \htmlClass{t-g}{\gamma_i}\, \frac{\htmlClass{t-x}{x_i} - \htmlClass{t-m}{\mu}}{\sqrt{\htmlClass{t-v}{\sigma^2} + \epsilon}} + \htmlClass{t-b}{\beta_i}"
+  termes={{
+    x: { role: "entree", texte: "l'activation numéro i de la couche" },
+    m: { role: "sortie", texte: "la moyenne des d activations de cet exemple" },
+    v: { role: "sortie", texte: "leur variance" },
+    g: { role: "parametre", texte: "le gain appris, qui fixe l'échelle de sortie" },
+    b: { role: "parametre", texte: "le décalage appris, qui fixe le centre de sortie" },
+    y: { role: "sortie", texte: "l'activation normalisée" }
+  }}
+  label="Normalisation de couche"
+/>
+
+où :
+- $\mu = \frac{1}{d}\sum_i x_i$ et $\sigma^2 = \frac{1}{d}\sum_i (x_i - \mu)^2$ sont la [moyenne et la variance](/maths/esperance-variance/) des activations de l'exemple ;
+- $\epsilon$ est un tout petit nombre, par exemple $10^{-5}$, qui évite de diviser par zéro ;
+- $\gamma_i$ et $\beta_i$ sont des paramètres appris, initialisés à 1 et 0.
+
+Exemple à la main, avec $\mathbf{x} = (2\,;\,4\,;\,6\,;\,8)$, $\gamma = 1$ et $\beta = 0$. La <Terme id="m">moyenne</Terme> vaut $\mu = 5$. Les écarts sont $(-3\,;\,-1\,;\,1\,;\,3)$, leurs carrés $(9\,;\,1\,;\,1\,;\,9)$, donc la <Terme id="v">variance</Terme> vaut $\sigma^2 = 20/4 = 5$ et l'écart type $\sqrt{5} \approx 2{,}236$. La sortie est $(-1{,}342\,;\,-0{,}447\,;\,0{,}447\,;\,1{,}342)$ : moyenne 0, variance 1.
+
+Deux variantes :
+
+- **BatchNorm** (Ioffe et Szegedy, 2015) calcule la moyenne et la variance de chaque neurone sur les exemples d'un [mini-lot](/maths/sgd-minibatch/), au lieu de le faire sur les neurones d'un exemple. Elle dépend donc de la taille du lot, et se comporte différemment à l'entraînement et au test.
+- **RMSNorm** (Zhang et Sennrich, 2019) ne recentre pas : elle divise seulement par la moyenne quadratique $\mathrm{RMS}(\mathbf{x}) = \sqrt{\frac{1}{d}\sum_i x_i^2}$. Pour notre exemple, $\mathrm{RMS} = \sqrt{120/4} = \sqrt{30} \approx 5{,}477$, et la sortie vaut $(0{,}365\,;\,0{,}730\,;\,1{,}095\,;\,1{,}461)$. Ses auteurs rapportent une qualité comparable à LayerNorm, pour un temps de calcul réduit de 7 % à 64 % selon les modèles.
+
+La LayerNorm, proposée par Jimmy Ba, Jamie Kiros et Geoffrey Hinton en 2016, fait exactement le même calcul à l'entraînement et au test, et s'applique facilement aux réseaux récurrents : c'est celle des Transformers.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**La sortie a bien une moyenne nulle et une variance 1** (avec $\gamma = 1$, $\beta = 0$ et $\epsilon$ négligé). Notons $\hat{x}_i = (x_i - \mu)/\sigma$.
+
+$$
+\begin{aligned}
+\frac{1}{d}\sum_i \hat{x}_i &= \frac{1}{\sigma}\Big(\frac{1}{d}\sum_i x_i - \mu\Big) = \frac{1}{\sigma}(\mu - \mu) = 0 && \text{linéarité de la moyenne} \\
+\frac{1}{d}\sum_i \hat{x}_i^2 &= \frac{1}{\sigma^2} \cdot \frac{1}{d}\sum_i (x_i - \mu)^2 = \frac{\sigma^2}{\sigma^2} = 1 && \text{définition de } \sigma^2
+\end{aligned}
+$$
+
+**Insensible à l'échelle et au décalage.** Si on remplace $\mathbf{x}$ par $s\,\mathbf{x} + c$ avec $s > 0$, la moyenne devient $s\mu + c$ et l'écart type $s\sigma$. Donc :
+
+$$
+\frac{(s x_i + c) - (s\mu + c)}{s\sigma} = \frac{s\,(x_i - \mu)}{s\,\sigma} = \frac{x_i - \mu}{\sigma}
+$$
+
+La sortie ne change pas. Si les poids de la couche d'en dessous doublent, la couche d'au-dessus reçoit exactement la même chose : c'est ce qui stabilise l'entraînement. RMSNorm, elle, est insensible à l'échelle $s$ mais pas au décalage $c$, puisqu'elle ne retire pas la moyenne.
+
+**Pourquoi $\gamma$ et $\beta$.** Imposer moyenne 0 et variance 1 pourrait brider le réseau. Les paramètres appris lui rendent toute liberté : avec $\gamma_i = \sigma$ et $\beta_i = \mu$, il pourrait même annuler la normalisation. La différence est que l'échelle devient un paramètre explicite, facile à régler, au lieu de dépendre de toutes les couches du dessous.
+
+</Depliable>
+
+## Essaie toi-même
+
+Multiplie l'entrée par un facteur et décale-la : regarde ce que deviennent les deux normalisations.
+
+<Simulation
+  rendu="normalisation-vecteur"
+  label="Vecteur d'activations, sa LayerNorm et sa RMSNorm"
+  parametres={[
+    { nom: "s", label: "Facteur d'échelle s", min: 0.2, max: 5, pas: 0.1, valeur: 1, role: "entree", decimales: 1 },
+    { nom: "c", label: "Décalage c", min: -10, max: 10, pas: 0.5, valeur: 0, role: "entree", decimales: 1 }
+  ]}
+  legende="Entrée x = s × (2 ; 4 ; 6 ; 8) + c. Gain γ = 1 et décalage β = 0."
+/>
+
+Consigne : fais varier $s$ de 0,2 à 5 avec $c = 0$. Puis remets $s = 1$ et fais varier $c$. Quelle normalisation reste immobile dans chaque cas ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Quand seul $s$ change, l'entrée passe de $(0{,}4\,;\,\dots\,;\,1{,}6)$ à $(10\,;\,\dots\,;\,40)$, mais les deux sorties restent figées : LayerNorm à $(-1{,}34\,;\,-0{,}45\,;\,0{,}45\,;\,1{,}34)$ et RMSNorm à $(0{,}37\,;\,0{,}73\,;\,1{,}10\,;\,1{,}46)$.
+
+Quand $c$ change, LayerNorm ne bouge toujours pas, mais RMSNorm si. Avec $c = -5$, l'entrée devient $(-3\,;\,-1\,;\,1\,;\,3)$ et RMSNorm donne $(-1{,}34\,;\,-0{,}45\,;\,0{,}45\,;\,1{,}34)$, les mêmes nombres que LayerNorm, puisque la moyenne est alors nulle. RMSNorm fait le pari que recentrer n'est pas nécessaire ; ses auteurs le vérifient expérimentalement.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+
+def layer_norm(x, gamma=1.0, beta=0.0, eps=1e-5):
+    mu, var = x.mean(axis=-1, keepdims=True), x.var(axis=-1, keepdims=True)
+    return gamma * (x - mu) / np.sqrt(var + eps) + beta
+
+def rms_norm(x, gain=1.0, eps=1e-5):
+    return gain * x / np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
+
+x = np.array([2.0, 4.0, 6.0, 8.0])
+print("LayerNorm :", layer_norm(x).round(3))               # [-1.342 -0.447  0.447  1.342]
+print("RMSNorm   :", rms_norm(x).round(3))                 # [0.365 0.73  1.095 1.461]
+print("même LayerNorm pour 10x - 3 :", np.allclose(layer_norm(x), layer_norm(10 * x - 3), atol=1e-4))
+
+# BatchNorm : statistiques par neurone, sur les exemples d'un lot
+lot = np.array([[2.0, 40.0], [4.0, 60.0], [6.0, 20.0]])    # 3 exemples, 2 neurones
+bn = (lot - lot.mean(axis=0)) / np.sqrt(lot.var(axis=0) + 1e-5)
+print("BatchNorm, colonne par colonne :\n", bn.round(3))
+```
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+ln = torch.nn.LayerNorm(512)          # statistiques sur les 512 activations de chaque exemple
+bn = torch.nn.BatchNorm1d(512)        # statistiques sur les exemples du lot, pour chaque neurone
+```
+
+## Les pièges classiques
+
+**« Normaliser, c'est perdre de l'information. »** La moyenne et l'échelle sont retirées, mais les paramètres $\gamma$ et $\beta$ permettent au réseau de réinstaller celles qui lui sont utiles. Ce qui change, c'est qu'elles ne dépendent plus des caprices des couches du dessous.
+
+**« BatchNorm et LayerNorm, c'est la même chose. »** BatchNorm calcule ses statistiques sur les exemples d'un lot, LayerNorm sur les neurones d'un exemple. BatchNorm marche mal avec de très petits lots et doit mémoriser des moyennes pour le test ; LayerNorm n'a aucun de ces soucis, ce qui explique sa place dans les modèles de langage.
+
+**« Avec la normalisation, on peut prendre n'importe quel learning rate. »** Elle rend l'entraînement beaucoup plus tolérant, mais pas invulnérable. Un pas démesuré reste un pas démesuré.
+
+## Dans la vraie vie
+
+La LayerNorm est présente dans chaque [bloc Transformer](/concepts/bloc-transformer/) : le paper d'origine l'applique après chaque sous-couche, sous la forme $\mathrm{LayerNorm}(\mathbf{x} + \mathrm{Sublayer}(\mathbf{x}))$, avec une [connexion résiduelle](/concepts/connexions-residuelles/). BatchNorm a d'abord été conçue pour les réseaux de classification d'images, et RMSNorm propose d'économiser une partie du calcul de LayerNorm quand on entraîne de grands modèles.
+
+L'idée de ramener des mesures à une échelle commune avant de les comparer est aussi celle des barèmes d'examen : comparer les notes de deux jurys, l'un sévère et l'autre généreux, n'a de sens qu'après avoir recentré et remis à l'échelle chaque série de notes.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que donne la LayerNorm (γ = 1, β = 0) du vecteur (1 ; 3) ?",
+    choix: ["(0 ; 1)", "(−1 ; 1)", "(1 ; 3)", "(0,25 ; 0,75)"],
+    bonne: 1,
+    explication: "Moyenne 2, écarts (−1 ; 1), variance 1, écart type 1 : la sortie vaut (−1 ; 1)."
+  },
+  {
+    question: "Sur quoi BatchNorm calcule-t-elle ses statistiques ?",
+    choix: ["Sur les neurones d'un exemple", "Sur les exemples d'un lot, pour chaque neurone", "Sur tout le jeu de données à chaque pas", "Sur les poids du réseau"],
+    bonne: 1,
+    explication: "Chaque neurone est normalisé avec la moyenne et la variance de ses valeurs sur le mini-lot. LayerNorm, elle, travaille sur les neurones d'un seul exemple."
+  },
+  {
+    question: "On multiplie toutes les activations d'une couche par 10. Que devient la sortie d'une RMSNorm ?",
+    choix: ["Elle est multipliée par 10", "Elle ne change pas", "Elle est divisée par 10", "Elle devient nulle"],
+    bonne: 1,
+    explication: "La moyenne quadratique est aussi multipliée par 10 : le rapport x / RMS(x) ne change pas."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quelle différence entre BatchNorm et LayerNorm, et pourquoi les Transformers utilisent-ils LayerNorm ?">
+
+Les deux centrent et réduisent des activations puis appliquent un gain et un décalage appris. BatchNorm calcule la moyenne et la variance de chaque neurone sur les exemples du mini-lot : ses statistiques dépendent du lot, elle se comporte différemment à l'entraînement et au test (on utilise alors des moyennes mémorisées), et elle souffre des petits lots ou des séquences de longueurs variables. LayerNorm calcule les statistiques sur les activations d'un seul exemple : le calcul est identique à l'entraînement et au test, indépendant de la taille du lot, et s'applique à chaque position d'une séquence. C'est ce qui la rend adaptée aux modèles de langage ; RMSNorm en est une version simplifiée, sans recentrage.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "normalisation de couche", en: "layer normalization (LayerNorm)", definition: "Recentre et réduit les activations d'un exemple sur l'ensemble des neurones de la couche." },
+  { fr: "normalisation par lot", en: "batch normalization (BatchNorm)", definition: "Recentre et réduit chaque neurone avec les statistiques du mini-lot." },
+  { fr: "normalisation par moyenne quadratique", en: "RMSNorm", definition: "Divise les activations par leur moyenne quadratique, sans les recentrer." },
+  { fr: "gain et décalage", en: "gain and bias (γ, β)", definition: "Paramètres appris qui fixent l'échelle et le centre après normalisation." }
+]} />
