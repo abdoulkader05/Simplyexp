@@ -4,7 +4,8 @@ import Base from './Base.astro';
 import BlocPrerequis from '../components/navigation/BlocPrerequis.astro';
 import BlocSuite from '../components/navigation/BlocSuite.astro';
 import Scene from '../components/animations/Scene.astro';
-import { concepts } from '../lib/graphe';
+import { concepts, domaines } from '../lib/graphe';
+import { scinder, urlDomaine } from '../lib/site';
 import { corriger } from '../lib/rehype-typo-fr.mjs';
 import { renduSignature } from '../components/animations/registre';
 
@@ -14,10 +15,14 @@ interface Props {
 const { fiche } = Astro.props;
 const noeud = concepts.get(fiche.id);
 const signature = renduSignature(fiche.id);
+const domaine = noeud && domaines.get(noeud.domaine);
 const date = fiche.mis_a_jour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 <Base titre={fiche.titre} description={fiche.sous_titre}>
   <main id="contenu" class="fiche">
+    {domaine && (
+      <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <a href={urlDomaine(domaine.id)}>{scinder(domaine.titre)[0]}</a></nav>
+    )}
     <header class={`fiche-tete ${signature ? 'avec-signature' : ''}`}>
       <div class="fiche-titres">
         <h1>{corriger(fiche.titre)}</h1>
@@ -47,6 +52,7 @@ const date = fiche.mis_a_jour.toLocaleDateString('fr-FR', { day: 'numeric', mont
 
 <style>
   .fiche { max-width: var(--largeur-large); margin: 0 auto; padding: 2rem var(--espace) 4rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.25rem; }
   .fiche-tete { margin-bottom: 2.5rem; }
   .fiche-titres { max-width: var(--colonne); }
   .sous-titre { font-size: var(--t-m); color: var(--encre-douce); margin: 0 0 .75rem; line-height: 1.4; }

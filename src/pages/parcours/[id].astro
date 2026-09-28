@@ -20,7 +20,7 @@ const cibles = (p as { cibles?: string[] }).cibles ?? [];
     <p class="surtitre">Parcours · {p.etapes.length} étapes</p>
     <h1>{corriger(p.titre)}</h1>
     {cibles.length > 0 && (
-      <p class="chapo">À l’arrivée : {cibles.map((id, i) => <>{i > 0 && ', '}<strong>{corriger(scinder(concepts.get(id)!.titre)[0])}</strong></>)}. Toutes les notions nécessaires sont remontées et rangées dans l’ordre.</p>
+      <p class="arrivee">À l’arrivée : {cibles.map((id, i) => <>{i > 0 && ', '}<a href={urlConcept(concepts.get(id)!)}>{corriger(scinder(concepts.get(id)!.titre)[0])}</a></>)}. Toutes les notions nécessaires sont remontées et rangées dans l’ordre.</p>
     )}
     <p class="avancement">{faites} / {p.etapes.length} fiches écrites{prochaine && <> · <a href={urlConcept(concepts.get(prochaine)!)}>Commencer</a></>}</p>
     <ListeFiches ids={p.etapes} ecrites={ecrites} avecDomaine />
@@ -32,6 +32,7 @@ const cibles = (p as { cibles?: string[] }).cibles ?? [];
   .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
   .surtitre { font-family: var(--police-titre); font-size: var(--t-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--lagune); font-weight: 600; margin-bottom: .4rem; }
   .chapo { font-size: var(--t-m); color: var(--encre-douce); max-width: var(--colonne); line-height: 1.5; }
+  .arrivee { color: var(--encre-douce); max-width: var(--colonne); line-height: 1.55; }
   .avancement { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
   .avancement a { font-family: var(--police-titre); font-weight: 600; }
 </style>

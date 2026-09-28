@@ -11,7 +11,7 @@ const etages = ETAGES.map((e) => {
   const doms = e.domaines.map((id) => {
     const liste = conceptsDu(id);
     const [titre, sous] = scinder(domaines.get(id)!.titre);
-    return { id, titre, sous, total: liste.length, ecrites: liste.filter((c) => ecrites.has(c.id)).length, premiere: liste.find((c) => ecrites.has(c.id)) };
+    return { id, titre, sous, total: liste.length, ecrites: liste.filter((c) => ecrites.has(c.id)).length };
   });
   return { ...e, doms, total: doms.reduce((s, d) => s + d.total, 0), ecrites: doms.reduce((s, d) => s + d.ecrites, 0) };
 });
