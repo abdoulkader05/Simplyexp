@@ -46,7 +46,7 @@ Là où l'image s'arrête : un robinet ne coule jamais « négativement ». La t
 Après la somme pondérée $z = \mathbf{w} \cdot \mathbf{x} + b$, le neurone calcule $a = \varphi(z)$. Quatre choix dominent :
 
 <FormuleVivante
-  tex="\htmlClass{t-sig}{\sigma}(z) = \frac{1}{1 + e^{-z}} \quad \htmlClass{t-tanh}{\tanh}(z) = \frac{e^{z} - e^{-z}}{e^{z} + e^{-z}} \quad \htmlClass{t-relu}{\mathrm{ReLU}}(z) = \max(0, z) \quad \htmlClass{t-gelu}{\mathrm{GELU}}(z) = z\,\Phi(z)"
+  tex="\begin{aligned} \htmlClass{t-sig}{\sigma}(z) &= \frac{1}{1 + e^{-z}} \\ \htmlClass{t-tanh}{\tanh}(z) &= \frac{e^{z} - e^{-z}}{e^{z} + e^{-z}} \\ \htmlClass{t-relu}{\mathrm{ReLU}}(z) &= \max(0, z) \\ \htmlClass{t-gelu}{\mathrm{GELU}}(z) &= z\,\Phi(z) \end{aligned}"
   termes={{
     sig: { role: "sortie", texte: "sigmoïde : sortie entre 0 et 1 ; pente maximale 0,25" },
     tanh: { role: "sortie", texte: "tangente hyperbolique : sortie entre −1 et 1, centrée en 0 ; pente maximale 1" },
@@ -63,7 +63,7 @@ où :
 
 Quelques valeurs à la main. En $z = 1$ : $\sigma(1) \approx 0{,}731$, $\tanh(1) \approx 0{,}762$, $\mathrm{ReLU}(1) = 1$ et $\mathrm{GELU}(1) = 1 \times \Phi(1) \approx 0{,}841$. En $z = -1$ : $0{,}269$, $-0{,}762$, $0$ et environ $-0{,}159$.
 
-Ce qui compte autant que la valeur, c'est la pente $\varphi'(z)$, car c'est elle que l'apprentissage utilise pour remonter les erreurs dans le réseau. Pour la <Terme id="sig">sigmoïde</Terme>, $\sigma'(z) = \sigma(z)(1 - \sigma(z))$ : elle vaut au plus 0,25, en $z = 0$, et seulement 0,045 en $z = 3$. Le neurone est alors saturé : ses entrées peuvent bouger, sa sortie ne bouge presque plus. Pour la <Terme id="relu">ReLU</Terme>, la pente vaut exactement 1 pour tout $z > 0$ : pas de saturation du côté positif. Glorot, Bordes et Bengio ont montré en 2011 que des réseaux profonds à ReLU apprenaient aussi bien ou mieux que des réseaux à tanh, sans avoir besoin d'un pré-entraînement spécial. La <Terme id="gelu">GELU</Terme>, proposée par Hendrycks et Gimpel en 2016, adoucit la ReLU autour de zéro.
+Ce qui compte autant que la valeur, c'est la pente $\varphi'(z)$, car c'est elle que l'apprentissage utilise pour remonter les erreurs dans le réseau. Pour la <Terme id="sig">sigmoïde</Terme>, $\sigma'(z) = \sigma(z)(1 - \sigma(z))$ : elle vaut au plus 0,25, en $z = 0$, et seulement 0,045 en $z = 3$. Le neurone est alors saturé : ses entrées peuvent bouger, sa sortie ne bouge presque plus. Pour la <Terme id="relu">ReLU</Terme>, la pente vaut exactement 1 pour tout $z > 0$ : pas de saturation du côté positif. Glorot, Bordes et Bengio ont montré en 2011 que des réseaux profonds à ReLU apprenaient aussi bien ou mieux que des réseaux à tanh, sans avoir besoin d'un pré-entraînement spécial. La <Terme id="gelu">GELU</Terme>, proposée par Hendrycks et Gimpel en 2016, adoucit la ReLU autour de zéro. La <Terme id="tanh">tanh</Terme>, enfin, ressemble à une sigmoïde étirée et recentrée : ses sorties sont centrées sur zéro, ce qui aide les couches suivantes, et sa pente atteint 1 au lieu de 0,25, mais elle sature elle aussi dès que $|z|$ dépasse 2 ou 3.
 
 <Simulation
   rendu="activation-courbes"
