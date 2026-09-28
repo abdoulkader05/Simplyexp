@@ -1,0 +1,175 @@
+---
+id: descente-gradient
+type: maths
+titre: "La descente de gradient : descendre la montagne les yeux bandés"
+sous_titre: "Algorithme de descente de gradient et pas d'apprentissage"
+domaine: optimisation
+niveau: 2
+prerequis: [gradient, fonction-perte]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 11
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4 (Numerical Computation), section sur l'optimisation par gradient"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 7 (Continuous Optimization), descente de gradient et taille du pas"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape, Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La fiche sur la [fonction de perte](/maths/fonction-perte/) a trouvé le meilleur tarif du gbaka par une formule. Avec un réseau de neurones, il n'y a plus de formule : la perte dépend de millions de paramètres, de façon trop compliquée. On a seulement le [gradient](/maths/gradient/), qui indique la pente là où on se trouve. La descente de gradient transforme cette information locale en méthode pour trouver le fond. C'est l'algorithme qui entraîne presque tous les modèles d'IA.
+
+## L'intuition
+
+Tu es sur une colline, dans un brouillard si épais que tu ne vois pas à un mètre. Tu veux rejoindre le fond de la vallée. Tu ne peux que sentir la pente sous tes pieds. Alors tu fais un pas dans le sens de la descente, tu sens à nouveau, tu refais un pas. Là où ça descend fort, tes pas sont grands ; quand le sol devient plat, ils raccourcissent d'eux-mêmes.
+
+Reprenons le tarif du gbaka, en partant d'un tarif absurde, $w_0 = 0$ F par km. Fais défiler.
+
+<PasAPas rendu="descente-gbaka" label="Descente de gradient sur la perte du tarif du gbaka">
+  <Etape etat="initial">
+    Au départ, $w_0 = 0$ et la perte vaut 510 000. La pente, en pointillés, est très négative : $L'(0) = -7\,450$. Augmenter $w$ fera baisser la perte.
+  </Etape>
+  <Etape etat="pas1">
+    **Premier pas.** On recule d'un petit multiple de la pente : $w_1 = 0 - 0{,}005 \times (-7\,450) = 37{,}25$. La perte tombe à environ 270 300.
+  </Etape>
+  <Etape etat="pas2">
+    **Deuxième pas.** La pente est moins raide, $L'(37{,}25) \approx -5\,420$, donc le pas est plus court : $w_2 \approx 37{,}25 + 27{,}10 = 64{,}35$.
+  </Etape>
+  <Etape etat="pas3">
+    **Troisième pas.** $w_3 \approx 84{,}06$. Chaque pas réduit l'écart au meilleur tarif du même facteur, environ 0,73.
+  </Etape>
+  <Etape etat="suite">
+    **Dix pas plus tard.** $w_{10} \approx 131{,}0$ F par km, pour un optimum de 136,7. La pente est presque nulle, les pas sont minuscules : on approche du fond sans jamais avoir connu la formule.
+  </Etape>
+</PasAPas>
+
+## La définition
+
+Pour minimiser une perte $\mathcal{L}(\theta)$, on part de paramètres $\theta_0$ et on répète :
+
+$$
+\theta_{t+1} = \theta_t - \eta\, \nabla_\theta \mathcal{L}(\theta_t)
+$$
+
+où :
+- $\theta_t$ est la valeur des paramètres après $t$ pas ;
+- $\nabla_\theta \mathcal{L}(\theta_t)$ est le gradient de la perte en $\theta_t$ ; avec un seul paramètre, c'est la dérivée $\mathcal{L}'(\theta_t)$ ;
+- $\eta$ (« êta ») est le pas d'apprentissage, ou *learning rate* : un petit nombre positif choisi à l'avance ;
+- le signe moins fait aller à l'opposé du gradient, donc vers la descente.
+
+On s'arrête après un nombre fixé de pas, ou quand le gradient devient assez petit.
+
+Autrement dit : à chaque étape, on mesure la pente là où on est, et on fait un petit pas dans le sens qui descend, d'autant plus long que la pente est forte.
+
+<Depliable titre="Pourquoi la perte baisse, et à quelle vitesse">
+
+Pour le gbaka, la perte est un trinôme, et on peut tout calculer exactement. En dérivant $\mathcal{L}(w) = \frac{1}{4}\sum_i (w x_i - y_i)^2$ :
+
+$$
+\mathcal{L}'(w) = \frac{1}{2} \sum_i x_i (w x_i - y_i) = \frac{109\, w - 14\,900}{2} = 54{,}5\,(w - w^*)
+$$
+
+où $w^* = 14\,900 / 109 \approx 136{,}7$ est le meilleur tarif. On remplace dans la règle de mise à jour :
+
+$$
+\begin{aligned}
+w_{t+1} - w^* &= w_t - \eta\, \mathcal{L}'(w_t) - w^* && \text{règle de mise à jour} \\
+&= (w_t - w^*) - 54{,}5\,\eta\, (w_t - w^*) && \mathcal{L}'(w_t) = 54{,}5\,(w_t - w^*) \\
+&= (1 - 54{,}5\,\eta)\,(w_t - w^*) && \text{factorisation}
+\end{aligned}
+$$
+
+Avec $\eta = 0{,}005$, le facteur vaut $1 - 0{,}2725 = 0{,}7275$. L'écart au meilleur tarif est multiplié par 0,7275 à chaque pas, donc par $0{,}7275^{t}$ après $t$ pas : il tend vers 0.
+
+La même formule dit quand ça marche : il faut $|1 - 54{,}5\,\eta| < 1$, c'est-à-dire $0 < \eta < 2 / 54{,}5 \approx 0{,}037$. Au-delà, l'écart grandit à chaque pas. Le choix de $\eta$ est l'objet de la fiche [learning rate](/maths/learning-rate/).
+
+Pour une perte quelconque, on admet le résultat général : si $\eta$ est assez petit et le gradient non nul, un pas fait baisser la perte (chapitre 4 de *Deep Learning*).
+
+</Depliable>
+
+## Un exemple à la main
+
+Les quatre trajets du gbaka, le modèle prix $= w \times$ distance, $\eta = 0{,}005$ et $w_0 = 0$.
+
+- Pente en $w_0$ : $\mathcal{L}'(0) = (109 \times 0 - 14\,900) / 2 = -7\,450$.
+- Pas : $-\eta\,\mathcal{L}'(0) = -0{,}005 \times (-7\,450) = 37{,}25$, donc $w_1 = 37{,}25$.
+- Pente en $w_1$ : $(109 \times 37{,}25 - 14\,900) / 2 = (4\,060{,}25 - 14\,900) / 2 \approx -5\,419{,}9$.
+- Pas : $0{,}005 \times 5\,419{,}9 \approx 27{,}10$, donc $w_2 \approx 64{,}35$.
+- Vérification avec le facteur : $w^* - w_2 \approx 136{,}70 - 64{,}35 = 72{,}35$, et $136{,}70 \times 0{,}7275^2 \approx 72{,}35$.
+
+La perte passe de 510 000 à environ 270 300, puis à environ 143 400. Les pas raccourcissent tout seuls, parce que la pente diminue en approchant du fond.
+
+## Essaie toi-même
+
+Choisis le nombre de pas effectués.
+
+<Simulation
+  rendu="descente-gbaka"
+  label="Descente de gradient sur la perte du gbaka après un nombre de pas choisi"
+  parametres={[
+    { nom: "t", label: "Nombre de pas", min: 0, max: 20, pas: 1, valeur: 5, role: "parametre" }
+  ]}
+  legende="η = 0,005 et w₀ = 0. Les points pâles sont les tarifs déjà visités."
+/>
+
+Consigne : combien de pas faut-il pour que le tarif soit à moins de 1 F du meilleur tarif, 136,70 F ? Combien pour que la perte descende sous 1 000 ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Après 15 pas, $w_{15} \approx 135{,}54$ : il manque encore 1,16 F. Après 16 pas, $w_{16} \approx 135{,}86$ : l'écart passe sous 1 F. On le retrouve par le calcul : il faut $136{,}7 \times 0{,}7275^t < 1$, soit $t > 15{,}5$.
+
+La perte passe sous 1 000 au 13e pas ($w_{13} \approx 134{,}51$, perte environ 933). Ensuite, elle ne baisse presque plus, car elle s'approche de son minimum, environ 803, qu'aucun tarif ne peut battre.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Entraîner tous les réseaux.** Chaque étape d'entraînement d'un réseau de neurones est une mise à jour $\theta \leftarrow \theta - \eta \nabla_\theta \mathcal{L}$, où le gradient est calculé par [rétropropagation](/concepts/backpropagation/).
+- **Aller plus vite avec des échantillons.** Calculer le gradient sur toutes les données coûte cher. La [descente de gradient stochastique](/maths/sgd-minibatch/) l'estime sur un petit lot d'exemples.
+- **Régler le pas et la direction.** Le [learning rate](/maths/learning-rate/) décide de la taille des pas ; la [convexité](/maths/convexite/) dit quand on est sûr d'atteindre le vrai minimum ; le momentum et Adam améliorent la direction.
+
+## Les pièges classiques
+
+**« On avance dans la direction du gradient. »** On y croit parce que le gradient est « la direction à suivre ». Mais il pointe vers la montée. Oublier le signe moins fait monter la perte à chaque pas, et c'est une erreur fréquente dans du code écrit à la main.
+
+**« La descente de gradient trouve toujours le meilleur minimum. »** Elle trouve un point où la pente est nulle, près de son point de départ. Si la perte a plusieurs vallées, elle peut s'arrêter dans une vallée moins profonde. Pour le gbaka, il n'y a qu'une vallée ; la fiche [convexité](/maths/convexite/) explique quand c'est garanti.
+
+**« Plus on fait de pas, mieux c'est. »** Sur les données d'entraînement, la perte baisse en effet. Mais au-delà d'un certain point, le modèle apprend les particularités de ces données plutôt que la règle générale. On surveille donc aussi la perte sur des données mises de côté.
+
+## Entraîne-toi
+
+**Exercice 1.** Pour $f(w) = (w - 3)^2$, avec $w_0 = 0$ et $\eta = 0{,}25$, calcule $w_1$, $w_2$ et $w_3$.
+
+<Depliable titre="Corrigé">
+
+$f'(w) = 2(w - 3)$. Donc $w_{t+1} = w_t - 0{,}5\,(w_t - 3)$, soit $w_{t+1} - 3 = 0{,}5\,(w_t - 3)$.
+
+$w_1 = 0 - 0{,}25 \times (-6) = 1{,}5$ ; $w_2 = 1{,}5 - 0{,}25 \times (-3) = 2{,}25$ ; $w_3 = 2{,}25 - 0{,}25 \times (-1{,}5) = 2{,}625$. L'écart à 3 est divisé par 2 à chaque pas.
+
+</Depliable>
+
+**Exercice 2.** Pour $f(x\,;\,y) = x^2 + 2y^2$, avec $\eta = 0{,}1$, fais un pas à partir de $(1\,;\,1)$. La valeur de $f$ baisse-t-elle ?
+
+<Depliable titre="Corrigé">
+
+$\nabla f(1\,;\,1) = (2\,;\,4)$. Le pas donne $(1 - 0{,}2\,;\,1 - 0{,}4) = (0{,}8\,;\,0{,}6)$. On passe de $f = 3$ à $f = 0{,}64 + 0{,}72 = 1{,}36$ : la valeur baisse nettement.
+
+</Depliable>
+
+**Exercice 3.** Pour le gbaka, quel pas d'apprentissage ferait arriver sur $w^*$ en un seul pas ? Pourquoi ne peut-on pas faire ça avec un vrai réseau ?
+
+<Depliable titre="Corrigé">
+
+Il faut $1 - 54{,}5\,\eta = 0$, soit $\eta = 1 / 54{,}5 \approx 0{,}018\,3$. Ici, on connaît exactement la courbure de la perte, le nombre 54,5. Pour un réseau, la courbure change d'un endroit à l'autre et d'une direction à l'autre, et on ne la calcule pas : on choisit un $\eta$ prudent et on fait beaucoup de petits pas.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "descente de gradient", en: "gradient descent", definition: "Méthode qui répète θ ← θ − η ∇L(θ) pour faire baisser la perte pas à pas." },
+  { fr: "pas d'apprentissage", en: "learning rate", definition: "Le nombre η qui fixe la taille de chaque pas." },
+  { fr: "itération", en: "iteration", definition: "Un passage de la boucle : calcul du gradient puis mise à jour des paramètres." }
+]} />
