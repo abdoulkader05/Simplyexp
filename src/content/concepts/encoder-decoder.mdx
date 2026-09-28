@@ -1,0 +1,239 @@
+---
+id: encoder-decoder
+type: concept
+titre: "Encoder–Decoder : tout lire, puis tout réécrire"
+sous_titre: "Architecture seq2seq pour la traduction automatique"
+domaine: langage
+niveau: 4
+prerequis: [lstm]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Sutskever, Vinyals, Le, « Sequence to Sequence Learning with Neural Networks », NeurIPS 2014 — https://arxiv.org/abs/1409.3215 (version HTML : https://ar5iv.labs.arxiv.org/html/1409.3215) — résumé et expériences (WMT'14 anglais-français, 12 millions de paires de phrases ; LSTM de 4 couches de 1 000 cellules ; phrase représentée par 8 000 nombres ; BLEU 34,8 contre 33,3 pour le système statistique de référence, 36,5 en reclassant ses 1 000 meilleures hypothèses ; inverser la phrase source réduit le « décalage minimal » sans changer la distance moyenne)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Traduire « il pleut . » en anglais donne « it is raining . » : trois tokens en entrée, quatre en sortie, et pas dans le même ordre en général. Un [réseau récurrent](/concepts/rnn/) seul produit une sortie par entrée, au même rythme : il ne sait pas transformer une suite en une autre suite de longueur différente. Or beaucoup de tâches ont cette forme : traduire, résumer un article, transcrire un message vocal, répondre à une question. Il faut une architecture qui **lise d'abord toute l'entrée**, puis **écrive la sortie** à son propre rythme.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un premier réseau récurrent, l'encodeur, lit toute la phrase source et la résume en un vecteur ; un second, le décodeur, part de ce vecteur et écrit la phrase cible token après token.
+</PhraseCle>
+
+## En image
+
+Pense à un interprète de conférence qui travaille en consécutive.
+
+- Il écoute l'orateur jusqu'au bout de sa phrase, sans rien dire : c'est l'encodeur.
+- Il garde en tête le sens de ce qui a été dit, pas les mots exacts : c'est le vecteur de contexte.
+- Puis il prend la parole dans l'autre langue et construit sa phrase mot après mot, chaque mot tenant compte de ceux qu'il vient de prononcer : c'est le décodeur.
+
+Là où l'image s'arrête : l'interprète peut prendre des notes et revenir en arrière dans sa mémoire ; le décodeur, lui, n'a que le vecteur de contexte, et c'est précisément sa faiblesse.
+
+## Comment ça marche
+
+L'**encodeur** (*encoder*) est une [LSTM](/concepts/lstm/) qui lit les tokens source $x_1, \dots, x_n$. On ne garde que son dernier état, le **vecteur de contexte** (*context vector*) $\mathbf{c}$. Le **décodeur** (*decoder*) est une autre LSTM, un [modèle de langage](/concepts/modele-langage/) qui commence à partir de $\mathbf{c}$ et d'un token spécial ‹début›, et génère jusqu'à produire un token de fin. Il donne à la traduction $y_1, \dots, y_m$ la probabilité :
+
+$$
+P(y_1, \dots, y_m \mid x_1, \dots, x_n) = \prod_{t=1}^{m} P(y_t \mid y_1, \dots, y_{t-1}, \mathbf{c})
+$$
+
+où :
+- $x_1, \dots, x_n$ sont les tokens de la phrase source, $y_1, \dots, y_m$ ceux de la traduction, et $n$ et $m$ peuvent être différents ;
+- $\mathbf{c}$ est le vecteur de contexte, le dernier état de l'encodeur ;
+- chaque facteur est la loi du token suivant calculée par le décodeur.
+
+Exemple : si le décodeur donne 0,7 à « it », puis 0,8 à « is », 0,6 à « raining » et 0,9 au point final, la traduction reçoit la probabilité $0{,}7 \times 0{,}8 \times 0{,}6 \times 0{,}9 \approx 0{,}302$. Ces probabilités sont inventées pour l'illustration. Fais défiler.
+
+<PasAPas rendu="seq2seq-traduction" label="Un encodeur lit « il pleut . », un décodeur écrit « it is raining . »">
+  <Etape etat="initial">
+    Deux réseaux récurrents distincts, avec des poids différents : l'encodeur à gauche, le décodeur à droite.
+  </Etape>
+  <Etape etat="encodage">
+    **L'encodeur lit** « il », « pleut », « . », en mettant à jour son état caché. Il ne produit aucune sortie.
+  </Etape>
+  <Etape etat="contexte">
+    **Son dernier état devient le vecteur de contexte $\mathbf{c}$.** Tout ce que le décodeur saura de la phrase source tient dans ce vecteur.
+  </Etape>
+  <Etape etat="d1">
+    **Le décodeur démarre** avec $\mathbf{c}$ et le token ‹début›. Il calcule la loi du premier mot et choisit « it », de probabilité 0,7.
+  </Etape>
+  <Etape etat="d2">
+    **« it » devient son entrée suivante.** Il prédit « is » avec la probabilité 0,8, sachant « it » et $\mathbf{c}$.
+  </Etape>
+  <Etape etat="fin">
+    **Il continue jusqu'au point final.** Probabilité de la traduction : $0{,}7 \times 0{,}8 \times 0{,}6 \times 0{,}9 \approx 0{,}302$.
+  </Etape>
+</PasAPas>
+
+**L'entraînement.** On dispose de paires (phrase, traduction). On donne au décodeur la **vraie** traduction décalée d'un cran, et on lui demande de prédire à chaque pas le vrai token suivant : c'est le forçage par l'enseignant (*teacher forcing*). La perte est l'[entropie croisée](/maths/entropie-croisee/) de ces prédictions, et le gradient traverse le décodeur puis l'encodeur, qui apprennent ensemble.
+
+<Schema rendu="seq2seq-schema" legende="À l'entraînement, le décodeur reçoit la vraie traduction décalée d'un cran. À la génération, il n'a plus que ses propres prédictions : une erreur au début peut se propager à toute la phrase." />
+
+En 2014, Sutskever, Vinyals et Le ont entraîné un tel système, avec des LSTM de quatre couches de 1 000 cellules, sur 12 millions de paires de phrases anglais-français. Chaque phrase y était résumée par 8 000 nombres. Ils ont obtenu un score BLEU, qui mesure le recouvrement de mots et de groupes de mots avec des traductions humaines (plus il est haut, mieux c'est), de 34,8, contre 33,3 pour un système de traduction statistique de référence, et 36,5 en utilisant leur LSTM pour reclasser les 1 000 meilleures hypothèses de ce système. Leur astuce la plus surprenante : **lire la phrase source à l'envers** améliorait nettement les résultats.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient le produit, et quelle hypothèse on fait">
+
+On veut la probabilité d'une traduction sachant la phrase source $\mathbf{x} = (x_1, \dots, x_n)$. La [règle du produit](/maths/regle-produit/), appliquée en gardant $\mathbf{x}$ comme condition partout, donne sans aucune hypothèse :
+
+$$
+\begin{aligned}
+P(y_1, \dots, y_m \mid \mathbf{x}) &= P(y_1 \mid \mathbf{x})\, P(y_2 \mid y_1, \mathbf{x}) \cdots P(y_m \mid y_1, \dots, y_{m-1}, \mathbf{x}) && \text{règle du produit} \\
+&= \prod_{t=1}^{m} P(y_t \mid y_1, \dots, y_{t-1}, \mathbf{x}) && \text{écriture compacte} \\
+&\approx \prod_{t=1}^{m} P(y_t \mid y_1, \dots, y_{t-1}, \mathbf{c}) && \text{on remplace } \mathbf{x} \text{ par son résumé } \mathbf{c}
+\end{aligned}
+$$
+
+Seule la dernière ligne est une approximation, et elle est de taille : le décodeur ne voit jamais la phrase source, seulement le vecteur $\mathbf{c}$ qui la résume. Si $\mathbf{c}$ a perdu une information, le décodeur ne peut pas la retrouver. C'est l'objet de la fiche sur le [goulot d'étranglement](/concepts/goulot-contexte/).
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="La probabilité d'une traduction" niveau="facile" reponse={0.36} tolerance={0.005}>
+
+Un traducteur de SMS traduit « merci » en « thank you ». Il donne la probabilité 0,9 à « thank », puis 0,5 à « you » sachant « thank », puis 0,8 au token de fin. Quelle probabilité donne-t-il à la traduction complète ?
+
+<div slot="solution">
+
+$0{,}9 \times 0{,}5 \times 0{,}8 = 0{,}36$. On n'oublie pas le token de fin : sans lui, le modèle n'aurait pas décidé d'arrêter la phrase.
+
+</div>
+</Exercice>
+
+<Exercice titre="La perte d'une paire d'entraînement" niveau="moyen" reponse={1.196} tolerance={0.005}>
+
+À l'entraînement, sur la paire (« il pleut . », « it is raining . »), le décodeur donne aux vrais tokens les probabilités 0,7, 0,8, 0,6 et 0,9. Quelle est la perte, c'est-à-dire la somme des $-\ln$ de ces probabilités ?
+
+<div slot="indice">
+
+$-\ln 0{,}7 \approx 0{,}357$, $-\ln 0{,}8 \approx 0{,}223$, $-\ln 0{,}6 \approx 0{,}511$, $-\ln 0{,}9 \approx 0{,}105$.
+
+</div>
+
+<div slot="solution">
+
+$0{,}357 + 0{,}223 + 0{,}511 + 0{,}105 \approx 1{,}196$. C'est aussi $-\ln(0{,}302)$, puisque le logarithme d'un produit est la somme des logarithmes. Le mot qui coûte le plus est « raining », le moins bien prédit.
+
+</div>
+</Exercice>
+
+<Exercice titre="Pourquoi lire à l'envers ?" niveau="defi" reponse={1} tolerance={0.001}>
+
+On traduit une phrase de 5 mots en une phrase de 5 mots, où le mot $i$ de la source correspond au mot $i$ de la cible. On met les deux phrases bout à bout, source puis cible : la source occupe les positions 1 à 5, la cible les positions 6 à 10. Sans inversion, le mot source $i$ est en position $i$ et sa traduction en position $5 + i$. Si on inverse la source, le mot source $i$ passe en position $6 - i$. Quelle est alors la distance entre le premier mot source et sa traduction ? Et la distance moyenne sur les 5 mots ?
+
+<div slot="solution">
+
+Sans inversion, toutes les distances valent $(5 + i) - i = 5$. Avec inversion, elles valent $(5 + i) - (6 - i) = 2i - 1$, soit 1, 3, 5, 7, 9 : le premier mot n'est plus qu'à une position de sa traduction. La moyenne reste $(1 + 3 + 5 + 7 + 9)/5 = 5$. C'est l'explication donnée par Sutskever et ses collègues : la distance moyenne ne change pas, mais les premiers mots deviennent très proches, ce qui crée des dépendances courtes que la rétropropagation apprend facilement.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un encodeur et un décodeur récurrents minuscules, non entraînés, pour voir circuler les formes et les données.
+
+```python
+import numpy as np
+rng = np.random.default_rng(10)
+
+vocab_src = ["il", "pleut", "."]
+vocab_cib = ["‹début›", "it", "is", "raining", ".", "‹fin›"]
+d = 8
+E_src = rng.normal(size=(len(vocab_src), d))
+E_cib = rng.normal(size=(len(vocab_cib), d))
+W_enc, U_enc = rng.normal(0, 0.3, (d, d)), rng.normal(0, 0.3, (d, d))
+W_dec, U_dec = rng.normal(0, 0.3, (d, d)), rng.normal(0, 0.3, (d, d))
+W_sortie = rng.normal(size=(len(vocab_cib), d))
+
+def encoder(phrase):
+    h = np.zeros(d)
+    for m in phrase:
+        h = np.tanh(W_enc @ h + U_enc @ E_src[vocab_src.index(m)])
+    return h                                   # le vecteur de contexte c
+
+def decoder(c, longueur_max=6):
+    h, token, sortie = c, "‹début›", []
+    for _ in range(longueur_max):
+        h = np.tanh(W_dec @ h + U_dec @ E_cib[vocab_cib.index(token)])
+        scores = W_sortie @ h
+        p = np.exp(scores - scores.max()); p /= p.sum()
+        token = vocab_cib[int(np.argmax(p))]   # décodage glouton
+        if token == "‹fin›":
+            break
+        sortie.append(token)
+    return sortie
+
+c = encoder(["il", "pleut", "."])
+print("taille de c :", c.shape)
+print("sortie (réseau non entraîné, donc absurde) :", decoder(c))
+```
+
+En vrai, avec la bibliothèque `transformers` et un modèle de traduction pré-entraîné (encodeur-décodeur à base de transformers, pas de LSTM) :
+
+```python
+# no-run
+from transformers import pipeline
+traduire = pipeline("translation", model="Helsinki-NLP/opus-mt-fr-en")
+print(traduire("Il pleut depuis ce matin."))
+```
+
+## Les pièges classiques
+
+**« L'encodeur et le décodeur sont le même réseau. »** Ce sont deux réseaux aux poids distincts : l'un ne fait que lire, l'autre ne fait qu'écrire. Seul le vecteur de contexte les relie.
+
+**« Le modèle aligne les mots un à un. »** Rien ne l'y oblige : la traduction peut être plus longue, plus courte, dans un autre ordre. C'est justement ce qui rend l'architecture utile.
+
+**« Un modèle bien entraîné génère aussi bien qu'il apprend. »** À l'entraînement, il reçoit la vraie traduction ; à la génération, ses propres sorties. Une première erreur le place dans une situation qu'il n'a jamais vue, et les erreurs peuvent s'enchaîner.
+
+## Dans la vraie vie
+
+L'architecture encodeur-décodeur a été le cœur de la traduction automatique neuronale, et elle sert à toute tâche qui transforme une suite en une autre : résumé de texte, transcription de la parole, correction orthographique, conversion de questions en requêtes de base de données. Les modèles modernes ont remplacé les LSTM par des transformers, mais beaucoup gardent la même organisation en deux parties, un encodeur qui lit et un décodeur qui écrit. La limite du vecteur de contexte unique a conduit directement au mécanisme d'[attention](/concepts/attention/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que transmet l'encodeur au décodeur ?",
+    choix: ["Toute la phrase source, mot par mot", "Un seul vecteur de contexte, son dernier état", "La traduction déjà faite", "Les probabilités de chaque mot"],
+    bonne: 1,
+    explication: "Dans l'architecture de base, tout passe par le vecteur de contexte c."
+  },
+  {
+    question: "Qu'est-ce que le forçage par l'enseignant ?",
+    choix: ["Corriger le modèle à la main", "Donner au décodeur, pendant l'entraînement, le vrai token précédent plutôt que sa propre prédiction", "Imposer une longueur de traduction", "Utiliser un professeur humain pour traduire"],
+    bonne: 1,
+    explication: "À chaque pas, le décodeur reçoit la vraie suite décalée d'un cran, ce qui stabilise l'apprentissage."
+  },
+  {
+    question: "Pourquoi un décodeur a-t-il besoin d'un token de fin ?",
+    choix: ["Pour savoir quand s'arrêter, la longueur de la traduction n'étant pas connue d'avance", "Pour séparer les mots", "Pour compter les tokens", "Pour marquer la langue cible"],
+    bonne: 0,
+    explication: "La sortie peut être plus longue ou plus courte que l'entrée : c'est le modèle qui décide où s'arrêter."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : décris une architecture seq2seq et sa principale limite.">
+
+Un encodeur récurrent lit la séquence source et produit un vecteur de contexte, en général son dernier état caché. Un décodeur récurrent, initialisé avec ce vecteur, est un modèle de langage conditionnel : il génère la séquence cible token après token, chaque token étant réinjecté en entrée, jusqu'à un token de fin. On l'entraîne par maximum de vraisemblance avec forçage par l'enseignant ; à l'inférence, on utilise un décodage glouton ou une recherche qui garde plusieurs hypothèses en parallèle. La limite principale est le goulot d'étranglement : toute la phrase source doit tenir dans un vecteur de taille fixe, ce qui dégrade la qualité sur les phrases longues. L'attention lève cette limite en laissant le décodeur consulter tous les états de l'encodeur à chaque pas. On cite aussi l'écart entre entraînement et génération, puisque le modèle n'a jamais vu ses propres erreurs à l'entraînement.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "encodeur", en: "encoder", definition: "Réseau qui lit toute la séquence source et la résume." },
+  { fr: "décodeur", en: "decoder", definition: "Réseau qui génère la séquence cible token après token à partir du résumé de l'encodeur." },
+  { fr: "vecteur de contexte", en: "context vector", definition: "Vecteur de taille fixe, dernier état de l'encodeur, transmis au décodeur." },
+  { fr: "forçage par l'enseignant", en: "teacher forcing", definition: "À l'entraînement, donner au décodeur le vrai token précédent plutôt que sa prédiction." }
+]} />
