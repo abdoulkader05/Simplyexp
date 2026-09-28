@@ -70,6 +70,8 @@ Deux variantes :
 - **BatchNorm** (Ioffe et Szegedy, 2015) calcule la moyenne et la variance de chaque neurone sur les exemples d'un [mini-lot](/maths/sgd-minibatch/), au lieu de le faire sur les neurones d'un exemple. Elle dépend donc de la taille du lot, et se comporte différemment à l'entraînement et au test.
 - **RMSNorm** (Zhang et Sennrich, 2019) ne recentre pas : elle divise seulement par la moyenne quadratique $\mathrm{RMS}(\mathbf{x}) = \sqrt{\frac{1}{d}\sum_i x_i^2}$. Pour notre exemple, $\mathrm{RMS} = \sqrt{120/4} = \sqrt{30} \approx 5{,}477$, et la sortie vaut $(0{,}365\,;\,0{,}730\,;\,1{,}095\,;\,1{,}461)$. Ses auteurs rapportent une qualité comparable à LayerNorm, pour un temps de calcul réduit de 7 % à 64 % selon les modèles.
 
+Pourquoi est-ce si utile ? Sans normalisation, supposons que chaque couche amplifie ses signaux de 50 %. Après 10 couches, ils sont multipliés par {,}5^{10} \approx 58$ : des pré-activations autour de 58 saturent n'importe quelle sigmoïde, et les gradients s'éteignent, comme dans la fiche sur le [gradient qui disparaît](/concepts/gradient-evanescent/). Avec une normalisation après chaque couche, l'échelle repart de 1 à chaque étage, quelle que soit la dérive des poids.
+
 La LayerNorm, proposée par Jimmy Ba, Jamie Kiros et Geoffrey Hinton en 2016, fait exactement le même calcul à l'entraînement et au test, et s'applique facilement aux réseaux récurrents : c'est celle des Transformers.
 
 ## Pourquoi cette formule ?
