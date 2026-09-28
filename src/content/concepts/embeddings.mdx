@@ -1,0 +1,227 @@
+---
+id: embeddings
+type: concept
+titre: "Les embeddings : quand les mots deviennent des coordonnées"
+sous_titre: "Représentations vectorielles des mots et des tokens"
+domaine: langage
+niveau: 3
+prerequis: [tokenisation, similarite-cosinus]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Mikolov, Chen, Corrado, Dean, « Efficient Estimation of Word Representations in Vector Space », 2013 — https://arxiv.org/abs/1301.3781 (version HTML : https://ar5iv.labs.arxiv.org/html/1301.3781) — résumé et section 1 (1,6 milliard de mots en moins d'un jour ; vector(King) − vector(Man) + vector(Woman) le plus proche de Queen), architectures CBOW et Skip-gram, jeu de test de 8 869 questions sémantiques et 10 675 syntaxiques"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.4 (même matrice pour les deux couches d'embedding et la transformation linéaire avant le softmax)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+La [tokenisation](/concepts/tokenisation/) a transformé un texte en une suite de numéros : « chien » devient peut-être le token 4 812, « chiot » le token 30 177. Mais ces numéros ne disent rien du sens. 4 812 et 30 177 sont très éloignés, alors que les deux mots sont presque synonymes ; 4 812 et 4 813 sont voisins, alors que les deux tokens n'ont peut-être aucun rapport. Un réseau de neurones a besoin d'entrées où la **proximité des nombres reflète la proximité du sens**. C'est exactement ce que fournit un embedding.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un embedding associe à chaque token une liste de quelques centaines de nombres, apprise sur des textes, de sorte que des mots employés dans des contextes semblables reçoivent des vecteurs proches.
+</PhraseCle>
+
+## En image
+
+Pense aux rayons d'un grand supermarché.
+
+- Chaque produit a une adresse : allée, rayon, étagère. C'est une liste de coordonnées.
+- Les produits qu'on achète ensemble sont rangés près les uns des autres : le lait près des yaourts, les stylos près des cahiers.
+- Il y a même des directions : dans une allée, on passe du salé au sucré, ou du moins cher au plus cher.
+- Pour trouver un produit proche de celui que tu tiens, tu regardes autour de lui, pas dans l'ordre alphabétique.
+
+Là où l'image s'arrête : un magasin a trois dimensions, un embedding en a souvent plusieurs centaines ; et personne ne décide à la main où ranger chaque mot, c'est l'entraînement qui trouve les places.
+
+## Comment ça marche
+
+Première idée, naïve : représenter le token numéro $i$ par un vecteur **one-hot** (*one-hot vector*), rempli de zéros sauf un 1 en position $i$. Avec un vocabulaire de $V$ tokens, chaque vecteur a $V$ composantes. Problème : deux vecteurs one-hot différents ont un produit scalaire nul, donc une [similarité cosinus](/maths/similarite-cosinus/) nulle. « chien » est aussi loin de « chiot » que de « parapluie ».
+
+La solution : une **table d'embeddings** (*embedding matrix*) $E$, avec une ligne par token et $d$ colonnes, où $d$ est bien plus petit que $V$. Le vecteur du token $i$ est sa ligne :
+
+$$
+\mathbf{e}_i = E^{\top} \mathbf{o}_i
+$$
+
+où :
+- $\mathbf{o}_i$ est le vecteur one-hot du token $i$, de taille $V$ ;
+- $E$ est la table d'embeddings, de taille $V \times d$, dont les nombres sont appris ;
+- $\mathbf{e}_i$ est l'embedding du token $i$, un vecteur de taille $d$.
+
+Exemple : avec $V = 3$ et $d = 2$, si $E$ a pour lignes $(1 ; 2)$, $(0{,}5 ; -1)$ et $(3 ; 0)$, le token numéro 2 a pour one-hot $(0 ; 1 ; 0)$ et pour embedding $(0{,}5 ; -1)$. En pratique, on ne fait pas le produit : on lit directement la ligne.
+
+**Comment les nombres sont-ils appris ?** Avec l'idée que « un mot se reconnaît à ses voisins ». Dans word2vec, publié en 2013 par Mikolov et ses collègues, l'architecture *Skip-gram* apprend à prédire les mots qui entourent un mot donné. Deux mots qui apparaissent dans les mêmes contextes, comme « chien » et « chiot » après « promener le », reçoivent des vecteurs proches, parce que ce sont les mêmes prédictions qu'ils doivent permettre. Les auteurs indiquent qu'il faut moins d'un jour pour apprendre de bons vecteurs sur un corpus de 1,6 milliard de mots. Fais défiler.
+
+<PasAPas rendu="embeddings-plan" label="Des mots placés dans un plan, et l'analogie roi, reine">
+  <Etape etat="initial">
+    Sept mots, chacun placé en un point du plan. Les coordonnées sont **inventées pour l'illustration**, en deux dimensions pour qu'on puisse les voir.
+  </Etape>
+  <Etape etat="proches">
+    **Voisins de sens, voisins dans le plan.** chien $(-2{,}2 ; -2{,}6)$ et chiot $(-2 ; -3{,}1)$ ont une similarité cosinus de 0,99 ; chien et roi, de −0,84.
+  </Etape>
+  <Etape etat="direction">
+    **Une direction a un sens.** La flèche de homme à femme est presque la même que celle de roi à reine : $(0 ; 2)$ contre $(0{,}1 ; 1{,}9)$.
+  </Etape>
+  <Etape etat="analogie">
+    **L'analogie.** $\text{roi} - \text{homme} + \text{femme} = (4 ; 1{,}2) - (1 ; 1) + (1 ; 3) = (4 ; 3{,}2)$. Le mot le plus proche de ce point est reine, à une distance de 0,14.
+  </Etape>
+</PasAPas>
+
+Ce calcul n'est pas qu'une illustration : le paper de word2vec rapporte que le vecteur « King » − « Man » + « Woman » tombe au plus près de « Queen ». Les auteurs ont construit un test de 8 869 questions sémantiques et 10 675 questions syntaxiques de ce type pour mesurer la qualité des vecteurs.
+
+Dans un LLM, la table d'embeddings est la toute première couche : chaque token de l'entrée est remplacé par sa ligne, et la suite du réseau ne voit que ces vecteurs. Elle n'est pas prise toute faite dans word2vec : elle est apprise en même temps que le reste du modèle.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi multiplier par un one-hot revient à lire une ligne">
+
+La composante $j$ de $E^{\top}\mathbf{o}_i$ est une somme sur toutes les lignes de $E$ :
+
+$$
+\begin{aligned}
+\big(E^{\top}\mathbf{o}_i\big)_j &= \sum_{k=1}^{V} E_{kj}\,(\mathbf{o}_i)_k && \text{définition du produit matrice-vecteur} \\
+&= E_{ij} \times 1 + \sum_{k \neq i} E_{kj} \times 0 && \text{seule la composante } i \text{ du one-hot vaut 1} \\
+&= E_{ij} && \text{c'est la case } j \text{ de la ligne } i
+\end{aligned}
+$$
+
+Donc $\mathbf{e}_i$ est exactement la ligne $i$ de $E$. C'est pour cela qu'on parle de « couche d'embedding » : c'est une couche linéaire sans biais, appliquée à une entrée one-hot, qu'on calcule par simple lecture.
+
+Et pourquoi le one-hot seul ne suffit pas : pour $i \neq k$, $\mathbf{o}_i \cdot \mathbf{o}_k = 0$, car les 1 ne sont jamais au même endroit. La similarité cosinus de deux tokens différents vaut donc toujours 0 : aucune notion de ressemblance.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Deux produits voisins" niveau="facile" reponse={0.96} tolerance={0.005}>
+
+Une boutique en ligne représente ses produits par des embeddings en deux dimensions. « baskets » a pour vecteur $(3 ; 4)$ et « chaussures de course » $(4 ; 3)$. Calcule leur similarité cosinus.
+
+<div slot="indice">
+
+Produit scalaire : $3 \times 4 + 4 \times 3$. Les deux vecteurs ont la même norme, $\sqrt{9 + 16}$.
+
+</div>
+
+<div slot="solution">
+
+$\cos = \dfrac{3 \times 4 + 4 \times 3}{5 \times 5} = \dfrac{24}{25} = 0{,}96$. Très proches : la boutique peut proposer l'un quand on regarde l'autre.
+
+</div>
+</Exercice>
+
+<Exercice titre="L'analogie des capitales" niveau="moyen" reponse={4.5} tolerance={0.01}>
+
+Dans un plan d'embeddings inventé, France $= (1 ; 1)$, Paris $= (1 ; 4)$ et Sénégal $= (5 ; 1{,}5)$. Calcule le vecteur $\text{Paris} - \text{France} + \text{Sénégal}$ et donne sa **deuxième** coordonnée. Puis, parmi Dakar $(5{,}1 ; 4{,}4)$, Abidjan $(6{,}2 ; 3{,}6)$ et Lyon $(1{,}5 ; 3{,}6)$, lequel est le plus proche ?
+
+<div slot="solution">
+
+$(1 ; 4) - (1 ; 1) + (5 ; 1{,}5) = (5 ; 4{,}5)$. Distances : Dakar 0,14, Abidjan 1,5, Lyon 3,61. C'est Dakar : la flèche « pays → capitale » a été reportée à partir du Sénégal. Dans de vrais embeddings, l'analogie ne tombe pas toujours juste, et on exclut les mots de la question (Paris, France, Sénégal) des candidats.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le poids de la table" niveau="defi" reponse={38400000} tolerance={0.001}>
+
+Un modèle a un vocabulaire de 50 000 tokens et des embeddings de taille $d = 768$. Combien de nombres contient sa table d'embeddings ? Stockés sur 4 octets chacun, combien de mégaoctets cela fait-il ?
+
+<div slot="solution">
+
+$50\,000 \times 768 = 38\,400\,000$ nombres, soit $38\,400\,000 \times 4 = 153{,}6$ millions d'octets, environ 154 Mo. C'est une raison pour laquelle on ne choisit pas un vocabulaire trop grand : chaque token ajouté coûte une ligne entière.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une table d'embeddings, la lecture d'une ligne, la similarité et l'analogie.
+
+```python
+import numpy as np
+
+vocab = ["homme", "femme", "roi", "reine", "chat", "chien", "chiot"]
+indice = {m: i for i, m in enumerate(vocab)}
+# Table d'embeddings V x d (ici inventée ; dans un modèle, elle est apprise)
+E = np.array([[1, 1], [1, 3], [4, 1.2], [4.1, 3.1], [-3, -2], [-2.2, -2.6], [-2, -3.1]])
+
+def emb(mot):
+    one_hot = np.zeros(len(vocab)); one_hot[indice[mot]] = 1
+    return E.T @ one_hot            # identique à E[indice[mot]]
+
+def cos(a, b):
+    return a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
+
+print("cos(chien, chiot) =", round(cos(emb("chien"), emb("chiot")), 3))
+print("cos(chien, roi)   =", round(cos(emb("chien"), emb("roi")), 3))
+
+cible = emb("roi") - emb("homme") + emb("femme")
+candidats = [m for m in vocab if m not in ("roi", "homme", "femme")]
+print("roi - homme + femme ≈", min(candidats, key=lambda m: np.linalg.norm(emb(m) - cible)))
+```
+
+En vrai, avec la bibliothèque gensim, on apprend des vecteurs Skip-gram sur un corpus :
+
+```python
+# no-run
+from gensim.models import Word2Vec
+phrases = [["le", "chien", "dort"], ["le", "chiot", "dort"], ["le", "chat", "mange"]]
+modele = Word2Vec(phrases, vector_size=50, window=2, min_count=1, sg=1)
+print(modele.wv.most_similar("chien", topn=2))
+```
+
+## Les pièges classiques
+
+**« Chaque dimension a un sens précis. »** Rarement. Les directions intéressantes, comme « masculin → féminin », sont en général des combinaisons de nombreuses coordonnées, pas une coordonnée isolée.
+
+**« Des vecteurs proches veulent dire des synonymes. »** Ils veulent dire des mots employés dans des contextes semblables. « chaud » et « froid » apparaissent dans les mêmes phrases et ont souvent des vecteurs proches, alors qu'ils sont contraires.
+
+**« Les embeddings sont neutres. »** Ils reflètent les textes d'entraînement, stéréotypes compris. Si un corpus associe un métier à un genre, la même arithmétique qui trouve « reine » reproduira ce biais.
+
+## Dans la vraie vie
+
+Tous les modèles de langage actuels commencent par une table d'embeddings. Au-delà des mots, on calcule des embeddings de phrases ou de documents entiers : c'est ce qui permet la [recherche sémantique](/concepts/recherche-semantique/), où l'on cherche un texte par son sens plutôt que par ses mots. Les systèmes de recommandation de produits, de musique ou de vidéos utilisent la même idée : chaque objet reçoit un vecteur, et on propose ses voisins.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi les vecteurs one-hot ne suffisent-ils pas ?",
+    choix: ["Ils sont trop courts", "Deux tokens différents ont toujours une similarité nulle", "Ils ne contiennent que des nombres négatifs", "Ils changent à chaque phrase"],
+    bonne: 1,
+    explication: "Les 1 ne sont jamais au même endroit : le produit scalaire de deux one-hot différents vaut 0."
+  },
+  {
+    question: "Une table d'embeddings a 10 000 lignes et 300 colonnes. Que vaut d ?",
+    choix: ["10 000", "300", "3 000 000", "10 300"],
+    bonne: 1,
+    explication: "Une ligne par token (V = 10 000), et chaque embedding a d = 300 composantes."
+  },
+  {
+    question: "Sur quelle idée reposent les méthodes comme word2vec ?",
+    choix: ["Les mots longs se ressemblent", "Un mot se reconnaît aux mots qui l'entourent", "Les mots sont classés par ordre alphabétique", "Chaque mot a une définition écrite à la main"],
+    bonne: 1,
+    explication: "Skip-gram apprend à prédire les voisins d'un mot : des mots aux contextes semblables reçoivent des vecteurs proches."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : qu'est-ce qu'une couche d'embedding, et comment est-elle entraînée dans un LLM ?">
+
+C'est une matrice $V \times d$ de paramètres ; l'embedding d'un token est la ligne correspondant à son indice, ce qui équivaut à multiplier un vecteur one-hot par cette matrice. Dans un LLM, elle est initialisée au hasard et apprise par rétropropagation avec le reste du réseau : seules les lignes des tokens présents dans un lot reçoivent un gradient. Le transformer original, par exemple, partage cette matrice avec la couche de sortie qui produit les scores du token suivant, ce qui économise $V \times d$ paramètres. Historiquement, des méthodes comme word2vec entraînaient ces vecteurs seuls, avec un objectif de prédiction des mots voisins, puis on les réutilisait dans d'autres modèles.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "embedding", en: "embedding", definition: "Vecteur de nombres appris qui représente un token, de sorte que des tokens de sens voisin aient des vecteurs proches." },
+  { fr: "vecteur one-hot", en: "one-hot vector", definition: "Vecteur de zéros avec un seul 1, à la position du token." },
+  { fr: "table d'embeddings", en: "embedding matrix", definition: "Matrice V × d dont la ligne i est l'embedding du token i." },
+  { fr: "analogie vectorielle", en: "vector analogy", definition: "Retrouver un mot par arithmétique sur les vecteurs, comme roi − homme + femme ≈ reine." }
+]} />
