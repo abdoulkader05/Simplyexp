@@ -1,0 +1,143 @@
+---
+id: probabilite-conditionnelle
+type: maths
+titre: "Probabilité conditionnelle : tout change quand on sait quelque chose"
+sous_titre: "P(A|B), définition et exemples"
+domaine: probabilites
+niveau: 2
+prerequis: [probabilites-bases]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), règle de la somme, règle du produit et probabilité conditionnelle"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.5 (probabilité conditionnelle)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un LLM ne calcule jamais « la probabilité du mot riz » dans l'absolu : il calcule la probabilité de « riz » **sachant** les mots qui précèdent. Un filtre anti-arnaque calcule la probabilité qu'un SMS soit une arnaque **sachant** qu'il contient le mot « gagnant ». Toute prédiction est une [probabilité](/maths/probabilites-bases/) conditionnelle. Elle mène au [théorème de Bayes](/maths/bayes/), à l'[indépendance](/maths/independance/) et à la [règle du produit](/maths/regle-produit/) des modèles de langage.
+
+## L'intuition
+
+Sur 1 000 SMS reçus par une agence mobile money, 100 sont des arnaques. Tiré au hasard, un SMS a donc une chance sur dix d'être une arnaque. Mais si l'on sait qu'il contient le mot « gagnant », tout change : parmi les 100 arnaques, 80 contiennent ce mot, et parmi les 900 SMS normaux, seulement 45.
+
+Savoir que le SMS contient « gagnant », c'est se restreindre aux 125 SMS qui le contiennent. Parmi eux, 80 sont des arnaques : la probabilité passe de 0,1 à $80/125 = 0{,}64$. Conditionner, c'est changer d'univers : on ne regarde plus que les cas compatibles avec ce qu'on sait.
+
+<Simulation
+  rendu="conditionnelle-sms"
+  label="Découpage de 1 000 SMS en arnaques et SMS normaux, et part de ceux qui contiennent gagnant"
+  parametres={[
+    { nom: "arnaques", label: "Part d'arnaques (%)", min: 1, max: 50, pas: 1, valeur: 10, role: "entree" },
+    { nom: "faux", label: "Part des SMS normaux avec « gagnant » (%)", min: 0, max: 30, pas: 1, valeur: 5, role: "parametre" }
+  ]}
+  legende="80 % des arnaques contiennent « gagnant ». La probabilité conditionnelle ne regarde que les parties foncées."
+/>
+
+## La définition
+
+Pour deux événements $A$ et $B$, avec $P(B) > 0$, la probabilité de $A$ sachant $B$ est :
+
+$$
+P(A \mid B) = \frac{P(A \cap B)}{P(B)}
+$$
+
+où :
+- $A \mid B$ se lit « $A$ sachant $B$ » ;
+- $P(A \cap B)$ est la probabilité que $A$ et $B$ arrivent ensemble ;
+- $P(B)$ est la probabilité de la condition : on renormalise pour que les cas de $B$ pèsent 1 au total.
+
+En la retournant, on obtient une formule utile pour calculer une probabilité jointe : $P(A \cap B) = P(A \mid B)\,P(B)$.
+
+Autrement dit : on ne garde que les cas où $B$ est arrivé, et on regarde quelle part d'entre eux réalise aussi $A$.
+
+<Depliable titre="Pourquoi c'est bien une probabilité, et pourquoi l'ordre compte">
+
+**C'est une probabilité.** Fixons $B$ et regardons $A \mapsto P(A \mid B)$. Elle est positive, car c'est un quotient de nombres positifs. Elle vaut 1 pour l'univers entier : $P(\Omega \mid B) = P(\Omega \cap B)/P(B) = P(B)/P(B) = 1$. Et pour deux événements incompatibles $A_1$, $A_2$ :
+
+$$
+P(A_1 \cup A_2 \mid B) = \frac{P\big((A_1 \cup A_2) \cap B\big)}{P(B)} = \frac{P(A_1 \cap B) + P(A_2 \cap B)}{P(B)} = P(A_1 \mid B) + P(A_2 \mid B)
+$$
+
+Les trois règles des probabilités sont respectées : conditionner, c'est construire une nouvelle probabilité, concentrée sur $B$.
+
+**L'ordre compte.** $P(A \mid B)$ et $P(B \mid A)$ ont le même numérateur, $P(A \cap B)$, mais pas le même dénominateur. Elles ne sont égales que si $P(A) = P(B)$. Le [théorème de Bayes](/maths/bayes/) dit comment passer de l'une à l'autre.
+
+</Depliable>
+
+## Un exemple à la main
+
+Les 1 000 SMS de l'agence, avec $A$ = « arnaque » et $G$ = « contient gagnant » :
+
+- $P(A) = 100/1\,000 = 0{,}1$ ;
+- $P(A \cap G) = 80/1\,000 = 0{,}08$ ;
+- $P(G) = (80 + 45)/1\,000 = 0{,}125$ ;
+- $P(A \mid G) = 0{,}08 / 0{,}125 = 0{,}64$ ;
+- dans l'autre sens, $P(G \mid A) = 0{,}08 / 0{,}1 = 0{,}8$ : 80 % des arnaques contiennent « gagnant ».
+
+Les deux nombres, 0,64 et 0,8, répondent à deux questions différentes. Le filtre veut le premier : sachant le mot, est-ce une arnaque ?
+
+Un exemple de langage : dans un corpus, la paire « mobile money » apparaît 300 fois et le mot « mobile » 500 fois. La probabilité que le mot suivant soit « money », sachant qu'on vient de lire « mobile », est estimée à $300/500 = 0{,}6$. C'est exactement ce que calcule un modèle de [n-grammes](/concepts/ngrammes/).
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec 10 % d'arnaques, fais passer la part des SMS normaux contenant « gagnant » de 5 % à 20 %. Que devient $P(\text{arnaque} \mid \text{gagnant})$ ? Puis remets 5 % et baisse la part d'arnaques à 1 %.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec 20 % des SMS normaux qui contiennent « gagnant », 180 SMS normaux s'ajoutent aux 80 arnaques : $P(\text{arnaque} \mid \text{gagnant}) = 80/260 \approx 0{,}31$. Le mot est devenu un indice beaucoup moins fiable.
+
+Avec 1 % d'arnaques et 5 % de faux positifs : 10 arnaques, dont 8 avec « gagnant », et 990 normaux, dont environ 50. La probabilité tombe à $8/58 \approx 0{,}14$. Même un indice présent dans 80 % des arnaques ne suffit pas quand les arnaques sont rares : c'est le cœur du [théorème de Bayes](/maths/bayes/).
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Prédire le mot suivant.** Un [modèle de langage](/concepts/modele-langage/) estime $P(\text{mot} \mid \text{mots précédents})$, et la [règle du produit](/maths/regle-produit/) enchaîne ces probabilités pour donner celle d'une phrase entière.
+- **Classer.** Un classifieur donne $P(\text{classe} \mid \text{entrée})$ : la [régression logistique](/concepts/regression-logistique/) en est l'exemple le plus simple.
+- **Mettre à jour une croyance.** Le [théorème de Bayes](/maths/bayes/) retourne une probabilité conditionnelle, et l'[indépendance](/maths/independance/) se définit à partir d'elle.
+
+## Les pièges classiques
+
+**« P(A | B) = P(B | A). »** C'est l'erreur la plus fréquente. Dans l'exemple, $P(\text{arnaque} \mid \text{gagnant}) = 0{,}64$ mais $P(\text{gagnant} \mid \text{arnaque}) = 0{,}8$. Les confondre fait prendre des décisions très différentes.
+
+**« Conditionner fait toujours augmenter la probabilité. »** Savoir quelque chose peut aussi la faire baisser. Sachant qu'un SMS ne contient pas « gagnant », la probabilité d'arnaque tombe à $20/875 \approx 0{,}023$.
+
+**« On peut conditionner par un événement impossible. »** La définition divise par $P(B)$ : si $P(B) = 0$, elle n'a pas de sens. En pratique, un modèle de langage qui n'a jamais vu un contexte ne peut pas estimer de probabilité conditionnelle par simple comptage, d'où les méthodes de lissage.
+
+## Entraîne-toi
+
+**Exercice 1.** On lance un dé. Quelle est la probabilité d'obtenir 6 sachant que le résultat est pair ?
+
+<Depliable titre="Corrigé">
+
+$P(6 \mid \text{pair}) = P(6 \cap \text{pair}) / P(\text{pair}) = (1/6)/(3/6) = 1/3$. Parmi les trois faces paires, une seule est un 6.
+
+</Depliable>
+
+**Exercice 2.** Dans une classe de terminale, 40 % des élèves révisent plus de 5 heures par semaine, et 30 % des élèves révisent plus de 5 heures **et** réussissent l'examen blanc. Quelle est la probabilité de réussir sachant qu'on révise plus de 5 heures ?
+
+<Depliable titre="Corrigé">
+
+$P(\text{réussite} \mid \text{révise}) = 0{,}3 / 0{,}4 = 0{,}75$.
+
+</Depliable>
+
+**Exercice 3.** Avec les 1 000 SMS de l'exemple, calcule $P(\text{normal} \mid \text{gagnant})$ et vérifie que $P(\text{arnaque} \mid \text{gagnant}) + P(\text{normal} \mid \text{gagnant}) = 1$.
+
+<Depliable titre="Corrigé">
+
+$P(\text{normal} \mid \text{gagnant}) = 45/125 = 0{,}36$, et $0{,}64 + 0{,}36 = 1$. Une probabilité conditionnelle est une probabilité à part entière : sa somme sur tous les cas possibles vaut 1.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "probabilité conditionnelle", en: "conditional probability", definition: "Probabilité de A sachant que B est arrivé : P(A ∩ B) / P(B)." },
+  { fr: "probabilité jointe", en: "joint probability", definition: "Probabilité que deux événements arrivent ensemble, P(A ∩ B)." },
+  { fr: "conditionner", en: "to condition on", definition: "Restreindre l'univers aux cas où un événement est arrivé." }
+]} />
