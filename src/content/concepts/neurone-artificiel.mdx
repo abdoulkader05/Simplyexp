@@ -71,6 +71,8 @@ Pour Aminata, avec $x_1$ la distance en km et $x_2$ l'intensité de la pluie (0 
 
 Avec la sigmoïde au lieu de la marche, on obtient des probabilités : $\sigma(-1{,}2) \approx 0{,}23$, $\sigma(0{,}3) \approx 0{,}57$ et $\sigma(0{,}4) \approx 0{,}60$.
 
+D'où viennent ces poids ? On ne les écrit pas à la main : on les apprend à partir d'exemples. Si l'on a noté, pendant des semaines, ce qu'Aminata a vraiment décidé chaque matin, on règle $\mathbf{w}$ et $b$ pour que le neurone reproduise ses choix. Le perceptron de Rosenblatt corrige les poids après chaque erreur, d'un petit pas dans la direction de l'exemple mal classé. Avec la sigmoïde, on fait une [descente de gradient](/maths/descente-gradient/) sur la log-loss, exactement comme pour la régression logistique. Le code plus bas montre la règle du perceptron à l'œuvre.
+
 Géométriquement, les points où $z = 0$ forment une droite dans le plan des entrées : la frontière de décision (*decision boundary*). Ici, $0{,}8\,x_1 + 1{,}5\,x_2 = 2$. D'un côté, le neurone dit « gbaka », de l'autre « à pied ». Un neurone seul découpe toujours l'espace de ses entrées par une droite, ou, en dimension plus grande, par un plan.
 
 <Simulation
