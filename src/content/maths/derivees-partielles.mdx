@@ -1,0 +1,149 @@
+---
+id: derivees-partielles
+type: maths
+titre: "Dérivées partielles : bouger un bouton à la fois"
+sous_titre: "Dériver une fonction de plusieurs variables"
+domaine: analyse
+niveau: 2
+prerequis: [derivee]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 5 (Vector Calculus), section sur les dérivées partielles et les gradients"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.3 (dérivées partielles et gradient)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La [dérivée](/maths/derivee/) mesure la pente d'une fonction d'une seule variable. Mais la perte d'un modèle dépend de tous ses paramètres à la fois : deux pour la [régression linéaire](/concepts/regression-lineaire/) du gbaka ($w$ et $b$), des milliards pour un LLM. La dérivée partielle répond à une question simple : si je touche à un seul paramètre en laissant tous les autres en place, de combien la perte change-t-elle ? Rangées côte à côte, ces réponses forment le [gradient](/maths/gradient/).
+
+## L'intuition
+
+Devant un vieux poste de radio, deux boutons : le volume et la tonalité. Pour comprendre l'effet de chacun, tu n'en tournes qu'un à la fois, en laissant l'autre immobile. Tourner le volume d'un cran change le son d'une certaine quantité ; tourner la tonalité d'un cran, d'une autre quantité. Chacune de ces quantités est une dérivée partielle.
+
+Sur une fonction de deux variables $f(x\,;\,y)$, bloquer $y$ revient à couper la surface par une tranche : il reste une courbe d'une seule variable, $x$, dont on sait prendre la pente. On fait de même en bloquant $x$. L'animation montre les deux tranches de $f(x\,;\,y) = x^2 + 2y^2$ au point choisi.
+
+<Simulation
+  rendu="partielles-coupes"
+  label="Deux coupes d'une fonction de deux variables, avec leurs pentes"
+  parametres={[
+    { nom: "x", label: "Position x", min: -1.5, max: 1.5, pas: 0.1, valeur: 1, role: "entree", decimales: 1 },
+    { nom: "y", label: "Position y", min: -1.5, max: 1.5, pas: 0.1, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="Gauche : y bloqué, on fait varier x. Droite : x bloqué, on fait varier y. Trait doré : la pente."
+/>
+
+## La définition
+
+Pour une fonction $f(x_1\,;\,\dots\,;\,x_d)$ de $d$ variables, la dérivée partielle par rapport à $x_i$ est :
+
+$$
+\frac{\partial f}{\partial x_i} = \lim_{h \to 0} \frac{f(x_1\,;\,\dots\,;\,x_i + h\,;\,\dots\,;\,x_d) - f(x_1\,;\,\dots\,;\,x_d)}{h}
+$$
+
+où :
+- $\partial$ se lit « d rond » et rappelle qu'une seule variable bouge ;
+- seule la coordonnée $x_i$ reçoit le petit écart $h$ ; toutes les autres restent fixes ;
+- en pratique, on dérive $f$ par rapport à $x_i$ en traitant toutes les autres variables comme des constantes.
+
+Autrement dit : une dérivée partielle est une dérivée ordinaire, calculée en faisant semblant que toutes les autres variables sont des nombres fixés.
+
+<Depliable titre="Le calcul, justifié sur un exemple">
+
+Prenons $f(x\,;\,y) = x^2 + 2y^2$ et calculons $\frac{\partial f}{\partial x}$ par la définition :
+
+$$
+\begin{aligned}
+\frac{f(x + h\,;\,y) - f(x\,;\,y)}{h} &= \frac{(x + h)^2 + 2y^2 - x^2 - 2y^2}{h} && \text{seul } x \text{ bouge} \\
+&= \frac{2xh + h^2}{h} = 2x + h && \text{les termes en } y \text{ s'annulent} \\
+&\longrightarrow 2x && \text{quand } h \to 0
+\end{aligned}
+$$
+
+Le terme $2y^2$ a disparu : il ne dépend pas de $x$, donc il se comporte comme une constante, de dérivée nulle. Le même calcul avec $y$ qui bouge donne $\frac{\partial f}{\partial y} = 4y$. C'est ce que dit la règle pratique : dériver par rapport à une variable en traitant les autres comme des constantes.
+
+</Depliable>
+
+## Un exemple à la main
+
+**Un tarif à deux variables.** Un transporteur facture $C(d\,;\,n) = 136\,d + 100\,n + 4$ F, où $d$ est la distance en km et $n$ le nombre de gros bagages.
+
+- $\frac{\partial C}{\partial d} = 136$ : un kilomètre de plus coûte 136 F, quel que soit le nombre de bagages.
+- $\frac{\partial C}{\partial n} = 100$ : un bagage de plus coûte 100 F, quelle que soit la distance.
+
+**Une fonction où les variables se mélangent.** $g(x\,;\,y) = x^2 y + 3y$.
+
+- En traitant $y$ comme une constante : $\frac{\partial g}{\partial x} = 2xy$.
+- En traitant $x$ comme une constante : $\frac{\partial g}{\partial y} = x^2 + 3$.
+- Au point $(2\,;\,1)$ : $\frac{\partial g}{\partial x} = 4$ et $\frac{\partial g}{\partial y} = 7$.
+
+**La perte du gbaka avec biais.** Pour un seul trajet (2 km, 300 F) et la perte $\ell(w\,;\,b) = (2w + b - 300)^2$, en $w = 100$ et $b = 0$ :
+
+- $\frac{\partial \ell}{\partial w} = 2\,(2w + b - 300) \times 2 = 4 \times (-100) = -400$ ;
+- $\frac{\partial \ell}{\partial b} = 2\,(2w + b - 300) \times 1 = -200$.
+
+Les deux sont négatives : augmenter $w$ ou $b$ réduit l'erreur, et $w$ agit deux fois plus fort, car il est multiplié par la distance.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place-toi en $(1\,;\,1)$. Quelle coupe est la plus raide ? Mets ensuite $y$ à 0 sans toucher à $x$ : laquelle des deux pentes change ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En $(1\,;\,1)$, $\frac{\partial f}{\partial x} = 2$ et $\frac{\partial f}{\partial y} = 4$ : la coupe en $y$ est deux fois plus raide, parce que $y$ est multiplié par 2 dans la fonction.
+
+En mettant $y$ à 0, la pente en $y$ tombe à 0 : on est au fond de la tranche de droite. La pente en $x$ ne change pas, elle vaut toujours $2x = 2$. Mais la courbe de gauche, elle, descend : la tranche est prise plus bas, puisque $2y^2$ vaut maintenant 0. Chaque dérivée partielle ne décrit qu'une direction ; il faut les deux pour décrire le point.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Le gradient.** Les dérivées partielles par rapport à tous les paramètres, rangées dans un [vecteur](/maths/vecteurs/), forment le [gradient](/maths/gradient/), qui indique la montée la plus raide.
+- **L'apprentissage paramètre par paramètre.** La [descente de gradient](/maths/descente-gradient/) met à jour chaque poids avec sa propre dérivée partielle : $w_i \leftarrow w_i - \eta\,\frac{\partial \mathcal{L}}{\partial w_i}$.
+- **La régression.** Annuler les dérivées partielles de la perte par rapport à $w$ et à $b$ donne directement la meilleure droite de la [régression linéaire](/concepts/regression-lineaire/).
+
+## Les pièges classiques
+
+**« Toutes les autres variables valent zéro. »** Non : elles gardent leur valeur, simplement on ne les fait pas bouger. Dans $\frac{\partial g}{\partial x} = 2xy$, $y$ reste présent et vaut 1 au point $(2\,;\,1)$.
+
+**« Les dérivées partielles suffisent à décrire toutes les directions. »** Elles décrivent les directions des axes. Pour une direction en biais, on combine les dérivées partielles par un [produit scalaire](/maths/produit-scalaire/), comme le montre la fiche sur le [gradient](/maths/gradient/).
+
+**« $\partial$ et $d$, c'est pareil. »** Le $d$ s'emploie pour une fonction d'une seule variable ; le $\partial$ rappelle qu'il y en a d'autres, maintenues fixes. Le calcul est le même, mais la notation évite de l'oublier.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule les dérivées partielles de $f(x\,;\,y) = 3x + 5y^2 - xy$.
+
+<Depliable titre="Corrigé">
+
+$\frac{\partial f}{\partial x} = 3 - y$ et $\frac{\partial f}{\partial y} = 10y - x$.
+
+</Depliable>
+
+**Exercice 2.** Pour $f(x\,;\,y\,;\,z) = x\,e^{y} + z^2$, calcule les trois dérivées partielles en $(1\,;\,0\,;\,2)$.
+
+<Depliable titre="Corrigé">
+
+$\frac{\partial f}{\partial x} = e^y = 1$, $\frac{\partial f}{\partial y} = x\,e^y = 1$ et $\frac{\partial f}{\partial z} = 2z = 4$.
+
+</Depliable>
+
+**Exercice 3.** Pour le trajet de 4 km payé 500 F, la perte est $\ell(w\,;\,b) = (4w + b - 500)^2$. Calcule les deux dérivées partielles en $w = 100$, $b = 50$. Dans quel sens faut-il bouger chaque paramètre ?
+
+<Depliable titre="Corrigé">
+
+L'écart vaut $4 \times 100 + 50 - 500 = -50$. $\frac{\partial \ell}{\partial w} = 2 \times (-50) \times 4 = -400$ et $\frac{\partial \ell}{\partial b} = 2 \times (-50) = -100$. Les deux sont négatives : il faut augmenter $w$ et $b$ pour réduire l'erreur.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "dérivée partielle", en: "partial derivative", definition: "Dérivée par rapport à une seule variable, les autres étant maintenues fixes." },
+  { fr: "fonction de plusieurs variables", en: "multivariate function", definition: "Fonction qui prend plusieurs nombres en entrée, comme f(x ; y)." },
+  { fr: "coupe", en: "slice", definition: "Courbe obtenue en fixant toutes les variables sauf une." }
+]} />
