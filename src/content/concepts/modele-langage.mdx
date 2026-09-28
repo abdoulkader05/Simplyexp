@@ -1,0 +1,213 @@
+---
+id: modele-langage
+type: concept
+titre: "Prédire le mot suivant : l'idée derrière tous les LLM"
+sous_titre: "Modèle de langage probabiliste et génération autorégressive"
+domaine: langage
+niveau: 3
+prerequis: [regle-produit, loi-categorielle, tokenisation]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Radford et al., « Improving Language Understanding by Generative Pre-Training », OpenAI, 2018 — https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf — section 3.1 (objectif de modélisation du langage, somme des log P(u_i | contexte))"
+  - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre 3 (N-gram Language Models : modèles de langage, règle de la chaîne, génération)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Qu'est-ce que « connaître une langue » pour une machine ? Savoir que « le chat dort sur le canapé » est une phrase plausible, et que « canapé le sur dort chat le » ne l'est pas. Savoir aussi compléter un début de phrase de façon naturelle. Une idée simple couvre les deux : donner une probabilité à chaque texte possible. Avec la [règle du produit](/maths/regle-produit/), cette tâche se ramène à une autre, beaucoup plus concrète : prédire le token suivant. C'est l'objectif sur lequel sont entraînés les modèles de la famille GPT, depuis le premier en 2018.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un modèle de langage donne, pour tout début de texte, une probabilité à chaque token qui pourrait venir ensuite ; en tirant un token, en l'ajoutant et en recommençant, il écrit.
+</PhraseCle>
+
+## En image
+
+Pense au clavier d'un téléphone qui propose trois mots au-dessus des touches pendant que tu écris un message.
+
+- Ce que tu as déjà tapé est le contexte.
+- Les mots proposés, rangés du plus probable au moins probable, sont la loi du token suivant.
+- Toucher une suggestion, c'est choisir un token ; il rejoint aussitôt le contexte.
+- Toucher la suggestion du milieu encore et encore, c'est faire écrire le téléphone tout seul : c'est la génération.
+
+Là où l'image s'arrête : le clavier ne montre que trois mots, et il a été réglé pour aider à taper vite. Un modèle de langage calcule une probabilité pour chacun des dizaines de milliers de tokens de son vocabulaire, et il a été entraîné à imiter des textes entiers, pas seulement à compléter des messages.
+
+## Comment ça marche
+
+Un modèle de langage (*language model*) estime, pour un contexte $x_1, \dots, x_{t-1}$, la loi du token suivant :
+
+$$
+P(x_t \mid x_1, \dots, x_{t-1})
+$$
+
+où :
+- $x_1, \dots, x_{t-1}$ sont les tokens déjà présents, issus de la [tokenisation](/concepts/tokenisation/) ;
+- $x_t$ est le token suivant, une variable qui suit une [loi catégorielle](/maths/loi-categorielle/) sur tout le vocabulaire.
+
+Par la règle du produit, la probabilité d'un texte entier s'en déduit : $P(x_1, \dots, x_n) = \prod_{t} P(x_t \mid x_1, \dots, x_{t-1})$. Estimer le token suivant suffit donc à donner une probabilité à n'importe quel texte.
+
+Pour **générer**, on boucle : calculer la loi du token suivant, en choisir un, l'ajouter au contexte, recommencer. C'est la génération autorégressive (*autoregressive generation*). Les probabilités de l'animation sont inventées pour l'illustration ; un vrai modèle les calcule avec un réseau de neurones. Fais défiler.
+
+<PasAPas rendu="generation-boucle" label="Génération d'une phrase token après token">
+  <Etape etat="initial">
+    Le modèle reçoit un début de texte, « Le chat ». Il calcule une probabilité pour chaque token possible : « dort » 0,35, « mange » 0,25, « est » 0,2…
+  </Etape>
+  <Etape etat="p1">
+    **On choisit « dort »**, ici le plus probable, et on l'ajoute. Le contexte devient « Le chat dort », et le modèle recalcule toute la loi : « sur » 0,4, « dans » 0,25…
+  </Etape>
+  <Etape etat="p2">
+    **On ajoute « sur ».** Nouvelle loi, sachant « Le chat dort sur » : « le » 0,5, « la » 0,3…
+  </Etape>
+  <Etape etat="p3">
+    **On ajoute « le ».** Sachant « Le chat dort sur le » : « canapé » 0,35, « lit » 0,3, « tapis » 0,2…
+  </Etape>
+  <Etape etat="p4">
+    **On ajoute « canapé ».** La suite générée a la probabilité $0{,}35 \times 0{,}4 \times 0{,}5 \times 0{,}35 = 0{,}024\,5$. On pourrait continuer jusqu'à un token de fin.
+  </Etape>
+</PasAPas>
+
+Choisir toujours le token le plus probable s'appelle le décodage glouton (*greedy decoding*) ; il donne des textes répétitifs. Le plus souvent, on tire le token au hasard selon la loi, éventuellement déformée par une température : c'est l'objet de la fiche sur l'[échantillonnage](/concepts/decodage-sampling/).
+
+Pour **entraîner** le modèle, on lui montre des textes réels et, à chaque position, on mesure sa surprise face au vrai token : $-\ln P(x_t \mid x_1, \dots, x_{t-1})$. La perte est la moyenne de ces surprises, l'[entropie croisée](/maths/entropie-croisee/). Le paper du premier GPT écrit exactement cet objectif : maximiser $\sum_i \log P(u_i \mid u_{i-k}, \dots, u_{i-1})$, où $k$ est la taille de la fenêtre de contexte.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi prédire le token suivant suffit">
+
+On part de la probabilité d'un texte entier et on applique la [règle du produit](/maths/regle-produit/) de proche en proche :
+
+$$
+\begin{aligned}
+P(x_1, x_2, \dots, x_n) &= P(x_1)\, P(x_2, \dots, x_n \mid x_1) && \text{règle du produit} \\
+&= P(x_1)\, P(x_2 \mid x_1)\, P(x_3, \dots, x_n \mid x_1, x_2) && \text{on recommence} \\
+&= \prod_{t=1}^{n} P(x_t \mid x_1, \dots, x_{t-1}) && \text{par récurrence}
+\end{aligned}
+$$
+
+Aucune hypothèse n'est faite : cette écriture est exacte. Un modèle qui sait estimer chaque facteur sait donc estimer la probabilité de n'importe quel texte, et, en prenant le logarithme, la perte d'un texte est la somme des pertes de chaque position :
+
+$$
+-\ln P(x_1, \dots, x_n) = \sum_{t=1}^{n} -\ln P(x_t \mid x_1, \dots, x_{t-1})
+$$
+
+Minimiser cette somme sur un grand corpus, c'est le [maximum de vraisemblance](/maths/maximum-vraisemblance/) appliqué aux textes.
+
+</Depliable>
+
+## Essaie toi-même
+
+Refais la génération de l'animation, mais en choisissant à chaque étape le **deuxième** token le plus probable. Quelle phrase obtiens-tu, et quelle est sa probabilité ? (On suppose que les lois des étapes suivantes seraient les mêmes que dans l'animation, ce qui n'est pas réaliste mais suffit pour le calcul.)
+
+<Depliable titre="Ce que tu devrais observer">
+
+« Le chat mange dans la lit » : le texte devient vite bancal, parce que les lois de l'animation ont été calculées pour les contextes « dort », « sur », « le », pas pour ceux qu'on vient de fabriquer. Sa probabilité vaudrait $0{,}25 \times 0{,}25 \times 0{,}3 \times 0{,}3 \approx 0{,}005\,6$, environ quatre fois moins que la suite gloutonne.
+
+C'est justement ce que fait un vrai modèle et que l'exercice ne peut pas faire : **recalculer** la loi à chaque étape à partir du contexte réellement écrit. Après « Le chat mange », un modèle entraîné proposerait plutôt « des », « une » ou « son », et la phrase resterait correcte.
+
+</Depliable>
+
+## En code
+
+Depuis zéro : un tout petit modèle de langage, sous forme de table, et une boucle de génération.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+# Loi du token suivant, selon le dernier token seulement (un modèle volontairement simpliste)
+modele = {
+    "<debut>": {"le": 0.6, "un": 0.4},
+    "le": {"chat": 0.5, "chien": 0.5},
+    "un": {"chat": 0.7, "oiseau": 0.3},
+    "chat": {"dort": 0.6, "mange": 0.4},
+    "chien": {"dort": 0.5, "aboie": 0.5},
+    "oiseau": {"chante": 1.0},
+    "dort": {"<fin>": 1.0}, "mange": {"<fin>": 1.0},
+    "aboie": {"<fin>": 1.0}, "chante": {"<fin>": 1.0},
+}
+
+def generer(glouton=False):
+    phrase, proba, token = [], 1.0, "<debut>"
+    while token != "<fin>":
+        loi = modele[token]
+        mots, p = list(loi), np.array(list(loi.values()))
+        choix = mots[int(np.argmax(p))] if glouton else rng.choice(mots, p=p)
+        proba *= loi[choix]
+        if choix != "<fin>":
+            phrase.append(choix)
+        token = choix
+    return " ".join(phrase), round(proba, 3)
+
+print("glouton :", generer(glouton=True))
+for _ in range(3):
+    print("tirage  :", generer())
+```
+
+En vrai, avec la bibliothèque `transformers` et le modèle GPT-2 :
+
+```python
+# no-run
+from transformers import pipeline
+generateur = pipeline("text-generation", model="gpt2")
+print(generateur("The cat sleeps on the", max_new_tokens=10, do_sample=True))
+```
+
+## Les pièges classiques
+
+**« Le modèle écrit la phrase d'un coup. »** Il produit un token à la fois, et chaque token dépend de tous ceux qu'il a déjà écrits. C'est pour cela qu'une réponse longue s'affiche progressivement.
+
+**« Choisir toujours le plus probable donne le meilleur texte. »** Le décodage glouton donne souvent des textes plats ou qui tournent en boucle. Tirer selon la loi, avec une température bien réglée, donne des textes plus naturels.
+
+**« Un modèle de langage sait si ce qu'il écrit est vrai. »** Il a appris ce qui est probable dans ses textes d'entraînement, pas ce qui est exact. Une phrase fausse mais plausible peut recevoir une probabilité élevée : c'est l'origine des [hallucinations](/concepts/hallucinations/).
+
+## Dans la vraie vie
+
+Tous les LLM conversationnels actuels reposent sur ce principe : un réseau de neurones qui estime la loi du token suivant, puis une boucle qui génère la réponse token après token. Les suggestions des claviers de téléphone et l'autocomplétion des moteurs de recherche utilisent des modèles de langage plus petits, avec la même idée. Avant les réseaux de neurones, on estimait ces probabilités en comptant les suites de mots dans un corpus : ce sont les [n-grammes](/concepts/ngrammes/).
+
+Un modèle de langage peut aussi servir à juger un texte plutôt qu'à l'écrire : la [perplexité](/maths/perplexite/) d'un texte sous un modèle mesure à quel point il lui paraît naturel, ce qui permet par exemple de repérer des phrases mal traduites.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que calcule un modèle de langage à chaque étape ?",
+    choix: ["La traduction de la phrase", "Une probabilité pour chaque token qui pourrait suivre", "Le nombre de mots restants", "Le sens exact de la phrase"],
+    bonne: 1,
+    explication: "C'est la loi du token suivant sachant le contexte, sur tout le vocabulaire."
+  },
+  {
+    question: "Un modèle donne 0,5, puis 0,4, puis 0,2 aux trois tokens d'une suite. Quelle est la probabilité de la suite ?",
+    choix: ["1,1", "0,04", "0,2", "0,5"],
+    bonne: 1,
+    explication: "Règle du produit : 0,5 × 0,4 × 0,2 = 0,04."
+  },
+  {
+    question: "Pourquoi une réponse de LLM s'affiche-t-elle progressivement ?",
+    choix: ["Pour faire joli", "Parce que chaque token dépend des précédents et est généré l'un après l'autre", "À cause d'une connexion lente", "Parce que le modèle relit sa réponse"],
+    bonne: 1,
+    explication: "La génération est autorégressive : le token suivant ne peut être calculé qu'une fois les précédents choisis."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment un modèle de langage est-il entraîné, et comment génère-t-il du texte ?">
+
+Il est entraîné par maximum de vraisemblance sur un grand corpus : à chaque position de chaque texte, il prédit la loi du token suivant sachant les précédents, et on minimise l'entropie croisée avec le vrai token, ce qui revient à maximiser la log-probabilité du corpus via la règle du produit. Pour générer, on part d'un contexte, on calcule la loi du token suivant, on en choisit un (le plus probable, ou par tirage éventuellement modulé par une température ou restreint aux plus probables), on l'ajoute au contexte et on recommence jusqu'à un token de fin ou une longueur maximale. Les deux phases utilisent la même factorisation, mais l'entraînement se fait sur de vrais textes, alors que la génération se nourrit de ses propres sorties.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "modèle de langage", en: "language model", definition: "Modèle qui donne la probabilité du token suivant sachant les précédents, donc la probabilité de tout texte." },
+  { fr: "génération autorégressive", en: "autoregressive generation", definition: "Écrire un texte token après token, chacun choisi sachant ceux déjà écrits." },
+  { fr: "décodage glouton", en: "greedy decoding", definition: "Choisir à chaque étape le token le plus probable." },
+  { fr: "fenêtre de contexte", en: "context window", definition: "Nombre maximal de tokens précédents que le modèle peut prendre en compte." }
+]} />
