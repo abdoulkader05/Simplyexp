@@ -1,0 +1,286 @@
+---
+id: attention
+type: concept
+titre: "L'attention : apprendre à regarder au bon endroit"
+sous_titre: "Mécanisme d'attention, scores, poids et somme pondérée"
+domaine: transformers
+niveau: 4
+prerequis: [goulot-contexte, softmax]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 14
+sources:
+  - "Bahdanau, Cho, Bengio, « Neural Machine Translation by Jointly Learning to Align and Translate », arXiv 1409.0473, v1 du 1er septembre 2014, ICLR 2015 — https://arxiv.org/abs/1409.0473 — résumé, section 3.1 (équations 5 et 6, modèle d'alignement)"
+  - "Luong, Pham, Manning, « Effective Approaches to Attention-based Neural Machine Translation », EMNLP 2015 — https://arxiv.org/abs/1508.04025 — section 3.1 (fonctions de score dot, general, concat)"
+  - "Wu et al., « Google's Neural Machine Translation System: Bridging the Gap between Human and Machine Translation », 2016 — https://arxiv.org/abs/1609.08144 — résumé"
+  - "NLLB Team, « No Language Left Behind: Scaling Human-Centered Machine Translation », 2022 — https://arxiv.org/abs/2207.04672 — résumé ; liste des langues FLORES-200 — https://github.com/facebookresearch/flores/blob/main/flores200/README.md"
+  - "Documentation PyTorch, torch.nn.functional.scaled_dot_product_attention — https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html — paramètre scale"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PasAPas, Etape, FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Souviens-toi du [goulot d'étranglement](/concepts/goulot-contexte/). Dans un [encodeur-décodeur](/concepts/encoder-decoder/), toute la phrase source doit tenir dans un seul vecteur de contexte, de taille fixe. Pour trois mots, ça passe. Pour quarante mots, le vecteur sature et la traduction se dégrade.
+
+En septembre 2014, Dzmitry Bahdanau, Kyunghyun Cho et Yoshua Bengio publient une réponse simple ([leur paper expliqué](/papers/bahdanau-2014/)). Ils font l'hypothèse que ce vecteur de taille fixe est justement ce qui bride les traducteurs neuronaux. Leur remède : laisser le décodeur aller chercher lui-même, à chaque mot qu'il écrit, les parties de la phrase source qui l'aident. C'est le mécanisme d'attention (*attention mechanism*).
+
+## L'idée en une phrase
+
+<PhraseCle>
+À chaque mot qu'il écrit, le décodeur note tous les mots source, change ces notes en proportions, puis mélange les mots selon ces proportions.
+</PhraseCle>
+
+## En image
+
+Imagine Mariam, qui révise le BAC avec une pile de feuilles de cours. Face à une question d'annales, elle ne relit pas un résumé unique écrit à l'avance. Elle parcourt ses feuilles et note chacune selon son rapport avec la question. Puis elle rédige sa réponse en puisant surtout dans les feuilles bien notées, un peu dans les autres.
+
+Voici la correspondance, élément par élément.
+
+- la question du moment, c'est l'état du décodeur au moment d'écrire un mot ;
+- chaque feuille de cours, c'est le vecteur d'un mot de la phrase source ;
+- la note donnée à une feuille, c'est le score de ce mot ;
+- la part de la réponse tirée de chaque feuille, c'est son poids d'attention ;
+- la réponse rédigée, c'est le vecteur de contexte ;
+- à la question suivante, Mariam refait tout : nouvelles notes, nouvelle réponse.
+
+Là où l'image s'arrête : Mariam lit des phrases et juge leur sens. Le modèle, lui, ne lit rien. Il compare des listes de nombres par un calcul fixe, et il ne met jamais une feuille totalement de côté : même la moins bien notée garde un poids, minuscule mais pas nul.
+
+## Comment ça marche
+
+Prends un exemple minuscule. Tu fais traduire en anglais la phrase « Awa paie Koffi ». L'encodeur (un [RNN](/concepts/rnn/)) l'a déjà lue et a produit un vecteur par mot, son état caché. Pour que tout se calcule à la main, ces <Terme id="h">états de l'encodeur</Terme> n'ont que deux coordonnées.
+
+$$
+\mathbf{h}_1 = (1\,;\,-1) \qquad \mathbf{h}_2 = (1\,;\,1) \qquad \mathbf{h}_3 = (-1\,;\,1)
+$$
+
+où :
+- $\mathbf{h}_1$, $\mathbf{h}_2$, $\mathbf{h}_3$ sont les vecteurs de « Awa », « paie » et « Koffi ».
+
+Le décodeur a déjà écrit « Awa ». Il s'apprête à écrire le mot suivant, « pays ». Son <Terme id="s">état courant</Terme> est le vecteur $\mathbf{s} = (1\,;\,1)$. Ces nombres sont choisis pour l'exemple. Dans un vrai modèle, les vecteurs ont des centaines de coordonnées, et c'est l'apprentissage qui les fixe.
+
+<PasAPas rendu="attention-calcul" label="Calcul de l'attention sur la phrase Awa paie Koffi">
+  <Etape etat="initial">
+    Au départ, rien n'est calculé. Le décodeur a son état $\mathbf{s}$ et trois vecteurs devant lui, un par mot source. Il doit décider où regarder.
+  </Etape>
+  <Etape etat="scores">
+    **Première étape : noter chaque mot.** Le score d'un mot est le [produit scalaire](/maths/produit-scalaire/) entre $\mathbf{s}$ et son vecteur :
+
+    $$
+    e_j = \mathbf{s} \cdot \mathbf{h}_j
+    $$
+
+    où :
+    - $e_j$ est le score d'alignement (*alignment score*) du mot numéro $j$ ;
+    - $\mathbf{s} \cdot \mathbf{h}_j$ est la somme des produits coordonnée par coordonnée.
+
+    Ici, $e_1 = 1 \times 1 + 1 \times (-1) = 0$. Ensuite, $e_2 = 1 \times 1 + 1 \times 1 = 2$. Enfin, $e_3 = 1 \times (-1) + 1 \times 1 = 0$. Seul « paie » pointe dans la même direction que $\mathbf{s}$.
+  </Etape>
+  <Etape etat="softmax">
+    **Deuxième étape : changer les scores en proportions.** On applique le [softmax](/concepts/softmax/) aux trois scores :
+
+    $$
+    \alpha_j = \frac{\exp(e_j)}{\sum_{k=1}^{n} \exp(e_k)}
+    $$
+
+    où :
+    - $\alpha_j$ est le <Terme id="alpha">poids d'attention</Terme> (*attention weight*) du mot $j$ ;
+    - $n$ est le nombre de mots de la phrase source, ici 3 ;
+    - $k$ parcourt tous les mots, pour faire la somme.
+
+    Avec $\exp(0) = 1$ et $\exp(2) \approx 7{,}389$, la somme vaut $9{,}389$. Donc $\alpha_2 \approx 7{,}389 / 9{,}389 \approx 0{,}787$ et $\alpha_1 = \alpha_3 \approx 1 / 9{,}389 \approx 0{,}107$. Arrondis : 0,79 pour « paie », 0,11 pour les deux autres.
+  </Etape>
+  <Etape etat="sortie">
+    **Troisième étape : mélanger.** Le <Terme id="c">vecteur de contexte</Terme> est la moyenne des $\mathbf{h}_j$, pondérée par les poids :
+
+    $$
+    \mathbf{c} = \sum_{j=1}^{n} \alpha_j \, \mathbf{h}_j
+    $$
+
+    où :
+    - $\mathbf{c}$ est le vecteur de contexte propre à ce mot-ci.
+
+    Coordonnée par coordonnée : $0{,}107 + 0{,}787 - 0{,}107 = 0{,}787$, puis $-0{,}107 + 0{,}787 + 0{,}107 = 0{,}787$. Donc $\mathbf{c} \approx (0{,}79\,;\,0{,}79)$, très proche de $\mathbf{h}_2$. Le décodeur a regardé « paie » au moment d'écrire « pays ».
+  </Etape>
+</PasAPas>
+
+Les trois étapes tiennent en une ligne. Touche un symbole pour retrouver son rôle.
+
+<FormuleVivante
+  tex="\begin{aligned} \htmlClass{t-c}{\mathbf{c}} &= \sum_{j=1}^{n} \htmlClass{t-alpha}{\alpha_j}\,\htmlClass{t-h}{\mathbf{h}_j} \\ \htmlClass{t-alpha}{\alpha_j} &= \mathrm{softmax}_j\big(\htmlClass{t-s}{\mathbf{s}} \cdot \htmlClass{t-h}{\mathbf{h}_j}\big) \end{aligned}"
+  termes={{
+    s: { role: "entree", texte: "l'état du décodeur : ce qu'il cherche au moment d'écrire ce mot" },
+    h: { role: "entree", texte: "les états de l'encodeur : un vecteur par mot de la phrase source" },
+    alpha: { role: "sortie", texte: "les poids d'attention : positifs, leur somme vaut 1" },
+    c: { role: "sortie", texte: "le vecteur de contexte : le mélange fabriqué pour ce mot-ci" }
+  }}
+  label="Formule de l'attention"
+/>
+
+Au mot suivant, « Koffi », le décodeur aura un autre état $\mathbf{s}$, donc d'autres poids et un autre $\mathbf{c}$. Voilà toute la différence avec le goulot : il n'y a plus un vecteur de contexte pour toute la phrase, mais un par mot écrit. Et la phrase source n'a plus besoin de tenir dans un seul vecteur, puisque le décodeur garde accès à tous les $\mathbf{h}_j$.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Les poids forment une vraie moyenne.** Chaque $\alpha_j$ est positif, car une exponentielle est toujours positive. Et leur somme vaut 1 :
+
+$$
+\begin{aligned}
+\sum_{j=1}^{n} \alpha_j
+&= \sum_{j=1}^{n} \frac{\exp(e_j)}{\sum_{k=1}^{n} \exp(e_k)} && \text{définition de } \alpha_j \\
+&= \frac{\sum_{j=1}^{n} \exp(e_j)}{\sum_{k=1}^{n} \exp(e_k)} && \text{même dénominateur pour tous les } j \\
+&= 1 && \text{numérateur et dénominateur sont la même somme}
+\end{aligned}
+$$
+
+Conséquence : chaque coordonnée de $\mathbf{c}$ reste entre la plus petite et la plus grande coordonnée correspondante des $\mathbf{h}_j$. Dans l'exemple, 0,787 est bien compris entre $-1$ et $1$.
+
+**Seuls les écarts entre scores comptent.** Ajoute une même constante $a$ à tous les scores :
+
+$$
+\begin{aligned}
+\frac{\exp(e_j + a)}{\sum_{k} \exp(e_k + a)}
+&= \frac{\exp(a)\,\exp(e_j)}{\sum_{k} \exp(a)\,\exp(e_k)} && \exp(x + y) = \exp(x)\exp(y) \\
+&= \frac{\exp(a)\,\exp(e_j)}{\exp(a) \sum_{k} \exp(e_k)} && \text{factorisation par } \exp(a) \\
+&= \alpha_j && \text{simplification par } \exp(a) > 0
+\end{aligned}
+$$
+
+Les scores $(0\,;\,2\,;\,0)$ et $(-2\,;\,0\,;\,-2)$ donnent donc exactement les mêmes poids. Le code de la section suivante s'en sert : il retire le plus grand score avant de prendre l'exponentielle, pour éviter les nombres géants.
+
+**Le meilleur score gagne le plus gros poids.** L'exponentielle est croissante : si $e_i > e_j$, alors $\exp(e_i) > \exp(e_j)$, donc $\alpha_i > \alpha_j$.
+
+**Pourquoi mélanger au lieu de choisir ?** Choisir le seul mot de meilleur score serait plus simple. Mais un petit changement de $\mathbf{s}$ ne changerait presque jamais ce choix : la dérivée serait nulle presque partout, et la [rétropropagation](/concepts/backpropagation/) n'aurait aucun signal pour corriger les vecteurs. Le softmax, lui, est dérivable partout : chaque poids bouge un peu quand $\mathbf{s}$ bouge un peu. Bahdanau et ses coauteurs parlent d'un alignement doux (*soft alignment*).
+
+**Pourquoi le produit scalaire ?** Chez Bahdanau, le score est calculé par un petit réseau de neurones appris avec le reste du modèle. En 2015, Luong, Pham et Manning comparent trois fonctions de score, dont le simple produit scalaire, qu'ils nomment *dot*. C'est la version la plus légère : aucun paramètre en plus, un seul produit par paire de vecteurs. C'est elle qu'on utilise ici.
+
+</Depliable>
+
+## Essaie toi-même
+
+Le premier curseur fait tourner $\mathbf{s}$, le second l'allonge. Au départ, $\mathbf{s} = (1\,;\,1)$, comme dans l'exemple. Les flèches claires sont les trois $\mathbf{h}_j$, la flèche dorée est $\mathbf{c}$.
+
+<Simulation
+  rendu="attention-direction"
+  label="Plan avec les vecteurs des trois mots, l'état du décodeur et le vecteur de contexte, et barres des poids d'attention"
+  parametres={[
+    { nom: "theta", label: "Direction de s", min: 0, max: 355, pas: 5, valeur: 45, role: "entree", unite: "°" },
+    { nom: "lambda", label: "Longueur de s (facteur λ)", min: 0, max: 2, pas: 0.1, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="s = λ × √2 × (cos θ ; sin θ). Pour θ = 45° et λ = 1, on retrouve s = (1 ; 1)."
+/>
+
+Consigne : tourne $\mathbf{s}$ jusqu'à 135°. Quel mot reçoit l'attention ? Reviens à 45° et pousse λ à 2. Enfin, mets λ à 0.
+
+<Depliable titre="Ce que tu devrais observer">
+
+À 135°, $\mathbf{s} = (-1\,;\,1)$, exactement la direction de « Koffi ». Les scores deviennent $(-2\,;\,0\,;\,2)$ et les poids environ $(0{,}02\,;\,0{,}12\,;\,0{,}87)$ : l'attention passe sur Koffi, et $\mathbf{c}$ bascule vers $\mathbf{h}_3$.
+
+À 45° avec λ = 2, $\mathbf{s} = (2\,;\,2)$ et les scores doublent : $(0\,;\,4\,;\,0)$. Le poids de « paie » monte à 0,96 environ. Un $\mathbf{s}$ plus long rend l'attention plus tranchée, sans changer le mot préféré.
+
+Avec λ = 0, tous les scores valent 0 et chaque mot reçoit un tiers. Le décodeur ne cherche rien de précis, il fait la moyenne de tout.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy (aucun tirage au hasard, donc pas de graine) :
+
+```python
+import numpy as np
+
+# États de l'encodeur : un vecteur par mot source (Awa, paie, Koffi)
+H = np.array([[1.0, -1.0],
+              [1.0,  1.0],
+              [-1.0, 1.0]])
+# État du décodeur au moment d'écrire « pays »
+s = np.array([1.0, 1.0])
+
+scores = H @ s                         # produit scalaire de s avec chaque h_j
+poids = np.exp(scores - scores.max())  # on retire le max : mêmes poids, pas de débordement
+poids = poids / poids.sum()            # softmax
+c = poids @ H                          # somme des h_j pondérée par les poids
+
+print("scores :", scores)              # [0. 2. 0.]
+print("poids  :", poids.round(3))      # [0.107 0.787 0.107]
+print("c      :", c.round(3))          # [0.787 0.787]
+```
+
+En vrai, avec PyTorch. Cette fonction attend trois entrées ; la fiche [Query, Key, Value](/concepts/qkv/) explique pourquoi. Ici, on passe deux fois les mêmes vecteurs :
+
+```python
+# no-run
+import torch
+import torch.nn.functional as F
+
+H = torch.tensor([[[1., -1.], [1., 1.], [-1., 1.]]])     # (lot, n, d)
+s = torch.tensor([[[1., 1.]]])                            # (lot, 1, d)
+c = F.scaled_dot_product_attention(s, H, H, scale=1.0)    # scale=1.0 : scores bruts, comme ici
+print(c)                                                  # tensor([[[0.7870, 0.7870]]])
+```
+
+## Les pièges classiques
+
+**« L'attention choisit un mot. »** On y croit parce qu'on résume souvent par « le modèle regarde paie ». Mais le vecteur de contexte est un mélange de tous les mots. Aucun poids n'est nul, puisque l'exponentielle est toujours positive : dans l'exemple, Awa et Koffi pèsent encore 0,11 chacun.
+
+**« Un gros poids veut dire que le mot est important dans la phrase. »** On y croit parce que les cartes d'attention ressemblent à des cartes d'importance. Mais un poids mesure l'accord entre un mot source et l'état du décodeur à un instant donné. Le même mot reçoit un poids différent à chaque mot écrit : « paie » compte beaucoup pour écrire « pays », bien moins pour écrire « Koffi ».
+
+**« L'attention ajoute forcément des paramètres à apprendre. »** C'était vrai chez Bahdanau, dont le score passe par un petit réseau entraîné. Mais avec le produit scalaire, le calcul des poids n'a aucun paramètre propre. Tout ce qui s'apprend se trouve dans l'encodeur et le décodeur, qui produisent les $\mathbf{h}_j$ et $\mathbf{s}$.
+
+## Dans la vraie vie
+
+En 2016, une équipe de Google décrit GNMT, son système de traduction neuronale : 8 couches d'encodeur, 8 couches de décodeur, reliées par un mécanisme d'attention. Selon l'article, il réduit les erreurs de traduction de 60 % en moyenne par rapport au système de production précédent, sur des phrases simples isolées. Un an plus tard, les Transformers ([Attention Is All You Need](/papers/vaswani-2017/)) font de l'attention la pièce centrale du modèle. La suite de ce parcours les construit pièce par pièce.
+
+Plus près de toi, le modèle NLLB-200 publié en 2022 traduit entre 200 langues, dont le wolof, le bambara, le dioula, le fon, l'éwé et le mooré. C'est un modèle encodeur-décodeur. Quand tu lui fais traduire un message du français vers le dioula, chaque mot produit s'appuie sur des poids d'attention calculés sur ta phrase française.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que contient le vecteur de contexte c ?",
+    choix: [
+      "Le vecteur du mot source le plus proche de s",
+      "La moyenne des vecteurs de la phrase source, pondérée par les poids d'attention",
+      "Le produit de tous les vecteurs de la phrase source",
+      "L'état du décodeur, recopié tel quel"
+    ],
+    bonne: 1,
+    explication: "c est la somme des h_j multipliés par leurs poids α_j. Comme les poids sont positifs et font 1 au total, c'est une moyenne pondérée."
+  },
+  {
+    question: "Trois mots source ont tous le score 1. Quels sont leurs poids d'attention ?",
+    choix: ["1, 1 et 1", "0, 1 et 0", "Un tiers chacun", "Impossible à dire sans connaître s"],
+    bonne: 2,
+    explication: "Des scores égaux donnent des exponentielles égales. Le softmax partage donc la somme 1 en trois parts égales."
+  },
+  {
+    question: "Un mot source peut-il recevoir un poids d'attention exactement nul ?",
+    choix: [
+      "Oui, si son score est négatif",
+      "Oui, si son score vaut 0",
+      "Non : l'exponentielle d'un score est toujours positive",
+      "Oui, pour le premier mot de la phrase"
+    ],
+    bonne: 2,
+    explication: "exp(e) est strictement positif pour tout score e. Un poids peut être minuscule, jamais nul. Un score de 0 donne même exp(0) = 1, comme pour Awa dans l'exemple."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi l'attention aide-t-elle sur les longues phrases ?">
+
+Sans attention, l'encodeur doit compresser toute la phrase dans un seul vecteur de taille fixe, quelle que soit sa longueur. Plus la phrase est longue, plus l'information se perd. Avec l'attention, le décodeur garde accès à tous les états de l'encodeur. À chaque mot qu'il écrit, il calcule un score par mot source, les normalise par un softmax et construit un vecteur de contexte propre à ce mot. La capacité ne dépend plus d'un vecteur unique : elle grandit avec la phrase. Et comme tout est dérivable, les poids s'apprennent par rétropropagation, sans qu'on fournisse les alignements entre mots.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "mécanisme d'attention", en: "attention mechanism", definition: "Calcul qui construit, à chaque étape, une moyenne des vecteurs source pondérée selon leur accord avec l'état courant." },
+  { fr: "score d'alignement", en: "alignment score", definition: "Note d'un mot source pour l'étape en cours ; ici, le produit scalaire entre l'état du décodeur et le vecteur du mot." },
+  { fr: "poids d'attention", en: "attention weight", definition: "Score passé au softmax : positif, et la somme des poids vaut 1." },
+  { fr: "alignement doux", en: "soft alignment", definition: "Alignement où chaque mot écrit s'appuie sur un mélange de mots source plutôt que sur un seul." }
+]} />
