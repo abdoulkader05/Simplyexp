@@ -1,0 +1,263 @@
+---
+id: planification-agent
+type: concept
+titre: "Planifier avant d'agir : découper une tâche en étapes"
+sous_titre: "Planification, décomposition et auto-correction des agents"
+domaine: agents
+niveau: 5
+prerequis: [react-agent]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Wang et al., « Plan-and-Solve Prompting: Improving Zero-Shot Chain-of-Thought Reasoning by Large Language Models », arXiv 2305.04091, 2023 — https://arxiv.org/abs/2305.04091 — résumé (erreurs de calcul, d'étape manquante et de compréhension ; deux temps : élaborer un plan qui divise la tâche en sous-tâches, puis exécuter les sous-tâches selon le plan ; GPT-3, dix jeux de données)"
+  - "Shinn et al., « Reflexion: Language Agents with Verbal Reinforcement Learning », arXiv 2303.11366, 2023 — https://arxiv.org/abs/2303.11366 — résumé (réflexion verbale sur le retour de la tâche, gardée dans une mémoire épisodique ; 91 % pass@1 sur HumanEval contre 80 % pour GPT-4)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un agent [ReAct](/concepts/react-agent/) réagit tour après tour : il regarde la dernière observation et choisit l'action suivante. Sur une question en deux sauts, c'est parfait. Sur une tâche de trente étapes, il perd le fil : il oublie une étape, en répète une autre, ou s'engage dans une impasse qu'il aurait pu voir venir. Les auteurs de Plan-and-Solve ont classé les erreurs des modèles à qui l'on demande simplement de raisonner étape par étape, sans exemple : erreurs de calcul, erreurs de compréhension, et **étapes manquantes**. Contre ce dernier type, la réponse est vieille comme les listes de courses : écrire le plan avant de commencer.
+
+## L'idée en une phrase
+
+<PhraseCle>
+L'agent découpe d'abord l'objectif en sous-tâches, les exécute une à une, et réécrit la partie du plan qui échoue au lieu de tout recommencer.
+</PhraseCle>
+
+## En image
+
+Pense à la préparation d'un grand repas de fête.
+
+- La veille, on écrit la **liste** : courses, marinade, dessert, dressage de la table.
+- Le jour même, on **coche** les lignes l'une après l'autre, sans avoir à tout repenser à chaque instant.
+- Le poisson prévu manque au marché : on **modifie une ligne** (« poulet à la place »), pas tout le menu.
+- Le soir, on note ce qui a coincé, pour **faire mieux** la prochaine fois.
+
+Là où l'image s'arrête : un agent n'a pas d'expérience de cuisinier. Son plan peut contenir une étape impossible qu'aucun humain n'aurait écrite, et il ne s'en aperçoit qu'en l'exécutant. D'où l'importance de l'observation après chaque étape.
+
+## Comment ça marche
+
+La planification ajoute trois mécanismes à la boucle d'un [agent](/concepts/agent-llm/).
+
+1. **Décomposer.** Avant toute action, le modèle écrit un plan : une liste de sous-tâches. Plan-and-Solve le fait avec une simple consigne en deux temps : « élabore d'abord un plan qui divise la tâche en sous-tâches, puis exécute-les selon le plan ».
+2. **Exécuter en suivant le plan.** Chaque sous-tâche est traitée à son tour, souvent par une petite boucle ReAct. Le plan reste dans le contexte et sert de fil conducteur.
+3. **Replanifier.** Quand une observation montre qu'une sous-tâche ne peut pas réussir, le modèle réécrit la partie du plan concernée, en gardant ce qui est déjà fait.
+
+Fais défiler.
+
+<PasAPas rendu="plan-replanifier" label="Un plan, un imprévu, une replanification">
+  <Etape etat="initial">
+    **L'objectif.** Organiser un anniversaire surprise pour samedi, pour vingt personnes. Trop gros pour une seule action.
+  </Etape>
+  <Etape etat="plan">
+    **Le plan.** Le modèle écrit quatre sous-tâches dans un ordre logique : on ne confirme pas le nombre d'invités avant de les avoir invités.
+  </Etape>
+  <Etape etat="execution">
+    **L'exécution.** La salle est réservée ; l'agent passe à la sous-tâche 2.
+  </Etape>
+  <Etape etat="echec">
+    **L'imprévu.** L'outil de commande répond que la pâtisserie est fermée le samedi. Tel quel, le plan ne peut plus aboutir.
+  </Etape>
+  <Etape etat="replan">
+    **La replanification.** Seule la sous-tâche 2 est réécrite : commander pour le vendredi. La salle, déjà réservée, n'est pas remise en cause.
+  </Etape>
+  <Etape etat="fin">
+    **Fin.** Toutes les sous-tâches sont cochées. L'objectif n'a pas bougé ; seul le chemin a changé.
+  </Etape>
+</PasAPas>
+
+**Pourquoi découper aide autant ?** Parce que le nombre de plans possibles explose avec leur longueur. Si l'agent dispose de $k$ actions possibles à chaque étape et que la tâche demande $n$ étapes, le nombre de suites d'actions différentes vaut :
+
+$$
+N = k^{\,n}
+$$
+
+où :
+- $k$ est le nombre d'actions possibles à chaque étape (outils et arguments confondus) ;
+- $n$ est le nombre d'étapes du plan ;
+- $N$ est le nombre de plans complets différents.
+
+Exemple : avec 5 actions et 6 étapes, $N = 5^6 = 15\,625$ plans. Découpons la tâche en $m = 3$ sous-tâches indépendantes de 2 étapes chacune, traitées l'une après l'autre : il suffit de choisir parmi $5^2 = 25$ suites pour chaque sous-tâche, soit $3 \times 25 = 75$ possibilités à examiner en tout, au lieu de 15 625. En général, $N_{\text{découpé}} = m \cdot k^{\,n/m}$.
+
+<Schema rendu="plans-arbre" legende="Avec 3 actions possibles et 3 étapes, planifier d'un bloc revient à choisir parmi 27 plans. Découpée en 3 sous-tâches d'une étape, la même tâche demande 9 choix, faits un par un." />
+
+**Et quand ça rate ?** Une dernière idée consiste à tirer des leçons de l'échec. Dans Reflexion, l'agent écrit, après une tentative ratée, une réflexion en langage naturel sur ce qui n'a pas marché ; cette réflexion est gardée dans une mémoire et relue à la tentative suivante. Sans modifier aucun poids, les auteurs rapportent 91 % de réussite du premier coup (*pass@1*) sur le test de programmation HumanEval, contre 80 % pour GPT-4, le meilleur résultat publié jusque-là.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où viennent k puissance n et m fois k puissance n/m">
+
+**Le principe multiplicatif.** Un plan de $n$ étapes est une suite $(a_1, a_2, \dots, a_n)$ où chaque $a_i$ est choisie parmi $k$ actions. Il y a $k$ choix pour $a_1$ ; pour **chacun** d'eux, $k$ choix pour $a_2$, et ainsi de suite :
+
+$$
+N = \underbrace{k \times k \times \dots \times k}_{n \text{ fois}} = k^{\,n}
+$$
+
+C'est le même raisonnement que pour compter les codes à 4 chiffres : $10^4 = 10\,000$.
+
+**Le découpage.** Si la tâche se sépare en $m$ sous-tâches de $n/m$ étapes, et si l'on peut juger chaque sous-tâche **seule** (elle a réussi ou non, avant de passer à la suivante), on ne combine plus les choix d'une sous-tâche avec ceux des autres : on les **additionne**.
+
+$$
+N_{\text{découpé}} = \underbrace{k^{\,n/m} + k^{\,n/m} + \dots + k^{\,n/m}}_{m \text{ sous-tâches}} = m \cdot k^{\,n/m}
+$$
+
+Le gain vient du passage d'un produit à une somme. Il repose sur une hypothèse forte : pouvoir vérifier chaque sous-tâche séparément. Si la réussite d'une sous-tâche dépend de choix faits dans une autre, il faut revenir en arrière, et une partie de l'explosion revient.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="L'étape oubliée" niveau="facile">
+
+Un agent doit envoyer 25 000 FCFA par mobile money à une tante, à partir d'un message vocal qui dit : « Envoie 25 000 à tata Aminata, son numéro est dans mes contacts ». Il propose ce plan :
+
+1. Ouvrir l'application de mobile money.
+2. Saisir le montant : 25 000 FCFA.
+3. Valider l'envoi avec le code secret.
+
+Quelle étape manque, et pourquoi est-elle la plus importante ?
+
+<div slot="solution">
+
+Il manque « retrouver le numéro de tata Aminata dans les contacts, puis **vérifier** le destinataire avant de valider ». C'est une erreur d'étape manquante, exactement le type que Plan-and-Solve cherche à éviter. C'est aussi la plus dangereuse : un envoi d'argent est difficile à annuler, et un numéro faux ou mal compris enverrait l'argent à un inconnu. Un bon plan place les vérifications **avant** les actions irréversibles, et demande une confirmation à l'utilisateur.
+
+</div>
+</Exercice>
+
+<Exercice titre="Compter les plans" niveau="moyen" reponse={1024} tolerance={0}>
+
+Un agent de bureautique dispose de 4 actions : ouvrir un fichier, chercher dans un fichier, écrire, envoyer un e-mail. Une tâche demande 5 étapes. Combien de plans différents existe-t-il ?
+
+<div slot="solution">
+
+$N = 4^5 = 1\,024$. Parmi eux, beaucoup sont absurdes (envoyer un e-mail avant d'avoir écrit quoi que ce soit), mais un modèle qui planifie mal peut en choisir un.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le gain du découpage" niveau="defi" reponse={144} tolerance={0}>
+
+Un agent a 6 actions possibles et une tâche de 8 étapes. On la découpe en 4 sous-tâches de 2 étapes, vérifiables séparément. Combien de suites faut-il examiner avec le découpage ? Par combien le travail est-il divisé ?
+
+<div slot="indice">
+
+Sans découpage : $6^8$. Avec : $m \cdot k^{\,n/m}$ où $m = 4$ et $n/m = 2$.
+
+</div>
+<div slot="solution">
+
+Avec découpage : $4 \times 6^2 = 4 \times 36 = 144$ suites. Sans : $6^8 = 1\,679\,616$. Le travail est divisé par $1\,679\,616 / 144 = 11\,664$.
+
+Aucun agent n'énumère réellement tous ces plans : le modèle en propose un seul, qu'il juge probable. Mais ce calcul explique pourquoi un plan long écrit d'un seul jet a peu de chances d'être le bon, et pourquoi les sous-tâches vérifiables une à une rendent l'agent bien plus robuste.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un petit planificateur qui cherche, par force brute, une suite d'actions menant à un objectif, d'abord d'un bloc, puis sous-tâche par sous-tâche. On compte les plans examinés.
+
+```python
+from itertools import product
+
+ACTIONS = ["reserver_salle", "commander_gateau", "inviter", "confirmer", "attendre"]
+
+def valide(plan):
+    """Un plan est valide s'il fait tout, dans un ordre qui a du sens."""
+    requis = ["reserver_salle", "commander_gateau", "inviter", "confirmer"]
+    if any(a not in plan for a in requis):
+        return False
+    return plan.index("inviter") < plan.index("confirmer")
+
+# 1. D'un bloc : on essaie toutes les suites de 4 actions
+examines = 0
+for plan in product(ACTIONS, repeat=4):
+    examines += 1
+    if valide(list(plan)):
+        break
+print("d'un bloc :", examines, "plans examinés sur", len(ACTIONS) ** 4, "->", plan)
+
+# 2. Découpé : chaque sous-tâche a son propre objectif, vérifiable seul
+sous_taches = ["reserver_salle", "commander_gateau", "inviter", "confirmer"]
+examines, plan = 0, []
+for objectif in sous_taches:
+    for action in ACTIONS:
+        examines += 1
+        if action == objectif:  # la sous-tâche est vérifiée tout de suite
+            plan.append(action)
+            break
+print("découpé   :", examines, "actions examinées ->", plan)
+
+# 3. Replanifier : si une action échoue, on ne réécrit que sa sous-tâche
+ferme_le_samedi = True
+if ferme_le_samedi:
+    plan[1] = "commander_gateau_vendredi"
+print("après replanification :", plan)
+```
+
+En vrai, la planification se fait par consigne : on demande au modèle d'écrire le plan, on le garde dans le contexte, et on lui demande de le mettre à jour après chaque observation.
+
+```python
+# no-run
+CONSIGNE = """Commence par écrire un plan numéroté de sous-tâches.
+Puis exécute-les une par une avec les outils.
+Après chaque résultat, écris « Plan mis à jour : » et corrige les sous-tâches restantes si besoin.
+Ne modifie jamais une sous-tâche déjà réussie."""
+reponse = client.messages.create(model="claude-sonnet-5", max_tokens=2000, tools=outils,
+                                 system=CONSIGNE, messages=messages)
+```
+
+## Les pièges classiques
+
+**« Un bon plan dispense de regarder les résultats. »** Un plan écrit avant d'agir repose sur des suppositions (la pâtisserie ouvre le samedi). Sans observation après chaque étape, l'agent exécute fidèlement un plan faux.
+
+**« Replanifier, c'est tout recommencer. »** Tout jeter coûte cher et peut défaire ce qui marchait. Une bonne replanification garde les sous-tâches réussies et ne réécrit que ce qui dépend de l'échec.
+
+**« Plus le plan est détaillé, mieux c'est. »** Un plan trop fin est long, donc fragile (chaque étape est une occasion d'erreur) et vite périmé. On détaille la sous-tâche en cours, pas celles qui viendront dans vingt étapes.
+
+## Dans la vraie vie
+
+Les assistants de programmation écrivent souvent une liste de tâches avant de modifier du code, la mettent à jour à mesure et la montrent à l'utilisateur, qui peut la corriger avant qu'une ligne ne soit écrite. Les assistants de recherche planifient les questions à couvrir avant de lancer leurs requêtes. Dans les deux cas, le plan sert aussi de **point de contrôle humain** : on valide la liste avant l'exécution. Et quand les sous-tâches sont assez indépendantes, on peut les confier à [plusieurs agents](/concepts/multi-agents/) en parallèle.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quel type d'erreur la planification préalable cherche-t-elle surtout à éviter ?",
+    choix: ["Les erreurs de typographie", "Les étapes manquantes", "Les erreurs d'arrondi", "Les tokens inconnus"],
+    bonne: 1,
+    explication: "Écrire le plan d'abord rend visibles les étapes oubliées, que Plan-and-Solve identifie comme une erreur fréquente."
+  },
+  {
+    question: "Avec 3 actions possibles et 4 étapes, combien de plans différents existe-t-il ?",
+    choix: ["12", "64", "81", "7"],
+    bonne: 2,
+    explication: "3⁴ = 81."
+  },
+  {
+    question: "Une sous-tâche échoue au milieu du plan. Que fait une bonne replanification ?",
+    choix: ["Elle recommence tout depuis le début", "Elle réécrit la partie du plan concernée et garde ce qui a réussi", "Elle ignore l'échec", "Elle arrête l'agent"],
+    bonne: 1,
+    explication: "On garde l'acquis et on corrige la partie qui dépend de l'échec."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quand faut-il ajouter une étape de planification à un agent, et quels sont les risques ?">
+
+Quand la tâche est longue, qu'elle se décompose en sous-objectifs vérifiables, ou qu'un humain doit valider la démarche avant l'exécution. Le plan réduit les étapes oubliées, garde le fil sur une longue boucle, et permet de paralléliser des sous-tâches indépendantes. Les risques : un plan fondé sur des hypothèses fausses et suivi aveuglément, un surcoût de tokens pour des tâches simples, et des plans trop détaillés qui se périment vite. Les parades : observer après chaque étape, replanifier localement, garder les sous-tâches réussies, et tirer parti des échecs en gardant une trace écrite de ce qui n'a pas marché, comme dans Reflexion.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "planification", en: "planning", definition: "Écrire, avant d'agir, la suite des sous-tâches qui mènent à l'objectif." },
+  { fr: "décomposition", en: "task decomposition", definition: "Découper une tâche en sous-tâches plus petites, vérifiables une à une." },
+  { fr: "replanification", en: "replanning", definition: "Réécrire la partie du plan rendue caduque par une observation, en gardant ce qui a réussi." },
+  { fr: "réflexion", en: "reflection", definition: "Texte écrit par l'agent après un échec pour en tirer une leçon, relu à la tentative suivante." }
+]} />
