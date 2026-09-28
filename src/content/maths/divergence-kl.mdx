@@ -84,7 +84,9 @@ L'asymétrie, sur deux issues : $p = (0{,}9\,;\,0{,}1)$ et $q = (0{,}5\,;\,0{,}5
 - $D_{\mathrm{KL}}(p \,\|\, q) = 0{,}9 \ln 1{,}8 + 0{,}1 \ln 0{,}2 \approx 0{,}529 - 0{,}161 = 0{,}368$.
 - $D_{\mathrm{KL}}(q \,\|\, p) = 0{,}5 \ln(5/9) + 0{,}5 \ln 5 \approx -0{,}294 + 0{,}805 = 0{,}511$.
 
-Deux sens, deux valeurs différentes.
+Deux sens, deux valeurs différentes. Le second est plus grand parce que $q$ met la moitié de sa probabilité sur une issue que $p$ ne donne qu'une fois sur dix : vu depuis $q$, $p$ semble négliger une issue fréquente, ce qui coûte cher.
+
+Un dernier exemple, pour sentir l'ordre de grandeur. Si le mototaxi pense que 90 % des courses sont courtes alors qu'en réalité seules 60 % le sont, $p = (0{,}6\,;\,0{,}4)$ et $q = (0{,}9\,;\,0{,}1)$. Alors $D_{\mathrm{KL}}(p \,\|\, q) = 0{,}6 \ln(0{,}6/0{,}9) + 0{,}4 \ln(0{,}4/0{,}1) \approx -0{,}243 + 0{,}555 = 0{,}311$ nat : à chaque course, il paie en moyenne 0,31 nat de surprise en trop, presque tout à cause des longues courses qu'il sous-estime.
 
 ## Essaie toi-même
 
