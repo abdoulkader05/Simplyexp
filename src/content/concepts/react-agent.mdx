@@ -1,0 +1,270 @@
+---
+id: react-agent
+type: concept
+titre: "ReAct : penser, agir, observer, recommencer"
+sous_titre: "Alterner raisonnement et actions dans un agent"
+domaine: agents
+niveau: 5
+prerequis: [agent-llm]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Yao, Zhao, Yu, Du, Shafran, Narasimhan, Cao, « ReAct: Synergizing Reasoning and Acting in Language Models », arXiv 2210.03629, 2022 (ICLR 2023) — https://arxiv.org/abs/2210.03629 — résumé (pensées et actions entrelacées, API Wikipédia simple, +34 et +10 points de réussite absolue sur ALFWorld et WebShop face à l'imitation et au renforcement, avec un ou deux exemples) ; tableau 1 (HotpotQA EM : CoT 29,4, ReAct 27,4, ReAct→CoT-SC 35,1 ; Fever : CoT 56,3, ReAct 60,9) ; tableau 2 (hallucination parmi les échecs : 56 % pour CoT, 0 % pour ReAct ; erreurs de raisonnement 47 % contre 16 %) ; ALFWorld : 71 % contre 45 % pour Act (meilleur de 6 prompts) ; combinaisons : repli après 7 étapes sur HotpotQA, ou quand la réponse majoritaire de CoT-SC apparaît moins de n/2 fois ; actions search[entité], lookup[chaîne], finish[réponse] ; modèle PaLM-540B"
+  - "Wikipédia (fr), « Guido van Rossum » — https://fr.wikipedia.org/wiki/Guido_van_Rossum — né à La Haye aux Pays-Bas, créateur de Python (exemple de trajectoire)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [agent](/concepts/agent-llm/) tourne dans une boucle : il réfléchit, agit, observe. Mais comment écrire cette boucle concrètement, et pourquoi faire réfléchir le modèle à voix haute ? Avant 2022, on étudiait deux familles à part. D'un côté le [chain-of-thought](/concepts/chain-of-thought/) : le modèle raisonne par étapes, mais seulement avec ce qu'il a en mémoire, et peut donc inventer un fait en chemin sans que rien ne l'arrête. De l'autre, des modèles qui enchaînent des actions sans expliquer pourquoi, et qui se perdent dès qu'une action surprend. Le paper ReAct, de Yao et ses coauteurs, propose de mélanger les deux dans une même trace.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Dans ReAct, le modèle écrit une trace où alternent pensée, action et observation, jusqu'à une action finale qui donne la réponse.
+</PhraseCle>
+
+## En image
+
+Pense à une détective qui tient un carnet pendant son enquête.
+
+- Elle écrit une **pensée** : « le suspect dit être rentré à 20 h ; je dois vérifier auprès du chauffeur de taxi ».
+- Elle fait une **action** : elle appelle le chauffeur.
+- Elle note l'**observation** : « le chauffeur l'a déposé à 22 h ».
+- Sa pensée suivante part de ce fait vérifié, pas de son intuition : « il a menti de deux heures ; où était-il ? ».
+
+Là où l'image s'arrête : le carnet d'un agent ReAct n'est pas une trace de ses « vraies » pensées. C'est du texte qu'il génère parce qu'on lui a montré ce format, et qui l'aide à choisir l'action suivante.
+
+## Comment ça marche
+
+La trace ReAct suit un format fixe, appris en contexte à partir d'un ou deux exemples complets donnés dans le prompt. Pour les questions du jeu de données HotpotQA, le paper donne au modèle trois actions sur une API Wikipédia : `search[entité]` pour ouvrir une page, `lookup[mot]` pour chercher un mot dans la page ouverte, et `finish[réponse]` pour conclure. À chaque tour :
+
+1. **Pensée.** Le modèle écrit ce qu'il a compris et ce qui lui manque.
+2. **Action.** Il écrit une action dans le format prévu.
+3. **Observation.** L'application exécute l'action et colle le résultat dans la trace, sous la forme d'une ligne « Observation ».
+
+Les pensées ne touchent pas le monde : elles servent à **décomposer** la question, à **suivre** où l'on en est, et à **réagir** quand une observation ne correspond pas à ce qui était attendu. Les actions, elles, rapportent des faits extérieurs qui empêchent le raisonnement de dériver. Fais défiler.
+
+<PasAPas rendu="react-trace" label="Une trajectoire ReAct sur une question en deux sauts">
+  <Etape etat="initial">
+    **La question.** Elle demande deux sauts : d'abord trouver qui a créé Python, puis où cette personne est née. Aucune page ne contient directement la réponse.
+  </Etape>
+  <Etape etat="tour1">
+    **Premier tour.** La pensée décompose la question ; l'action ouvre la page « Python (langage) ».
+  </Etape>
+  <Etape etat="obs1">
+    **L'observation** rapporte un fait extrait de la page : le créateur s'appelle Guido van Rossum.
+  </Etape>
+  <Etape etat="tour2">
+    **Deuxième tour.** La pensée s'appuie sur ce nom, l'action ouvre sa page, l'observation donne le lieu de naissance : La Haye, aux Pays-Bas.
+  </Etape>
+  <Etape etat="fin">
+    **L'action finale** `terminer[Pays-Bas]` clôt la boucle. Chaque maillon de la réponse est rattaché à une observation que l'on peut relire.
+  </Etape>
+</PasAPas>
+
+**Ce que montrent les résultats.** ReAct n'est pas meilleur partout, et le paper le dit. Sur HotpotQA, avec le modèle PaLM-540B, ReAct seul obtient 27,4 % de réponses exactes, contre 29,4 % pour le chain-of-thought. Mais en analysant les erreurs, les auteurs constatent que l'hallucination explique 56 % des échecs du chain-of-thought et 0 % de ceux de ReAct, qui échoue plutôt par erreur de raisonnement (47 % des échecs, contre 16 %). Les deux méthodes ratent donc des questions **différentes**, et les combiner paie : la stratégie « ReAct, puis chain-of-thought avec vote si ReAct n'aboutit pas » atteint 35,1 %. Sur ALFWorld, un jeu de tâches ménagères en texte, ReAct réussit 71 % des tâches contre 45 % pour le même modèle qui agit sans pensées.
+
+Cette idée de secours se calcule. Si une première méthode réussit avec la probabilité $a$, et que, sur les cas où elle échoue, une seconde réussit avec la probabilité $b$, alors la stratégie « la première, puis la seconde en secours » réussit avec la probabilité :
+
+$$
+P = a + (1 - a)\, b
+$$
+
+où :
+- $a$ est la probabilité de succès de la première méthode ;
+- $1 - a$ est la part des cas où elle échoue ;
+- $b$ est la probabilité que la seconde méthode réussisse **sur ces cas-là**.
+
+Exemple : si ReAct réussit 60 % des questions et que, sur les 40 % restants, le chain-of-thought en rattrape 30 %, on obtient $0{,}6 + 0{,}4 \times 0{,}3 = 0{,}72$. Le secours ajoute 12 points, parce que les deux méthodes échouent sur des questions différentes.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La formule des probabilités totales, appliquée au secours">
+
+Notons $A$ l'événement « la première méthode réussit » et $S$ l'événement « la stratégie complète réussit ». On découpe selon que $A$ se produit ou non, avec la [probabilité conditionnelle](/maths/probabilite-conditionnelle/) :
+
+$$
+\begin{aligned}
+P(S) &= P(S \mid A)\,P(A) + P(S \mid \bar A)\,P(\bar A) && \text{formule des probabilités totales} \\
+&= 1 \times a + b \times (1 - a) && \text{si } A \text{ réussit, la stratégie a réussi} \\
+&= a + (1 - a)\, b && \text{on réordonne}
+\end{aligned}
+$$
+
+Ici $b = P(S \mid \bar A)$ est une probabilité **conditionnelle** : le taux de réussite de la seconde méthode sur les questions où la première a échoué. Ce n'est pas son taux global. Si les deux méthodes échouaient exactement sur les mêmes questions, $b$ vaudrait 0 et le secours n'apporterait rien, même si la seconde méthode est bonne en général. C'est pourquoi l'analyse des erreurs du paper, qui montre des pannes de natures différentes, justifie la combinaison.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Étiqueter une trace" niveau="facile">
+
+Voici une trace d'agent de voyage. Dis pour chaque ligne s'il s'agit d'une pensée, d'une action ou d'une observation.
+
+1. « Le vol direct est complet ; il faut regarder les vols avec escale. »
+2. `chercher_vols[Abidjan, Nairobi, 12 mars, escales=1]`
+3. « 3 vols trouvés : via Addis-Abeba (9 h 40), via Lomé (11 h 05), via Casablanca (14 h 20). »
+4. « Le plus court passe par Addis-Abeba ; je vérifie le prix. »
+
+<div slot="solution">
+
+1. **Pensée** : elle interprète une observation précédente et décide de la suite.
+2. **Action** : c'est un appel dans le format prévu, exécuté par l'application.
+3. **Observation** : c'est le résultat renvoyé par l'outil. Le modèle ne doit jamais l'écrire lui-même, sinon il invente des vols.
+4. **Pensée** : elle compare les observations et prépare l'action suivante.
+
+Les horaires de cet exercice sont inventés.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le bon secours" niveau="moyen" reponse={0.73} tolerance={0.005}>
+
+Un agent ReAct réussit 55 % des questions d'un test. Sur les questions qu'il rate, un chain-of-thought avec vote en réussit 40 %. Quelle est la probabilité de succès de la stratégie « ReAct, puis chain-of-thought en secours » ?
+
+<div slot="indice">
+
+$P = a + (1-a)\,b$ avec $a = 0{,}55$ et $b = 0{,}4$.
+
+</div>
+<div slot="solution">
+
+$P = 0{,}55 + 0{,}45 \times 0{,}4 = 0{,}55 + 0{,}18 = 0{,}73$. Le secours ajoute 18 points. Attention : $b = 0{,}4$ est le taux sur les questions ratées par ReAct, qu'il faut mesurer sur ces questions précisément.
+
+</div>
+</Exercice>
+
+<Exercice titre="Dans quel ordre ?" niveau="defi" reponse={0.72} tolerance={0.005}>
+
+On dispose de deux méthodes. ReAct réussit 50 % des questions ; le chain-of-thought avec vote (CoT-SC) en réussit 60 %. On a mesuré que CoT-SC rattrape 40 % des questions ratées par ReAct, et que ReAct rattrape 30 % des questions ratées par CoT-SC. Quel ordre choisir, et quelle probabilité de succès donne-t-il ?
+
+<div slot="indice">
+
+Calcule $a + (1-a)\,b$ pour les deux ordres, avec à chaque fois les bons $a$ et $b$.
+
+</div>
+<div slot="solution">
+
+- ReAct puis CoT-SC : $0{,}5 + 0{,}5 \times 0{,}4 = 0{,}70$.
+- CoT-SC puis ReAct : $0{,}6 + 0{,}4 \times 0{,}3 = 0{,}72$.
+
+Le second ordre gagne de peu : **0,72**. Mais le coût compte aussi : ReAct appelle des outils à chaque tour, alors que CoT-SC génère plusieurs raisonnements. Dans le paper, les deux ordres sont testés, avec un critère pour décider quand basculer : ReAct bascule vers CoT-SC s'il n'a pas répondu après un nombre fixé d'étapes (7 pour HotpotQA), et CoT-SC bascule vers ReAct si la réponse majoritaire apparaît dans moins de la moitié des raisonnements tirés.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une boucle ReAct complète. Le « modèle » est factice et suit un script, mais le format, l'analyse des actions et l'ajout des observations sont ceux d'une vraie implémentation.
+
+```python
+import re
+
+WIKI = {  # une mini-encyclopédie à la place de l'API Wikipédia
+    "Python (langage)": "Python est un langage de programmation créé par Guido van Rossum.",
+    "Guido van Rossum": "Guido van Rossum est né à La Haye, aux Pays-Bas.",
+}
+
+def chercher(entite):
+    return WIKI.get(entite, f"Aucune page nommée {entite}.")
+
+SCRIPT = [  # ce qu'un vrai LLM écrirait, tour après tour
+    "Pensée : je dois trouver qui a créé Python.\nAction : chercher[Python (langage)]",
+    "Pensée : c'est Guido van Rossum ; je cherche où il est né.\nAction : chercher[Guido van Rossum]",
+    "Pensée : il est né à La Haye, donc aux Pays-Bas.\nAction : terminer[Pays-Bas]",
+]
+
+def modele_factice(trace, tour):
+    return SCRIPT[tour]
+
+def react(question, tours_max=5):
+    trace = f"Question : {question}\n"
+    for tour in range(tours_max):
+        sortie = modele_factice(trace, tour)
+        trace += sortie + "\n"
+        nom, argument = re.search(r"Action : (\w+)\[(.*)\]", sortie).groups()
+        if nom == "terminer":
+            print(trace)
+            return argument
+        trace += f"Observation : {chercher(argument)}\n"   # écrit par l'application, pas par le modèle
+    return None
+
+print("Réponse :", react("Dans quel pays est né le créateur de Python ?"))
+
+# Stratégie de secours : P = a + (1 - a) b
+a, b = 0.6, 0.3
+print("succès avec secours :", round(a + (1 - a) * b, 2))
+```
+
+En vrai, les bibliothèques d'agents donnent au modèle un prompt avec des exemples de traces au format Pensée, Action, Observation, puis analysent chaque sortie pour extraire l'action. Avec les API récentes d'usage d'outils, l'action prend la forme d'un appel structuré plutôt que d'un texte entre crochets, mais l'alternance reste la même.
+
+```python
+# no-run
+PROMPT = """Réponds à la question en alternant Pensée, Action et Observation.
+Actions possibles : chercher[entité], terminer[réponse].
+Exemple :
+Question : Quelle est la capitale du pays où est né Mahatma Gandhi ?
+Pensée : je dois trouver où Gandhi est né.
+Action : chercher[Mahatma Gandhi]
+Observation : ...
+"""
+sortie = client.messages.create(model="claude-sonnet-5", max_tokens=300,
+                                 stop_sequences=["Observation :"],       # le modèle s'arrête avant d'inventer l'observation
+                                 messages=[{"role": "user", "content": PROMPT + trace}])
+```
+
+## Les pièges classiques
+
+**« Les pensées de ReAct sont le vrai raisonnement du modèle. »** Ce sont des tokens générés comme les autres. Ils aident le modèle à choisir ses actions et rendent la trace lisible par un humain, mais rien ne garantit qu'ils décrivent fidèlement ce qui se passe dans le réseau.
+
+**« ReAct est toujours meilleur que le chain-of-thought. »** Sur HotpotQA, ReAct seul fait moins bien (27,4 % contre 29,4 %) : il se trompe plus souvent en raisonnant, notamment quand une recherche renvoie un résultat inutile. Son avantage est d'halluciner beaucoup moins ; la combinaison des deux fait mieux que chacune.
+
+**« Le modèle peut écrire l'observation lui-même. »** Si l'application ne coupe pas la génération après l'action, le modèle continue et **invente** une observation plausible. C'est pour cela qu'on arrête la génération dès la ligne « Observation », avec une séquence d'arrêt.
+
+## Dans la vraie vie
+
+Le format Pensée, Action, Observation est devenu le squelette de nombreux agents : assistants de recherche qui enchaînent les requêtes web, agents de programmation qui lisent un fichier, lancent un test et en tirent la suite. Les API actuelles remplacent souvent le texte entre crochets par des [appels d'outils](/concepts/appel-outils/) structurés, et certains modèles raisonnent dans un espace à part avant d'agir, mais l'alternance reste la même. La limite de ReAct apparaît sur les tâches longues : réagir tour après tour ne suffit plus, il faut [planifier](/concepts/planification-agent/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Qui écrit la ligne « Observation » dans une trace ReAct ?",
+    choix: ["Le modèle, pendant sa génération", "L'application, après avoir exécuté l'action", "L'utilisateur", "Personne, elle est facultative"],
+    bonne: 1,
+    explication: "L'observation est le vrai résultat de l'action ; si le modèle l'écrivait, il l'inventerait."
+  },
+  {
+    question: "Selon l'analyse du paper sur HotpotQA, quelle cause d'échec disparaît presque avec ReAct ?",
+    choix: ["Les erreurs de raisonnement", "L'hallucination de faits", "Les questions ambiguës", "Les recherches sans résultat"],
+    bonne: 1,
+    explication: "L'hallucination explique 56 % des échecs du chain-of-thought et 0 % de ceux de ReAct."
+  },
+  {
+    question: "La méthode A réussit 70 % du temps ; sur ses échecs, B réussit 50 %. Que vaut « A, puis B en secours » ?",
+    choix: ["0,85", "1,2", "0,35", "0,6"],
+    bonne: 0,
+    explication: "0,7 + 0,3 × 0,5 = 0,85."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : que change ReAct par rapport au chain-of-thought, et quelles sont ses limites ?">
+
+Le chain-of-thought raisonne en circuit fermé, avec les seules connaissances des poids : une erreur factuelle se propage sans contrôle. ReAct entrelace le raisonnement avec des actions sur l'extérieur (recherche, API, environnement) dont les résultats reviennent dans le contexte : les faits sont ancrés dans des observations, et la trace est lisible et vérifiable. Les limites : plus d'erreurs de raisonnement liées au format rigide, une grande sensibilité à la qualité des outils (une recherche inutile fait dérailler la trace), un coût qui grandit avec le nombre de tours, et une stratégie réactive, tour par tour, qui peine sur les tâches longues sans plan d'ensemble. En pratique, on le combine avec d'autres méthodes (secours, vote, planification).
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "ReAct", en: "ReAct (Reason + Act)", definition: "Format d'agent où alternent une pensée, une action et une observation, jusqu'à une action finale." },
+  { fr: "trace", en: "trajectory", definition: "Suite complète des pensées, actions et observations d'un agent pour une tâche." },
+  { fr: "séquence d'arrêt", en: "stop sequence", definition: "Texte qui interrompt la génération, par exemple pour empêcher le modèle d'écrire lui-même l'observation." },
+  { fr: "stratégie de secours", en: "fallback", definition: "Passer à une seconde méthode quand la première n'a pas abouti." }
+]} />
