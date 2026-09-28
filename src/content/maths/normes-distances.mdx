@@ -1,0 +1,171 @@
+---
+id: normes-distances
+type: maths
+titre: "Normes et distances : à quelle distance sont deux mots ?"
+sous_titre: "Norme L1, L2 et distance euclidienne"
+domaine: algebre-lineaire
+niveau: 2
+prerequis: [produit-scalaire]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 3 (Analytic Geometry), normes et distances"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), section sur les normes"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Quand un modèle range les mots comme des points, il faut pouvoir dire si deux mots sont proches ou loin. Quand il se trompe, il faut mesurer de combien. Dans les deux cas, on a besoin d'une longueur pour les [vecteurs](/maths/vecteurs/) : une norme. Elle servira à la [similarité cosinus](/maths/similarite-cosinus/) et à la [régularisation](/concepts/regularisation/).
+
+## L'intuition
+
+Tu es au point A d'un quartier aux rues bien droites. Ta tante habite au point B, trois rues vers l'est et quatre vers le nord. Un oiseau irait tout droit : il parcourt 5 unités, par le théorème de Pythagore. Un woro-woro, lui, suit les rues : 3 vers l'est, puis 4 vers le nord, soit 7 unités.
+
+Les deux réponses sont justes. Elles mesurent deux choses différentes : la distance à vol d'oiseau et la distance par les rues. Déplace B et compare-les.
+
+<Simulation
+  rendu="distances-ville"
+  label="Quadrillage de rues avec le trajet droit et le trajet par les rues entre A et B"
+  parametres={[
+    { nom: "bx", label: "Rues vers l'est", min: -4, max: 4, pas: 1, valeur: 3, role: "entree" },
+    { nom: "by", label: "Rues vers le nord", min: -4, max: 4, pas: 1, valeur: 4, role: "entree" }
+  ]}
+  legende="Trait doré : à vol d'oiseau. Pointillés : par les rues."
+/>
+
+## La définition
+
+Pour un vecteur $\mathbf{x}$ de dimension $d$ :
+
+$$
+\|\mathbf{x}\|_2 = \sqrt{x_1^2 + x_2^2 + \dots + x_d^2} = \sqrt{\mathbf{x} \cdot \mathbf{x}} \qquad \|\mathbf{x}\|_1 = |x_1| + |x_2| + \dots + |x_d|
+$$
+
+où :
+- $\|\mathbf{x}\|_2$ est la norme L2, ou norme euclidienne (*Euclidean norm*) : la longueur à vol d'oiseau ;
+- $\|\mathbf{x}\|_1$ est la norme L1 (*L1 norm*) : la longueur par les rues ;
+- $|x_i|$ est la valeur absolue de la coordonnée $x_i$ ;
+- $\mathbf{x} \cdot \mathbf{x}$ est le [produit scalaire](/maths/produit-scalaire/) de $\mathbf{x}$ avec lui-même.
+
+La distance entre deux points est la norme de leur différence :
+
+$$
+d(\mathbf{x}, \mathbf{y}) = \|\mathbf{x} - \mathbf{y}\|
+$$
+
+où :
+- $d(\mathbf{x}, \mathbf{y})$ est la distance entre $\mathbf{x}$ et $\mathbf{y}$, avec la norme choisie (L1 ou L2).
+
+Autrement dit : une norme mesure la longueur d'un vecteur, et la distance entre deux points est la longueur du déplacement qui mène de l'un à l'autre.
+
+<Depliable titre="D'où vient la formule L2, et deux propriétés">
+
+**En dimension 2, c'est Pythagore.** Le vecteur $(x_1\,;\,x_2)$ est l'hypoténuse d'un triangle rectangle de côtés $|x_1|$ et $|x_2|$. Sa longueur $\ell$ vérifie $\ell^2 = x_1^2 + x_2^2$, donc $\ell = \sqrt{x_1^2 + x_2^2}$. En dimension $d$, on prend la même formule comme définition.
+
+**Le lien avec le produit scalaire.**
+
+$$
+\mathbf{x} \cdot \mathbf{x} = \sum_{i} x_i\, x_i = \sum_{i} x_i^2 = \|\mathbf{x}\|_2^2
+$$
+
+**Étirer un vecteur étire sa norme.** Pour un nombre $k$ :
+
+$$
+\begin{aligned}
+\|k\,\mathbf{x}\|_2 &= \sqrt{\textstyle\sum_{i} (k x_i)^2} && \text{définition, appliquée à } k\,\mathbf{x} \\
+&= \sqrt{k^2 \textstyle\sum_{i} x_i^2} && \text{on factorise } k^2 \\
+&= |k|\,\|\mathbf{x}\|_2 && \sqrt{k^2} = |k|
+\end{aligned}
+$$
+
+Le même calcul marche pour L1, avec $|k x_i| = |k|\,|x_i|$.
+
+**L'inégalité triangulaire.** Pour les deux normes, $\|\mathbf{x} + \mathbf{y}\| \le \|\mathbf{x}\| + \|\mathbf{y}\|$ : un détour n'est jamais plus court que le trajet direct. On l'admet ici ; la preuve pour L2 est dans le chapitre 3 de *Mathematics for Machine Learning*.
+
+</Depliable>
+
+## Un exemple à la main
+
+Pour aller de A = $(0\,;\,0)$ à B = $(3\,;\,4)$, le déplacement est $\mathbf{x} = (3\,;\,4)$.
+
+- Norme L2 : $\sqrt{3^2 + 4^2} = \sqrt{9 + 16} = \sqrt{25} = 5$.
+- Norme L1 : $|3| + |4| = 7$.
+- Avec le produit scalaire : $\mathbf{x} \cdot \mathbf{x} = 9 + 16 = 25$, et $\sqrt{25} = 5$.
+
+Maintenant, trois mots rangés dans un plan par un modèle imaginaire : « taxi » en $(2\,;\,1)$, « gbaka » en $(3\,;\,1)$ et « mangue » en $(-1\,;\,3)$.
+
+- Taxi et gbaka : différence $(1\,;\,0)$, distance L2 $= 1$, distance L1 $= 1$.
+- Taxi et mangue : différence $(3\,;\,-2)$, distance L2 $= \sqrt{9 + 4} = \sqrt{13} \approx 3{,}61$, distance L1 $= 3 + 2 = 5$.
+
+Les deux moyens de transport sont proches, la mangue est loin. Les deux normes donnent le même classement ici, mais pas toujours, comme le montre l'exercice 2.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place B pour que les deux distances soient égales. Puis cherche la position qui rend l'écart entre L1 et L2 le plus grand, pour un B à 4 rues au plus dans chaque direction.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Les deux distances sont égales quand B est sur un des deux axes, par exemple $(4\,;\,0)$ ou $(0\,;\,-3)$ : le trajet par les rues est alors une ligne droite.
+
+L'écart est le plus grand sur les diagonales, par exemple en $(4\,;\,4)$ : L1 vaut 8 et L2 vaut $\sqrt{32} \approx 5{,}66$. Sur une diagonale, L1 est environ 1,41 fois plus grand que L2 ; c'est le plus grand rapport possible en dimension 2. En dimension $d$, ce rapport peut monter jusqu'à $\sqrt{d}$.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Mesurer une erreur.** L'erreur quadratique moyenne, la [fonction de perte](/maths/fonction-perte/) la plus courante, est la norme L2 au carré de l'écart entre prédictions et vraies valeurs, divisée par le nombre d'exemples.
+- **Limiter les poids.** La [régularisation](/concepts/regularisation/) ajoute à la perte la norme L2 (au carré) ou la norme L1 des poids du modèle, pour les empêcher de grandir sans raison.
+- **Comparer des embeddings.** Pour trouver les mots ou les documents proches d'une requête, on calcule des distances entre vecteurs, ou la [similarité cosinus](/maths/similarite-cosinus/), qui se construit à partir de la norme L2.
+
+## Les pièges classiques
+
+**« La norme d'un vecteur, c'est son nombre de coordonnées. »** On y croit parce qu'on parle de « taille » dans les deux cas. Mais $(3\,;\,4)$ et $(30\,;\,40)$ ont tous deux 2 coordonnées, et des normes L2 de 5 et 50. La dimension compte les cases, la norme mesure la longueur.
+
+**« $\sqrt{x_1^2 + x_2^2} = x_1 + x_2$. »** On y croit parce qu'on a envie de « simplifier la racine ». C'est faux : $\sqrt{9 + 16} = 5$, pas $3 + 4 = 7$. La racine d'une somme n'est pas la somme des racines.
+
+**« Il n'y a qu'une bonne distance. »** On y croit parce qu'on pense d'abord au vol d'oiseau. Mais L1 et L2 répondent à des questions différentes, et en IA on choisit la norme selon l'usage : L1 pousse beaucoup de poids à exactement zéro, L2 les rétrécit tous un peu.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $\|\mathbf{x}\|_2$ et $\|\mathbf{x}\|_1$ pour $\mathbf{x} = (1\,;\,-2\,;\,2)$.
+
+<Depliable titre="Corrigé">
+
+$\|\mathbf{x}\|_2 = \sqrt{1 + 4 + 4} = \sqrt{9} = 3$ et $\|\mathbf{x}\|_1 = 1 + 2 + 2 = 5$.
+
+</Depliable>
+
+**Exercice 2.** Soit A = $(0\,;\,0)$, B = $(3\,;\,0)$ et C = $(2\,;\,2)$. Quel point est le plus proche de A avec la norme L2 ? Et avec la norme L1 ?
+
+<Depliable titre="Corrigé">
+
+En L2 : $d(A, B) = 3$ et $d(A, C) = \sqrt{8} \approx 2{,}83$. C est le plus proche.
+
+En L1 : $d(A, B) = 3$ et $d(A, C) = 2 + 2 = 4$. B est le plus proche.
+
+Le classement dépend de la norme choisie. Un algorithme qui cherche « le voisin le plus proche » peut donc donner des réponses différentes selon la distance utilisée.
+
+</Depliable>
+
+**Exercice 3.** Un modèle prédit les prix de trois trajets : $\hat{\mathbf{y}} = (300\,;\,500\,;\,800)$ F. Les vrais prix sont $\mathbf{y} = (300\,;\,600\,;\,700)$ F. Calcule la norme L2 de l'écart, puis l'erreur quadratique moyenne $\frac{1}{3}\,\|\hat{\mathbf{y}} - \mathbf{y}\|_2^2$.
+
+<Depliable titre="Corrigé">
+
+Écart : $\hat{\mathbf{y}} - \mathbf{y} = (0\,;\,-100\,;\,100)$. Norme L2 : $\sqrt{0 + 10\,000 + 10\,000} = \sqrt{20\,000} \approx 141{,}4$.
+
+Erreur quadratique moyenne : $\frac{1}{3} \times 20\,000 \approx 6\,667$ (en F² : l'unité est au carré). C'est exactement la perte qu'on minimisera dans la fiche [fonction de perte](/maths/fonction-perte/).
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "norme", en: "norm", definition: "Longueur d'un vecteur : un nombre positif, nul seulement pour le vecteur nul." },
+  { fr: "norme euclidienne (L2)", en: "Euclidean norm (L2)", definition: "Racine de la somme des carrés des coordonnées : la longueur à vol d'oiseau." },
+  { fr: "norme L1", en: "L1 norm", definition: "Somme des valeurs absolues des coordonnées : la longueur par les rues." },
+  { fr: "distance", en: "distance", definition: "Norme de la différence entre deux vecteurs." }
+]} />
