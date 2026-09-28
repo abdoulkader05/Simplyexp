@@ -1,0 +1,176 @@
+---
+id: tokenisation
+type: concept
+titre: "La tokenisation : comment un LLM découpe vos phrases"
+sous_titre: "Tokens, vocabulaire et découpage du texte"
+domaine: langage
+niveau: 2
+prerequis: []
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Radford et al., « Language Models are Unsupervised Multitask Learners », OpenAI, 2019 — https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf — section 2.2 (représentation de l'entrée au niveau des octets) et 2.3 (vocabulaire de 50 257)"
+  - "Sennrich, Haddow, Birch, « Neural Machine Translation of Rare Words with Subword Units », ACL 2016 — https://arxiv.org/abs/1508.07909 — résumé (mots rares et inconnus codés en suites de sous-mots)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 4, tableau 1 (coût de l'auto-attention en O(n² · d))"
+  - "Petrov, La Malfa, Torr, Bibi, « Language Model Tokenizers Introduce Unfairness Between Languages », NeurIPS 2023 — https://arxiv.org/abs/2305.15425 — résumé (écarts de longueur de tokenisation jusqu'à 15 fois entre langues)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Un réseau de neurones ne lit pas de lettres : il ne manipule que des nombres. Avant qu'un modèle de langage puisse traiter une phrase, il faut la transformer en une suite d'entiers, chacun désignant un élément d'une liste fixée à l'avance, le vocabulaire. La question paraît anodine, mais elle ne l'est pas. Si l'on prend les mots entiers, la liste devient gigantesque, et le moindre mot nouveau, une faute de frappe ou un nom propre, est inconnu. Si l'on prend les lettres, les phrases deviennent interminables. En 2016, Rico Sennrich et ses coauteurs proposent un compromis devenu la norme : découper en sous-mots.
+
+## L'idée en une phrase
+
+<PhraseCle>
+La tokenisation découpe un texte en morceaux tirés d'un vocabulaire fixe, souvent des bouts de mots, et remplace chaque morceau par son numéro dans ce vocabulaire.
+</PhraseCle>
+
+## En image
+
+Pense à l'atelier d'un imprimeur d'autrefois, qui composait ses pages avec des caractères en plomb rangés dans une grande casse.
+
+- La casse, avec ses cases numérotées, est le vocabulaire.
+- Chaque pièce de plomb est un token : une lettre, une syllabe fréquente ou un mot entier.
+- Composer une phrase, c'est aligner des pièces : c'est la tokenisation.
+- Un imprimeur qui n'aurait que des lettres composerait tout, mais lentement ; un imprimeur qui n'aurait que des mots entiers irait vite, mais serait bloqué au premier mot rare.
+- L'imprimeur malin garde des pièces pour les mots courants et les syllabes fréquentes, et des lettres seules pour le reste.
+
+Là où l'image s'arrête : l'imprimeur choisit ses pièces avec son expérience de la langue. Le vocabulaire d'un modèle, lui, est construit automatiquement par un algorithme qui compte les fréquences dans un grand corpus, comme on le verra dans la fiche sur le [BPE](/concepts/bpe/).
+
+## Comment ça marche
+
+La tokenisation se fait en deux étapes.
+
+**Découper.** Le texte est coupé en tokens (*tokens*), les unités de base du modèle. Pour la phrase « Les chatons adorent les incompréhensibles pelotes. », trois choix sont possibles :
+
+- en caractères : 50 tokens, avec un vocabulaire minuscule (les lettres, les chiffres, la ponctuation) ;
+- en mots : 7 tokens, mais il faut que « incompréhensibles » soit dans la liste ;
+- en sous-mots : 13 tokens dans l'illustration de l'animation, par exemple « in », « compr », « éhens », « ibles ».
+
+**Numéroter.** Chaque token est remplacé par son indice dans le vocabulaire. Si « Les » est le numéro 312 et « ·chat » le numéro 8 021 (le point « · » représente l'espace qui précède le mot), la phrase devient une liste d'entiers : c'est tout ce que le modèle voit. Ces entiers serviront ensuite à aller chercher un vecteur par token, un [embedding](/concepts/embeddings/).
+
+La taille du vocabulaire est un choix de conception : GPT-2, par exemple, utilisait un vocabulaire de 50 257 tokens, construit à partir d'octets pour que n'importe quel texte puisse être représenté sans token « inconnu ». Les sous-mots cumulent les avantages : les mots fréquents restent entiers, et un mot rare se décompose en morceaux connus au lieu d'être perdu.
+
+Pourquoi la longueur des suites compte-t-elle tant ? Parce que le coût d'un modèle grandit avec le nombre de tokens. Dans un Transformer, chaque token est comparé à tous les autres : le tableau de Vaswani et ses coauteurs (2017) donne un coût de l'attention proportionnel au carré de la longueur de la suite. Passer de 7 tokens à 50 pour la même phrase multiplierait ce coût par environ $50^2 / 7^2 \approx 51$. À l'inverse, un vocabulaire trop grand gonfle la dernière couche du modèle, qui doit donner un score à chaque token possible, et laisse beaucoup de tokens rares mal appris, faute d'exemples. La tokenisation est donc un réglage d'équilibre : des tokens assez gros pour que les textes restent courts, assez petits pour que chacun soit vu souvent pendant l'entraînement. C'est la même tension qu'on retrouvera avec la [fenêtre de contexte](/concepts/cout-quadratique/) des LLM.
+
+<Simulation
+  rendu="tokenisation-niveaux"
+  label="La même phrase découpée en caractères, en sous-mots ou en mots"
+  parametres={[
+    { nom: "niveau", label: "Découpage (0 caractères, 1 sous-mots, 2 mots)", min: 0, max: 2, pas: 1, valeur: 1, role: "entree" }
+  ]}
+  legende="Le découpage en sous-mots est une illustration faite à la main ; un vrai tokeniseur donnerait un résultat voisin."
+/>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : compte les tokens pour chaque découpage. Puis imagine qu'on écrive « incompréhensibilité », un mot absent de la liste des mots entiers. Que devient-il dans chaque découpage ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Caractères : 50 tokens ; sous-mots : 13 ; mots : 7. Plus les tokens sont gros, plus la suite est courte.
+
+Pour « incompréhensibilité », le découpage en caractères marche toujours, mais il ajoute une vingtaine de tokens. Le découpage en mots échoue : le mot n'est pas dans la liste, et il faut le remplacer par un token « inconnu », ce qui perd toute l'information. Le découpage en sous-mots s'en sort en réutilisant des morceaux déjà connus : « in », « compr », « éhens », puis de quoi finir le mot (« ibil », « ité »). C'est pour cette robustesse que les LLM utilisent des sous-mots.
+
+</Depliable>
+
+## En code
+
+Depuis zéro : trois découpages, puis un découpage glouton en sous-mots avec un petit vocabulaire.
+
+```python
+phrase = "Les chatons adorent les incompréhensibles pelotes."
+
+caracteres = list(phrase)
+mots = phrase.replace(".", " .").split()
+print(len(caracteres), "caractères,", len(mots), "mots")
+
+# Petit vocabulaire de sous-mots ; on découpe chaque mot par le plus long morceau connu
+vocab = ["Les", "les", "chat", "ons", "ador", "ent", "in", "compr", "éhens", "ibles",
+         "pel", "otes", "."] + list("abcdefghijklmnopqrstuvwxyzéè")
+index = {tok: i for i, tok in enumerate(vocab)}
+
+def decouper(mot):
+    tokens, debut = [], 0
+    while debut < len(mot):
+        for fin in range(len(mot), debut, -1):          # le plus long d'abord
+            if mot[debut:fin] in index:
+                tokens.append(mot[debut:fin]); debut = fin; break
+        else:
+            tokens.append("<inconnu>"); debut += 1
+    return tokens
+
+tokens = [t for m in mots for t in decouper(m)]
+print(tokens)
+print("identifiants :", [index.get(t, -1) for t in tokens])
+print("mot nouveau :", decouper("incompréhensibilité"))
+```
+
+En vrai, avec la bibliothèque `tiktoken`, qui fournit le tokeniseur de GPT-2 :
+
+```python
+# no-run
+import tiktoken
+enc = tiktoken.get_encoding("gpt2")
+ids = enc.encode("Les chatons adorent les incompréhensibles pelotes.")
+print(len(ids), [enc.decode([i]) for i in ids])
+```
+
+## Les pièges classiques
+
+**« Un token, c'est un mot. »** Souvent, un token est un morceau de mot, un mot court avec son espace, ou un signe de ponctuation. Un mot long ou rare peut en compter plusieurs, et c'est en tokens que se mesurent la longueur d'un texte et le coût d'un appel à un modèle.
+
+**« Le découpage est le même pour toutes les langues. »** Le vocabulaire est construit sur un corpus ; les langues peu présentes dans ce corpus sont découpées en beaucoup plus de morceaux. Petrov et ses coauteurs (2023) mesurent des écarts de longueur allant jusqu'à 15 fois pour un même texte traduit dans différentes langues. Pour une langue comme le wolof ou le bambara, cela peut signifier des textes plus chers à traiter et moins de contenu dans la même fenêtre.
+
+**« Majuscules et espaces ne comptent pas. »** « Les » et « les », « chat » et « ·chat » (avec l'espace) sont souvent des tokens différents. Le modèle doit apprendre que ces formes sont liées.
+
+## Dans la vraie vie
+
+Chaque fois qu'on envoie un texte à un LLM, il est d'abord tokenisé : la taille maximale d'un texte (la fenêtre de contexte) et le prix d'utilisation des services commerciaux sont exprimés en tokens. Les bibliothèques de tokenisation, comme `tiktoken` ou celles de Hugging Face, sont parmi les outils les plus utilisés du domaine, et un changement de tokeniseur oblige à réentraîner le modèle. Un même message peut donc coûter plus ou moins cher, et tenir plus ou moins de place dans la fenêtre, selon la langue dans laquelle il est écrit.
+
+Le problème d'équité entre langues relevé par Petrov et ses coauteurs est une piste de travail concrète pour les langues africaines : un tokeniseur conçu en incluant ces langues dans son corpus découpe leurs textes en moins de morceaux, ce qui les rend moins chers et mieux compris.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que reçoit réellement un modèle de langage en entrée ?",
+    choix: ["Les lettres du texte", "Une image du texte", "Une suite d'entiers, les numéros des tokens", "Les mots en majuscules"],
+    bonne: 2,
+    explication: "Après tokenisation, chaque token est remplacé par son indice dans le vocabulaire ; ces entiers servent ensuite à aller chercher des vecteurs."
+  },
+  {
+    question: "Pourquoi les LLM utilisent-ils des sous-mots plutôt que des mots entiers ?",
+    choix: ["Pour que les phrases soient plus longues", "Pour qu'un mot rare puisse être formé de morceaux connus", "Parce que les mots n'existent pas en informatique", "Pour ignorer la ponctuation"],
+    bonne: 1,
+    explication: "Un vocabulaire de mots entiers bute sur chaque mot inconnu ; les sous-mots décomposent les mots rares en morceaux fréquents."
+  },
+  {
+    question: "Un texte de 1 000 mots est découpé en 1 800 tokens. Que peut-on en déduire ?",
+    choix: ["Le tokeniseur est défectueux", "Beaucoup de mots sont coupés en plusieurs morceaux", "Chaque mot vaut exactement 1,8 token", "Le texte contient 800 fautes"],
+    bonne: 1,
+    explication: "En moyenne, les mots donnent 1,8 token : les mots courts restent entiers, les mots longs ou rares sont découpés."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quels compromis entre tokenisation en caractères, en mots et en sous-mots ?">
+
+En caractères, le vocabulaire est minuscule et aucun mot n'est inconnu, mais les séquences sont très longues, ce qui coûte cher en calcul et oblige le modèle à apprendre l'orthographe de tout. En mots, les séquences sont courtes mais le vocabulaire explose et les mots rares, fautes ou noms propres deviennent des tokens inconnus. Les sous-mots, construits par exemple par BPE à partir des fréquences d'un corpus, gardent les mots fréquents entiers et décomposent les mots rares en morceaux connus : vocabulaire de quelques dizaines de milliers d'éléments, séquences de longueur raisonnable, pas de token inconnu si l'on part des octets. Le revers : le découpage dépend du corpus d'origine et désavantage les langues peu représentées.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "token", en: "token", definition: "Unité de base qu'un modèle de langage lit et produit : un caractère, un morceau de mot ou un mot." },
+  { fr: "tokenisation", en: "tokenization", definition: "Découpage d'un texte en tokens, puis remplacement de chaque token par son numéro." },
+  { fr: "vocabulaire", en: "vocabulary", definition: "Liste fixe de tous les tokens connus du modèle." },
+  { fr: "sous-mot", en: "subword", definition: "Morceau de mot fréquent utilisé comme token." },
+  { fr: "token inconnu", en: "unknown token (UNK)", definition: "Token de remplacement pour un élément absent du vocabulaire." }
+]} />
