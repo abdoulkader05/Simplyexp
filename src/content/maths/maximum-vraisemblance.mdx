@@ -1,0 +1,154 @@
+---
+id: maximum-vraisemblance
+type: maths
+titre: "Le maximum de vraisemblance : choisir l'explication la plus probable"
+sous_titre: "Estimation par maximum de vraisemblance (MLE) et log-vraisemblance"
+domaine: statistiques
+niveau: 3
+prerequis: [variables-aleatoires, independance, exp-log, derivee]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.5 (estimation par maximum de vraisemblance, log-vraisemblance, lien avec l'entropie croisée et l'erreur quadratique)"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), section sur l'estimation de paramètres"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un modèle probabiliste a des paramètres : la probabilité qu'un client paie par mobile money, les poids d'une [régression logistique](/concepts/regression-logistique/), les milliards de nombres d'un LLM. Comment les choisir à partir de données ? Le maximum de vraisemblance donne une réponse unique et générale : prendre les paramètres qui rendent les données observées les plus probables. Presque toutes les pertes de l'IA en découlent, de l'erreur quadratique à l'entropie croisée.
+
+## L'intuition
+
+Une boutique observe dix clients : sept paient par mobile money, trois en espèces. Quelle est la probabilité $p$ qu'un client paie par mobile money ? Essayons des valeurs. Si $p = 0{,}5$, observer exactement cette suite a une certaine probabilité. Si $p = 0{,}7$, elle est plus grande. Si $p = 0{,}95$, voir trois paiements en espèces devient très improbable.
+
+La vraisemblance d'une valeur de $p$ est la probabilité des données observées si $p$ était la vraie valeur. On choisit le $p$ qui rend cette vraisemblance maximale. Sur la courbe, déplace $p$ et cherche le sommet : la pente de la tangente y devient nulle.
+
+<Simulation
+  rendu="vraisemblance-courbe"
+  label="Log-vraisemblance d'une probabilité p pour 7 paiements mobiles sur 10"
+  parametres={[
+    { nom: "p", label: "Probabilité supposée p", min: 0.05, max: 0.95, pas: 0.01, valeur: 0.5, role: "parametre", decimales: 2 }
+  ]}
+  legende="Le pointillé doré marque le sommet, en p = 0,7. Le trait rouge est la tangente."
+/>
+
+## La définition
+
+Soient des observations $x_1, \dots, x_n$, supposées [indépendantes](/maths/independance/) et tirées d'une loi de paramètre $\theta$. La vraisemblance (*likelihood*) de $\theta$ est :
+
+$$
+L(\theta) = \prod_{i=1}^{n} P(x_i \mid \theta)
+$$
+
+et l'estimateur du maximum de vraisemblance (*maximum likelihood estimator*, MLE) est :
+
+$$
+\hat{\theta} = \arg\max_{\theta} L(\theta) = \arg\max_{\theta} \sum_{i=1}^{n} \ln P(x_i \mid \theta)
+$$
+
+où :
+- $P(x_i \mid \theta)$ est la probabilité (ou la densité) de l'observation $x_i$ si le paramètre vaut $\theta$ ;
+- $\arg\max_\theta$ désigne la valeur de $\theta$ qui rend la quantité maximale ;
+- $\ell(\theta) = \sum_i \ln P(x_i \mid \theta)$ est la log-vraisemblance (*log-likelihood*) ; comme le [logarithme](/maths/exp-log/) est croissant, elle a le même maximum que $L$.
+
+En apprentissage, on minimise plutôt $-\ell(\theta)$, la log-vraisemblance négative (*negative log-likelihood*) : c'est une perte.
+
+Autrement dit : parmi toutes les explications possibles, on choisit celle sous laquelle ce qu'on a observé était le plus probable.
+
+<Depliable titre="Le maximum pour une proportion, démontré">
+
+Avec $k$ succès sur $n$ essais indépendants, chacun de probabilité $p$, la suite observée a la probabilité $p^k (1 - p)^{n - k}$. La log-vraisemblance vaut :
+
+$$
+\ell(p) = k \ln p + (n - k) \ln(1 - p)
+$$
+
+On la dérive avec les règles de la fiche sur la [dérivée](/maths/derivee/), $(\ln u)' = u'/u$ :
+
+$$
+\begin{aligned}
+\ell'(p) &= \frac{k}{p} - \frac{n - k}{1 - p} && \text{dérivée de } \ln p \text{ et de } \ln(1 - p) \\
+\ell'(p) = 0 &\iff k\,(1 - p) = (n - k)\,p && \text{on multiplie par } p(1 - p) > 0 \\
+&\iff k = n\,p \iff p = \frac{k}{n} && \text{développement}
+\end{aligned}
+$$
+
+La dérivée est positive avant $k/n$ et négative après : c'est bien un maximum. L'estimateur du maximum de vraisemblance d'une proportion est la proportion observée.
+
+</Depliable>
+
+## Un exemple à la main
+
+Sept paiements mobiles sur dix clients :
+
+- $\ell(0{,}5) = 7 \ln 0{,}5 + 3 \ln 0{,}5 = 10 \times (-0{,}693) = -6{,}93$ ;
+- $\ell(0{,}7) = 7 \ln 0{,}7 + 3 \ln 0{,}3 \approx 7 \times (-0{,}357) + 3 \times (-1{,}204) = -6{,}11$ ;
+- en vraisemblance : $e^{-6{,}93} \approx 0{,}000\,98$ contre $e^{-6{,}11} \approx 0{,}002\,2$ ; la valeur 0,7 explique les données plus de deux fois mieux que 0,5 ;
+- le maximum est en $\hat{p} = 7/10 = 0{,}7$.
+
+Avec plus de données, 260 paiements mobiles sur 400 clients, on obtient $\hat{p} = 0{,}65$. La [loi des grands nombres](/maths/loi-grands-nombres/) garantit que cette estimation se rapproche de la vraie valeur quand le nombre de clients grandit.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : déplace $p$ et regarde le signe de la pente. Où est-elle positive, négative, nulle ? Compare ensuite $\ell(0{,}3)$ et $\ell(0{,}9)$ : laquelle de ces deux valeurs explique le mieux les données ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+La pente est positive pour $p < 0{,}7$ (il faut augmenter $p$), négative au-delà, et nulle en $p = 0{,}7$ : le sommet.
+
+$\ell(0{,}3) = 7 \ln 0{,}3 + 3 \ln 0{,}7 \approx -9{,}50$ et $\ell(0{,}9) = 7 \ln 0{,}9 + 3 \ln 0{,}1 \approx -7{,}65$. La valeur 0,9 explique mieux les données que 0,3, bien qu'elle soit aussi à 0,2 du maximum : la courbe n'est pas symétrique. Avec 0,3, il faudrait avoir eu beaucoup de chance pour voir 7 paiements mobiles sur 10.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **L'entropie croisée.** Pour un classifieur, la log-vraisemblance négative d'une loi [catégorielle](/maths/loi-categorielle/) est la perte $-\ln p_y$ : c'est l'[entropie croisée](/maths/entropie-croisee/), la perte des LLM.
+- **La régression logistique.** La log-loss de la [régression logistique](/concepts/regression-logistique/) est la log-vraisemblance négative d'une loi de Bernoulli.
+- **L'erreur quadratique.** Avec un bruit de [loi normale](/maths/loi-normale/), maximiser la vraisemblance revient à minimiser la somme des carrés : c'est la justification probabiliste de la [régression linéaire](/concepts/regression-lineaire/).
+
+## Les pièges classiques
+
+**« La vraisemblance est la probabilité du paramètre. »** $L(0{,}7)$ est la probabilité des données si $p$ vaut 0,7, pas la probabilité que $p$ vaille 0,7. Pour parler de la probabilité d'un paramètre, il faut un a priori et le [théorème de Bayes](/maths/bayes/).
+
+**« Avec peu de données, le maximum de vraisemblance est fiable. »** Avec un seul client qui paie en espèces, $\hat{p} = 0$ : le modèle affirme que personne ne paie jamais par mobile money. Avec peu de données, l'estimateur surapprend ; un a priori ou une régularisation corrige ce défaut.
+
+**« Maximiser L ou maximiser ln L, ce n'est pas pareil. »** Le logarithme est croissant, donc le maximum est au même endroit. Seule la valeur au maximum change. On prend le logarithme parce qu'une somme est plus facile à dériver et plus stable numériquement qu'un produit.
+
+## Entraîne-toi
+
+**Exercice 1.** Sur 50 SMS, 6 sont des arnaques. Quel est l'estimateur du maximum de vraisemblance de la proportion d'arnaques ?
+
+<Depliable titre="Corrigé">
+
+$\hat{p} = 6/50 = 0{,}12$.
+
+</Depliable>
+
+**Exercice 2.** Un modèle donne aux bonnes réponses de 4 exemples les probabilités 0,9, 0,6, 0,8 et 0,5. Calcule la log-vraisemblance et la perte moyenne (log-vraisemblance négative divisée par 4).
+
+<Depliable titre="Corrigé">
+
+$\ell = \ln 0{,}9 + \ln 0{,}6 + \ln 0{,}8 + \ln 0{,}5 \approx -0{,}105 - 0{,}511 - 0{,}223 - 0{,}693 = -1{,}532$. Perte moyenne : $1{,}532 / 4 \approx 0{,}383$.
+
+</Depliable>
+
+**Exercice 3.** Trois mesures d'un même trajet, supposées de loi normale de moyenne $\mu$ inconnue et d'écart type connu : 800, 830 et 860 F. Quel $\mu$ maximise la vraisemblance ?
+
+<Depliable titre="Corrigé">
+
+Maximiser la vraisemblance gaussienne revient à minimiser $\sum_i (x_i - \mu)^2$, dont la dérivée $-2\sum_i (x_i - \mu)$ s'annule pour $\mu = $ la moyenne des mesures : $(800 + 830 + 860)/3 = 830$ F.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "vraisemblance", en: "likelihood", definition: "Probabilité des données observées, vue comme une fonction du paramètre." },
+  { fr: "log-vraisemblance", en: "log-likelihood", definition: "Logarithme de la vraisemblance : une somme sur les observations." },
+  { fr: "estimateur du maximum de vraisemblance", en: "maximum likelihood estimator (MLE)", definition: "Valeur du paramètre qui rend la vraisemblance maximale." },
+  { fr: "log-vraisemblance négative", en: "negative log-likelihood", definition: "Opposé de la log-vraisemblance, qu'on minimise comme une perte." }
+]} />
