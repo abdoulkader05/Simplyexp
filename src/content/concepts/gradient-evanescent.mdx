@@ -1,0 +1,196 @@
+---
+id: gradient-evanescent
+type: concept
+titre: "Le gradient qui disparaît : pourquoi les réseaux profonds refusaient d'apprendre"
+sous_titre: "Vanishing et exploding gradients"
+domaine: deep-learning
+niveau: 4
+prerequis: [backpropagation]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Wikipédia (anglais), « Vanishing gradient problem » — https://en.wikipedia.org/wiki/Vanishing_gradient_problem — section History (thèse de Hochreiter 1991 ; Bengio, Simard, Frasconi, IEEE Transactions on Neural Networks, 1994), consultée le 2026-09-28"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.5 (dépendances à long terme, puissances d'une matrice) ; chapitre 10, section 10.11.1 (écrêtage du gradient)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+La [rétropropagation](/concepts/backpropagation/) calcule tous les gradients d'un réseau en une passe arrière. Sur le papier, elle marche pour n'importe quelle profondeur. En pratique, pendant les années 1990, les réseaux de plus de quelques couches apprenaient très mal : les premières couches restaient presque figées. En 1991, dans sa thèse de diplôme à Munich, Sepp Hochreiter identifie la cause ; en 1994, Yoshua Bengio, Patrice Simard et Paolo Frasconi montrent que la descente de gradient peine à apprendre des dépendances à long terme. Le coupable porte un nom : le gradient qui disparaît.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Le gradient qui remonte un réseau est multiplié à chaque couche par un facteur ; si ce facteur est plus petit que 1, il s'éteint de façon exponentielle, s'il est plus grand, il explose.
+</PhraseCle>
+
+## En image
+
+Pense au jeu du téléphone arabe dans une file de trente élèves. Le premier chuchote une phrase, chacun la répète à son voisin. Si chacun parle un peu moins fort que ce qu'il a entendu, au bout de la file on n'entend plus rien. Si chacun parle un peu plus fort, le dernier finit par hurler une phrase déformée.
+
+- Chaque élève est une couche du réseau, traversée pendant la passe arrière.
+- Le message qui remonte la file est le gradient.
+- Le volume de chaque élève, par rapport à ce qu'il a reçu, est le facteur multiplicatif de la couche.
+- Un volume un peu trop faible à chaque relais donne le gradient qui disparaît ; un peu trop fort, le gradient qui explose.
+
+Là où l'image s'arrête : dans le jeu, le message se déforme aussi par erreur d'écoute. Dans un réseau, la remontée est un calcul exact ; seule la taille change, et c'est déjà suffisant pour tout bloquer.
+
+## Comment ça marche
+
+Dans la rétropropagation, le gradient qui arrive sur la première couche est un produit de facteurs, un par couche traversée. Dans le cas le plus simple, un réseau de $L$ couches où chaque neurone n'a qu'une entrée, on a :
+
+$$
+\frac{\partial \mathcal{L}}{\partial h_1} = \frac{\partial \mathcal{L}}{\partial h_L} \prod_{k=2}^{L} w_k\, \varphi'(z_k)
+$$
+
+où :
+- $h_k$ est la sortie de la couche $k$, et $z_k$ sa pré-activation ;
+- $w_k$ est le poids de la couche $k$ ;
+- $\varphi'(z_k)$ est la pente de la [fonction d'activation](/concepts/fonctions-activation/) au point $z_k$ ;
+- $\prod$ désigne le produit des $L - 1$ facteurs.
+
+Si chaque facteur vaut à peu près $a$, le gradient de la première couche vaut environ $a^{L-1}$ fois celui de la dernière. Avec des sigmoïdes, dont la pente vaut au plus 0,25, et des poids égaux à 1 :
+
+- 5 couches : $0{,}25^4 \approx 0{,}0039$ ;
+- 10 couches : $0{,}25^9 \approx 0{,}000\,003\,8$.
+
+La première couche d'un réseau de 10 couches reçoit un gradient plus de 250 000 fois plus petit que la dernière. Avec un même *learning rate* pour tout le monde, elle ne bouge pratiquement pas. Dans l'autre sens, avec un facteur de 1,5, un réseau de 10 couches multiplie le gradient par environ 38 ; avec 1,1 et 40 couches, par environ 41. Les pas deviennent énormes et l'entraînement diverge : c'est le gradient qui explose (*exploding gradient*).
+
+Le problème est encore plus aigu dans un [réseau récurrent](/concepts/rnn/), qui applique la même matrice à chaque pas de temps : remonter 50 mots en arrière, c'est traverser 50 fois la même couche.
+
+<Simulation
+  rendu="gradient-profondeur"
+  label="Taille du gradient reçu par chaque couche d'un réseau, en échelle logarithmique"
+  parametres={[
+    { nom: "couches", label: "Nombre de couches", min: 2, max: 40, pas: 1, valeur: 10, role: "entree" },
+    { nom: "facteur", label: "Facteur par couche", min: 0.2, max: 1.5, pas: 0.05, valeur: 0.25, role: "parametre", decimales: 2 }
+  ]}
+  legende="Barres rouges : gradient plus de mille fois trop petit ou trop grand."
+/>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Le cas d'une variable par couche.** Le réseau calcule $h_k = \varphi(z_k)$ avec $z_k = w_k h_{k-1}$. La règle de la chaîne, appliquée couche par couche, donne :
+
+$$
+\begin{aligned}
+\frac{\partial \mathcal{L}}{\partial h_{k-1}} &= \frac{\partial \mathcal{L}}{\partial h_k} \cdot \frac{\partial h_k}{\partial z_k} \cdot \frac{\partial z_k}{\partial h_{k-1}} && \text{règle de la chaîne} \\
+&= \frac{\partial \mathcal{L}}{\partial h_k} \cdot \varphi'(z_k) \cdot w_k && \text{dérivées locales}
+\end{aligned}
+$$
+
+En répétant de $k = L$ jusqu'à $k = 2$, on obtient le produit annoncé.
+
+**Avec des matrices.** Pour des couches de plusieurs neurones, chaque facteur devient une matrice : $\mathbf{W}_k^\top$ multipliée par la matrice diagonale des pentes $\varphi'(\mathbf{z}_k)$. Dans le cas extrême où la même matrice $\mathbf{W}$ est appliquée $n$ fois, comme dans un réseau récurrent sans activation, ses [valeurs propres](/maths/valeurs-propres/) décident de tout : la composante du gradient le long d'une direction propre est multipliée par $\lambda^n$. Elle s'éteint si $|\lambda| < 1$ et explose si $|\lambda| > 1$ (chapitre 8, section 8.2.5 de *Deep Learning*).
+
+**Pourquoi c'est exponentiel.** Le facteur n'a pas besoin d'être loin de 1 : $0{,}9^{40} \approx 0{,}016$ et $1{,}1^{40} \approx 41$. La profondeur transforme un petit écart en énorme effet.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec le facteur 0,25 (sigmoïde), à partir de combien de couches la première reçoit-elle un gradient mille fois plus petit que la dernière ? Puis règle le facteur à 0,9, à 1 et à 1,1 pour 40 couches.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec 0,25, il suffit de 6 couches : $0{,}25^5 \approx 0{,}001$. Au-delà, les barres de gauche passent au rouge. Avec 40 couches, la première reçoit environ $3 \times 10^{-24}$ fois le gradient de la dernière, bien en dessous du bas de l'échelle.
+
+Avec 0,9 et 40 couches, la première couche reçoit encore environ 1,6 % du gradient : c'est faible mais utilisable. Avec 1, toutes les barres sont égales : c'est l'équilibre parfait, que les bonnes méthodes cherchent à approcher. Avec 1,1, le gradient de la première couche est environ 41 fois trop grand. Tout l'enjeu est de garder le facteur proche de 1, couche après couche.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : mesurer le gradient reçu par chaque couche d'un réseau de sigmoïdes et d'un réseau de ReLU.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+def normes_gradient(activation, derivee, profondeur=20, largeur=64, echelle=1.0):
+    W = [rng.normal(0, echelle / np.sqrt(largeur), (largeur, largeur)) for _ in range(profondeur)]
+    h, pentes = rng.normal(size=largeur), []
+    for Wk in W:                                   # passe avant
+        z = Wk @ h
+        pentes.append(derivee(z))
+        h = activation(z)
+    g, normes = np.ones(largeur), []
+    for Wk, p in zip(reversed(W), reversed(pentes)):   # passe arrière
+        g = Wk.T @ (g * p)
+        normes.append(np.linalg.norm(g))
+    return normes[::-1]                            # de la première à la dernière couche
+
+sig = lambda z: 1 / (1 + np.exp(-z))
+n_sig = normes_gradient(sig, lambda z: sig(z) * (1 - sig(z)))
+n_relu = normes_gradient(lambda z: np.maximum(0, z), lambda z: (z > 0).astype(float), echelle=np.sqrt(2))
+print("sigmoïde : première / dernière couche =", f"{n_sig[0] / n_sig[-1]:.1e}")
+print("ReLU     : première / dernière couche =", f"{n_relu[0] / n_relu[-1]:.2f}")
+```
+
+Avec une initialisation adaptée (l'échelle $\sqrt{2}$ pour la ReLU), le gradient traverse les 20 couches sans s'effondrer ; avec des sigmoïdes, il perd plusieurs ordres de grandeur.
+
+En vrai, contre l'explosion, PyTorch propose l'écrêtage du gradient :
+
+```python
+# no-run
+torch.nn.utils.clip_grad_norm_(modele.parameters(), max_norm=1.0)
+```
+
+## Les pièges classiques
+
+**« Il suffit d'augmenter le learning rate pour les premières couches. »** Le rapport entre couches change d'un exemple à l'autre et d'un moment à l'autre de l'entraînement. Aucun réglage fixe ne compense un facteur exponentiel ; il faut agir sur l'architecture.
+
+**« Le problème ne concerne que les sigmoïdes. »** Les sigmoïdes l'aggravent par leur pente maximale de 0,25, mais des poids trop petits ou trop grands suffisent à le créer, même avec des ReLU. L'initialisation compte autant que l'activation.
+
+**« Un gradient qui explose se voit tout de suite, un gradient qui disparaît aussi. »** L'explosion se voit : la perte devient « NaN » ou fait des sauts. La disparition est sournoise : la perte baisse un peu, grâce aux dernières couches, et l'on ne remarque pas que les premières n'apprennent rien.
+
+## Dans la vraie vie
+
+Presque toutes les briques modernes des réseaux profonds sont des remèdes à ce problème. Les activations ReLU ont une pente de 1 du côté positif. Les [LSTM](/concepts/lstm/) ont été conçus pour faire passer l'information à travers de longues séquences. Les [connexions résiduelles](/concepts/connexions-residuelles/) offrent au gradient un chemin direct à travers des centaines de couches. La [normalisation](/concepts/normalisation-couches/) garde les signaux à une échelle raisonnable. Et l'écrêtage du gradient (*gradient clipping*) limite la taille des pas quand le gradient explose, notamment dans les réseaux récurrents (chapitre 10, section 10.11.1 de *Deep Learning*).
+
+Comprendre ce mécanisme aide aussi à lire un entraînement qui échoue. Quand un modèle de traduction entre le français et le wolof oublie le début des phrases longues, ou quand la perte d'un réseau profond stagne dès les premières heures, regarder la taille du gradient couche par couche est souvent le premier diagnostic.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Chaque couche multiplie le gradient par 0,5. Que reçoit la première couche d'un réseau de 11 couches, par rapport à la dernière ?",
+    choix: ["0,5", "5,5", "environ 0,001", "0"],
+    bonne: 2,
+    explication: "10 couches traversées : 0,5¹⁰ = 1/1 024 ≈ 0,001."
+  },
+  {
+    question: "Pourquoi la ReLU aide-t-elle contre le gradient qui disparaît ?",
+    choix: ["Elle est bornée entre 0 et 1", "Sa pente vaut 1 pour les entrées positives", "Elle n'a pas de dérivée", "Elle rend les poids plus petits"],
+    bonne: 1,
+    explication: "Pour un neurone actif, la ReLU ne réduit pas le gradient qui la traverse, contrairement à la sigmoïde dont la pente est au plus 0,25."
+  },
+  {
+    question: "La perte d'un réseau devient soudain « NaN » pendant l'entraînement. Quelle cause est la plus probable ?",
+    choix: ["Un gradient qui disparaît", "Un gradient qui explose", "Un jeu de test trop petit", "Une activation ReLU"],
+    bonne: 1,
+    explication: "Des gradients énormes donnent des pas énormes, puis des nombres qui dépassent la capacité de l'ordinateur. L'écrêtage du gradient ou un learning rate plus petit sont les premiers remèdes."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez le problème du gradient qui disparaît et citez trois remèdes.">
+
+En rétropropagation, le gradient reçu par une couche est le produit des dérivées locales de toutes les couches situées au-dessus. Si ces facteurs sont en moyenne inférieurs à 1 (activations saturées, poids trop petits), le produit décroît exponentiellement avec la profondeur, et les premières couches n'apprennent presque plus ; s'ils sont supérieurs à 1, il explose. Remèdes : des activations non saturantes comme la ReLU ; une initialisation qui conserve la variance des signaux d'une couche à l'autre ; des connexions résiduelles, qui ajoutent un chemin identité où le gradient passe sans atténuation ; la normalisation des couches ; pour les séquences, des cellules à portes comme les LSTM ; et contre l'explosion, l'écrêtage de la norme du gradient.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "gradient qui disparaît", en: "vanishing gradient", definition: "Gradient qui devient exponentiellement petit en remontant les couches, si bien que les premières couches n'apprennent plus." },
+  { fr: "gradient qui explose", en: "exploding gradient", definition: "Gradient qui devient exponentiellement grand et rend l'entraînement instable." },
+  { fr: "écrêtage du gradient", en: "gradient clipping", definition: "Limiter la norme du gradient avant chaque pas pour éviter les pas démesurés." },
+  { fr: "dépendance à long terme", en: "long-term dependency", definition: "Lien entre des éléments éloignés d'une séquence, difficile à apprendre quand le gradient disparaît." }
+]} />
