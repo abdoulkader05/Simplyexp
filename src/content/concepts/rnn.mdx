@@ -1,0 +1,232 @@
+---
+id: rnn
+type: concept
+titre: "Les RNN : lire une phrase mot après mot"
+sous_titre: "Réseaux de neurones récurrents et état caché"
+domaine: langage
+niveau: 4
+prerequis: [backpropagation, embeddings, ngrammes]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre « RNNs and LSTMs » (état caché, mêmes poids à chaque pas, déroulement dans le temps, rétropropagation à travers le temps, RNN comme modèle de langage)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Les [n-grammes](/concepts/ngrammes/) ne regardent que les deux ou trois derniers mots. Dans « Les enfants que j'ai croisés ce matin au marché **jouaient** », l'accord de « jouaient » dépend de « enfants », sept mots plus tôt. Un [perceptron multicouche](/concepts/mlp/) ne convient pas non plus : il attend une entrée de taille fixe, alors qu'une phrase peut compter trois mots ou trois cents. Il faut un réseau qui lise un texte **de n'importe quelle longueur**, mot après mot, en gardant un résumé de ce qu'il a déjà lu.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un réseau récurrent lit un token à la fois et met à jour un vecteur-mémoire, l'état caché, en combinant l'ancien état et le nouveau token avec les mêmes poids à chaque pas.
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui écoute une longue histoire au téléphone et prend des notes sur un petit carnet d'une seule page.
+
+- À chaque phrase entendue, il relit sa page, puis la réécrit en y intégrant la nouveauté.
+- Il applique toujours la même méthode de prise de notes, que l'histoire dure une minute ou une heure.
+- Sa page a une taille fixe : pour faire de la place, il doit résumer, et les détails du début finissent par s'effacer.
+
+Là où l'image s'arrête : la « méthode de prise de notes » d'un RNN n'est pas choisie, elle est apprise par entraînement ; et la page n'est pas du texte, c'est un vecteur de nombres.
+
+## Comment ça marche
+
+À chaque pas $t$, le réseau reçoit l'[embedding](/concepts/embeddings/) $\mathbf{x}_t$ du token courant et calcule un nouvel état caché (*hidden state*) :
+
+$$
+\mathbf{h}_t = \tanh\!\big(W_h\, \mathbf{h}_{t-1} + W_x\, \mathbf{x}_t + \mathbf{b}\big)
+$$
+
+où :
+- $\mathbf{h}_{t-1}$ est l'état caché précédent, le résumé de tout ce qui a été lu avant ; au départ, $\mathbf{h}_0 = \mathbf{0}$ ;
+- $\mathbf{x}_t$ est l'embedding du token numéro $t$ ;
+- $W_h$, $W_x$ et $\mathbf{b}$ sont les poids du réseau, **les mêmes à chaque pas** ;
+- $\tanh$ est la tangente hyperbolique, une [fonction d'activation](/concepts/fonctions-activation/) qui garde chaque composante entre −1 et 1.
+
+Pour s'en servir comme [modèle de langage](/concepts/modele-langage/), on ajoute une sortie à chaque pas : $\mathbf{y}_t = \text{softmax}(W_y \mathbf{h}_t)$, la loi du token suivant. Contrairement à un n-gramme, cette loi dépend, à travers $\mathbf{h}_t$, de **tous** les tokens précédents.
+
+<Schema rendu="rnn-schema" legende="Un RNN replié (à gauche) est une seule cellule qui se renvoie son état. Déroulé dans le temps (à droite), il devient une chaîne de copies de cette cellule, qui partagent toutes les mêmes poids W." />
+
+Prenons un RNN minuscule, où tout est un seul nombre : $h_t = \tanh(0{,}5\, h_{t-1} + x_t)$. On lui donne les entrées $1, 0, 0, 0$ et on regarde ce qu'il retient de la première. Fais défiler.
+
+<PasAPas rendu="rnn-memoire" label="Un RNN à un nombre : le souvenir de la première entrée s'efface pas après pas">
+  <Etape etat="initial">
+    Un RNN réduit à un seul nombre. Le premier token envoie un signal, $x_1 = 1$ ; les trois suivants n'envoient rien.
+  </Etape>
+  <Etape etat="t1">
+    **Pas 1.** $h_1 = \tanh(0{,}5 \times 0 + 1) = \tanh(1) \approx 0{,}762$. La mémoire a enregistré le premier token.
+  </Etape>
+  <Etape etat="t2">
+    **Pas 2.** $h_2 = \tanh(0{,}5 \times 0{,}762 + 0) = \tanh(0{,}381) \approx 0{,}363$. Le souvenir est divisé par deux, environ.
+  </Etape>
+  <Etape etat="t3">
+    **Pas 3.** $h_3 = \tanh(0{,}5 \times 0{,}363) \approx 0{,}180$.
+  </Etape>
+  <Etape etat="t4">
+    **Pas 4.** $h_4 \approx 0{,}090$. Il ne reste presque rien du premier token : avec ces poids, la mémoire du réseau est courte.
+  </Etape>
+</PasAPas>
+
+**L'entraînement.** On déroule le réseau sur toute la phrase, ce qui donne un grand réseau en chaîne dont toutes les copies partagent les mêmes poids, puis on applique la [rétropropagation](/concepts/backpropagation/). C'est la rétropropagation à travers le temps (*backpropagation through time*). Le gradient d'un poids partagé est la somme des gradients reçus à chaque pas.
+
+**La limite.** Pour que l'erreur commise au pas 20 corrige ce qui s'est passé au pas 1, le gradient doit remonter 19 fois à travers $W_h$ et la dérivée de $\tanh$. Il est multiplié à chaque fois : il fond ou il explose. C'est le problème du [gradient évanescent](/concepts/gradient-evanescent/), qui limite la mémoire utile d'un RNN simple et qui a motivé les [LSTM](/concepts/lstm/).
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le gradient fond ou explose le long de la chaîne">
+
+Prenons le RNN linéaire à un nombre, sans $\tanh$ : $h_t = w\, h_{t-1} + u\, x_t$. Par la règle de dérivation en chaîne, l'effet de $h_1$ sur $h_T$ est un produit de facteurs :
+
+$$
+\begin{aligned}
+\frac{\partial h_T}{\partial h_1} &= \frac{\partial h_T}{\partial h_{T-1}} \times \frac{\partial h_{T-1}}{\partial h_{T-2}} \times \dots \times \frac{\partial h_2}{\partial h_1} && \text{dérivation en chaîne} \\
+&= w \times w \times \dots \times w && \text{chaque pas dérive en } w \\
+&= w^{\,T-1} && T - 1 \text{ facteurs}
+\end{aligned}
+$$
+
+Avec $w = 0{,}5$ et $T = 20$ : $0{,}5^{19} \approx 1{,}9 \times 10^{-6}$, le gradient disparaît. Avec $w = 1{,}5$ : $1{,}5^{19} \approx 2\,217$, il explose. Il faudrait $w = 1$ pile, ce que rien ne garantit. Avec $\tanh$, chaque facteur est en plus multiplié par la dérivée de $\tanh$, qui ne dépasse jamais 1 : cela pousse encore vers la disparition. Pour des vecteurs, $w$ devient la matrice $W_h$, et ce sont ses [valeurs propres](/maths/valeurs-propres/) qui jouent ce rôle.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le souvenir d'un premier mot" niveau="facile" reponse={0.25} tolerance={0.001}>
+
+Un RNN linéaire à un nombre suit $h_t = 0{,}5\, h_{t-1} + x_t$, avec $h_0 = 0$. Il reçoit les entrées $2, 0, 0, 0$. Que vaut $h_4$ ?
+
+<div slot="solution">
+
+$h_1 = 2$, $h_2 = 1$, $h_3 = 0{,}5$, $h_4 = 0{,}25$. À chaque pas, le souvenir est divisé par deux : après quatre pas, il reste un huitième du signal de départ.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de poids ?" niveau="moyen" reponse={24704} tolerance={0.0001}>
+
+Un clavier de téléphone utilise un RNN pour prédire le mot suivant. Ses embeddings ont 64 composantes et son état caché en a 128. Combien de nombres contiennent $W_h$, $W_x$ et $\mathbf{b}$ ensemble ? Ce nombre change-t-il si le message est plus long ?
+
+<div slot="indice">
+
+$W_h$ transforme un vecteur de taille 128 en un vecteur de taille 128 ; $W_x$ transforme un vecteur de taille 64 en un vecteur de taille 128.
+
+</div>
+
+<div slot="solution">
+
+$W_h$ : $128 \times 128 = 16\,384$. $W_x$ : $128 \times 64 = 8\,192$. $\mathbf{b}$ : 128. Total : $24\,704$. Ce nombre ne dépend pas de la longueur du message, puisque les mêmes poids servent à chaque pas.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un SMS de vingt tokens" niveau="defi" reponse={0.122} tolerance={0.01}>
+
+Dans un RNN linéaire à un nombre, $w = 0{,}9$. Un SMS compte 21 tokens. Par quel facteur le gradient est-il multiplié en remontant du dernier état $h_{21}$ jusqu'au premier $h_1$ ? Et si $w$ valait 1,1 ?
+
+<div slot="solution">
+
+$\partial h_{21} / \partial h_1 = 0{,}9^{20} \approx 0{,}122$ : il ne reste qu'environ 12 % du signal, et ce n'est qu'un SMS. Avec $w = 1{,}1$ : $1{,}1^{20} \approx 6{,}7$, le gradient grossit. Un écart de 0,2 sur un seul poids fait passer de la disparition à l'explosion.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un RNN qui lit une suite de vecteurs, avec numpy.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+d_x, d_h = 3, 4                       # taille des embeddings, taille de l'état caché
+W_x = rng.normal(0, 0.5, (d_h, d_x))
+W_h = rng.normal(0, 0.5, (d_h, d_h))
+b = np.zeros(d_h)
+
+def lire(suite):
+    h = np.zeros(d_h)                 # h_0
+    for x in suite:                   # un token à la fois, mêmes poids à chaque pas
+        h = np.tanh(W_h @ h + W_x @ x + b)
+    return h
+
+phrase_courte = rng.normal(size=(3, d_x))
+phrase_longue = rng.normal(size=(30, d_x))
+print("état après 3 tokens :", lire(phrase_courte).round(3))
+print("état après 30 tokens:", lire(phrase_longue).round(3))
+
+# Le RNN à un nombre de la fiche : le souvenir s'efface
+h = 0.0
+for x in [1, 0, 0, 0]:
+    h = np.tanh(0.5 * h + x)
+    print(round(h, 3), end=" ")
+```
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+rnn = torch.nn.RNN(input_size=64, hidden_size=128, batch_first=True)
+x = torch.randn(1, 20, 64)            # 1 phrase de 20 tokens
+sorties, h_final = rnn(x)
+print(sorties.shape, h_final.shape)   # (1, 20, 128) et (1, 1, 128)
+```
+
+## Les pièges classiques
+
+**« Un RNN a une couche par mot. »** Il n'a qu'une cellule, réutilisée à chaque pas. Le schéma déroulé montre des copies, mais ce sont les mêmes poids.
+
+**« Un RNN se souvient de toute la phrase. »** En théorie, $\mathbf{h}_t$ dépend de tous les tokens ; en pratique, un RNN simple oublie vite, comme dans l'animation, et le gradient ne remonte pas loin.
+
+**« On peut paralléliser la lecture. »** Non : pour calculer $\mathbf{h}_t$, il faut $\mathbf{h}_{t-1}$. Les pas s'enchaînent forcément l'un après l'autre, ce qui rend l'entraînement lent sur de longs textes. C'est une des raisons du succès des transformers, qui traitent tous les tokens en même temps.
+
+## Dans la vraie vie
+
+Les réseaux récurrents, surtout dans leur version LSTM, ont longtemps servi pour la reconnaissance de la parole, la traduction automatique et la prédiction du mot suivant sur les claviers. Ils restent utiles pour des flux où les données arrivent une par une et où l'on veut une mémoire de taille fixe : capteurs, séries temporelles, petits appareils. Leur défaut central, une mémoire qui s'efface et un calcul forcément séquentiel, a motivé d'abord les LSTM, puis le mécanisme d'attention.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Qu'est-ce que l'état caché d'un RNN ?",
+    choix: ["Le token courant", "Un vecteur qui résume tout ce qui a été lu jusqu'ici", "La liste de tous les tokens lus", "Le taux d'apprentissage"],
+    bonne: 1,
+    explication: "C'est la mémoire du réseau, mise à jour à chaque token avec les mêmes poids."
+  },
+  {
+    question: "Un RNN lit une phrase de 50 tokens puis une de 5. Combien de jeux de poids utilise-t-il ?",
+    choix: ["50 puis 5", "Un seul, le même dans les deux cas", "55", "Cela dépend de la taille de l'état caché"],
+    bonne: 1,
+    explication: "Les poids sont partagés entre tous les pas : c'est ce qui permet de lire des textes de n'importe quelle longueur."
+  },
+  {
+    question: "Avec w = 0,5, par combien le gradient est-il multiplié en remontant 10 pas dans un RNN linéaire ?",
+    choix: ["5", "0,5", "Environ 0,001", "10"],
+    bonne: 2,
+    explication: "0,5 puissance 10 ≈ 0,001 : le gradient fond."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi les RNN simples ont-ils du mal avec les dépendances longues ?">
+
+L'état caché est mis à jour par la même transformation à chaque pas. En rétropropagation à travers le temps, le gradient qui relie un pas lointain au pas courant est un produit de matrices de dérivées, chacune faisant intervenir $W_h$ et la dérivée de l'activation. Si ces facteurs ont une norme inférieure à 1, le produit tend exponentiellement vers 0 et les premiers tokens ne reçoivent presque aucun signal d'apprentissage ; s'ils sont supérieurs à 1, le gradient explose. On limite l'explosion en écrêtant la norme du gradient, mais la disparition demande de changer l'architecture : les LSTM ajoutent un chemin de mémoire contrôlé par des portes, sur lequel le gradient peut circuler presque intact.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "réseau de neurones récurrent", en: "recurrent neural network, RNN", definition: "Réseau qui lit une suite élément par élément en mettant à jour un état caché avec les mêmes poids à chaque pas." },
+  { fr: "état caché", en: "hidden state", definition: "Vecteur de taille fixe qui résume ce que le réseau a lu jusqu'ici." },
+  { fr: "rétropropagation à travers le temps", en: "backpropagation through time", definition: "Rétropropagation appliquée au réseau déroulé sur toute la suite." },
+  { fr: "déroulement dans le temps", en: "unrolling", definition: "Représenter un RNN comme une chaîne de copies de sa cellule, une par pas." }
+]} />
