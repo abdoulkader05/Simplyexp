@@ -1,0 +1,161 @@
+---
+id: convexite
+type: maths
+titre: "La convexité : quand il n'y a qu'une seule vallée"
+sous_titre: "Fonctions convexes, minimum global et garanties de convergence"
+domaine: optimisation
+niveau: 3
+prerequis: [descente-gradient]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 7 (Continuous Optimization), section sur l'optimisation convexe"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.2 (minima locaux dans les réseaux de neurones)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La [descente de gradient](/maths/descente-gradient/) s'arrête là où la pente s'annule. Mais est-ce le point le plus bas de toute la courbe, ou seulement le fond d'un creux local ? Pour certaines fonctions, dites convexes, la question ne se pose pas : il n'y a qu'une vallée, et tout point plat en est le fond. Savoir reconnaître ces fonctions dit quand on peut faire confiance au résultat.
+
+## L'intuition
+
+Pose une règle sur deux points d'un bol, un de chaque côté. Entre ces deux points, la règle reste au-dessus du fond du bol. Maintenant, pose-la sur une tôle ondulée : entre deux points, la tôle peut remonter au-dessus de la règle.
+
+La règle, c'est une corde : le segment qui relie deux points de la courbe. Une fonction est convexe quand toutes ses cordes restent au-dessus de sa courbe. Fais glisser le point sur la corde, puis change de fonction.
+
+<Simulation
+  rendu="convexite-corde"
+  label="Une courbe, une corde entre deux de ses points et l'écart entre corde et courbe"
+  parametres={[
+    { nom: "t", label: "Position t sur la corde", min: 0, max: 1, pas: 0.05, valeur: 0.5, role: "entree", decimales: 2 },
+    { nom: "fonction", label: "Fonction (0 : x², 1 : x⁴ − 3x² + x)", min: 0, max: 1, pas: 1, valeur: 0, role: "entree" }
+  ]}
+  legende="Doré : la corde est au-dessus. Rouge : la courbe la dépasse, la fonction n'est pas convexe."
+/>
+
+## La définition
+
+Une fonction $f$ est convexe (*convex*) si, pour tous points $a$ et $b$ et tout nombre $t$ entre 0 et 1 :
+
+$$
+f\big((1 - t)\,a + t\,b\big) \le (1 - t)\,f(a) + t\,f(b)
+$$
+
+où :
+- $(1 - t)\,a + t\,b$ parcourt le segment de $a$ (pour $t = 0$) à $b$ (pour $t = 1$) ;
+- le membre de gauche est la hauteur de la courbe en ce point ;
+- le membre de droite est la hauteur de la corde au même endroit.
+
+Autrement dit : entre deux points quelconques de la courbe, la corde passe au-dessus. La définition marche aussi quand $a$ et $b$ sont des vecteurs de paramètres.
+
+La propriété qui compte pour l'IA : si $f$ est convexe et dérivable, tout point où la dérivée (ou le gradient) s'annule est un minimum global (*global minimum*). La descente de gradient ne peut pas se laisser piéger.
+
+<Depliable titre="Deux preuves : x² est convexe, et un point plat est le minimum">
+
+**$x^2$ est convexe.** On calcule l'écart entre la corde et la courbe :
+
+$$
+\begin{aligned}
+&(1 - t)\,a^2 + t\,b^2 - \big((1 - t)\,a + t\,b\big)^2 && \\
+&= (1 - t)\,a^2 + t\,b^2 - (1 - t)^2 a^2 - 2t(1 - t)\,ab - t^2 b^2 && \text{développement du carré} \\
+&= (1 - t)\,t\,a^2 + t\,(1 - t)\,b^2 - 2t(1 - t)\,ab && (1 - t) - (1 - t)^2 = t(1 - t) \text{ et } t - t^2 = t(1 - t) \\
+&= t\,(1 - t)\,(a - b)^2 && \text{identité remarquable}
+\end{aligned}
+$$
+
+C'est un produit de nombres positifs ou nuls quand $0 \le t \le 1$ : la corde est toujours au-dessus.
+
+**Un point plat est un minimum global** (en dimension 1). Soit $f$ convexe et dérivable, et $x$ tel que $f'(x) = 0$. Prends un autre point $y$ et $0 < t \le 1$. La convexité avec $a = x$ et $b = y$ donne :
+
+$$
+\begin{aligned}
+f\big(x + t\,(y - x)\big) &\le f(x) + t\,\big(f(y) - f(x)\big) && \text{définition, réécrite} \\
+\frac{f\big(x + t\,(y - x)\big) - f(x)}{t} &\le f(y) - f(x) && \text{on retranche } f(x) \text{, on divise par } t > 0
+\end{aligned}
+$$
+
+Quand $t$ tend vers 0, le membre de gauche tend vers $f'(x)\,(y - x) = 0$, par définition de la dérivée. Donc $0 \le f(y) - f(x)$ : aucun point $y$ n'est plus bas que $x$.
+
+</Depliable>
+
+## Un exemple à la main
+
+**Une fonction convexe.** $f(x) = x^2$, avec $a = -1$, $b = 2$ et $t = 0{,}5$.
+
+- Point du segment : $0{,}5 \times (-1) + 0{,}5 \times 2 = 0{,}5$.
+- Courbe : $f(0{,}5) = 0{,}25$.
+- Corde : $0{,}5 \times f(-1) + 0{,}5 \times f(2) = 0{,}5 \times 1 + 0{,}5 \times 4 = 2{,}5$.
+- $0{,}25 \le 2{,}5$ : la corde est au-dessus. L'écart vaut $t(1 - t)(a - b)^2 = 0{,}25 \times 9 = 2{,}25$, comme la preuve l'annonce.
+
+**Une fonction non convexe.** $g(x) = x^4 - 3x^2 + x$, avec $a = -1{,}5$, $b = 1{,}5$ et $t = 0{,}5$.
+
+- $g(-1{,}5) = 5{,}062\,5 - 6{,}75 - 1{,}5 = -3{,}187\,5$ et $g(1{,}5) = 5{,}062\,5 - 6{,}75 + 1{,}5 = -0{,}187\,5$.
+- Point du segment : 0. Courbe : $g(0) = 0$. Corde : $(-3{,}187\,5 - 0{,}187\,5) / 2 = -1{,}687\,5$.
+- $0 > -1{,}687\,5$ : la courbe dépasse la corde, $g$ n'est pas convexe.
+
+Conséquence concrète : $g$ a deux creux, vers $x \approx -1{,}30$ (où $g \approx -3{,}51$) et vers $x \approx 1{,}13$ (où $g \approx -1{,}07$). Une descente de gradient partie de $x_0 = 1{,}5$ s'arrête dans le second, alors que le premier est bien plus bas. Ce second creux est un minimum local (*local minimum*) : plus bas que ses voisins, mais pas que tous les points.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec la fonction 0, cherche une position où la courbe dépasse la corde. Avec la fonction 1, trouve toutes les positions $t$ où c'est le cas.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $x^2$, c'est impossible : l'écart $t(1 - t) \times 9$ est positif pour tout $t$ strictement entre 0 et 1, et nul aux deux bouts.
+
+Avec la fonction 1, la courbe dépasse la corde sur une large zone du milieu, environ de $t = 0{,}22$ à $t = 0{,}78$ : c'est la bosse entre les deux creux. Près des extrémités, la corde repasse au-dessus. Il suffit d'une seule position rouge pour que la fonction ne soit pas convexe.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Des garanties pour les modèles simples.** La perte quadratique de la [régression linéaire](/concepts/regression-lineaire/) est convexe en ses paramètres, comme celle du tarif du gbaka. La descente de gradient y trouve le vrai meilleur modèle, avec un [learning rate](/maths/learning-rate/) bien choisi.
+- **Pas de garantie pour les réseaux.** Dès qu'un réseau a une couche cachée, sa perte n'est plus convexe. On l'entraîne quand même par descente de gradient ; le chapitre 8 de *Deep Learning* discute pourquoi les creux locaux gênent moins qu'on ne le craignait dans les grands réseaux.
+- **Un outil de preuve.** Les résultats de convergence des optimiseurs, y compris l'analyse d'Adam, sont souvent démontrés dans le cadre convexe, puis testés en pratique sur des problèmes qui ne le sont pas.
+
+## Les pièges classiques
+
+**« Convexe veut dire en forme de U. »** On y croit à cause de $x^2$. Mais une droite est convexe (la corde est sur la courbe), et $|x|$ aussi, avec sa pointe. Inversement, une courbe qui « descend puis monte » peut avoir plusieurs creux, comme $g$.
+
+**« Une fonction convexe a toujours un minimum. »** $e^x$ est convexe mais n'a pas de minimum : elle descend vers 0 sans l'atteindre. La convexité dit seulement que s'il existe un point plat, c'est le minimum.
+
+**« La perte d'un réseau de neurones est convexe, puisque la MSE l'est. »** La MSE est convexe en la prédiction. Mais la prédiction d'un réseau dépend de ses poids de façon non linéaire, et la composée n'est plus convexe en les poids.
+
+## Entraîne-toi
+
+**Exercice 1.** Vérifie l'inégalité de convexité pour $f(x) = x^2$, $a = 1$, $b = 5$ et $t = 0{,}25$.
+
+<Depliable titre="Corrigé">
+
+Point : $0{,}75 \times 1 + 0{,}25 \times 5 = 2$, courbe $f(2) = 4$. Corde : $0{,}75 \times 1 + 0{,}25 \times 25 = 7$. On a bien $4 \le 7$, avec un écart $0{,}25 \times 0{,}75 \times 16 = 3$.
+
+</Depliable>
+
+**Exercice 2.** Montre que $f(x) = -x^2$ n'est pas convexe avec un seul contre-exemple.
+
+<Depliable titre="Corrigé">
+
+$a = -1$, $b = 1$, $t = 0{,}5$ : le point est 0 et $f(0) = 0$. La corde vaut $0{,}5 \times (-1) + 0{,}5 \times (-1) = -1$. Or $0 > -1$ : la courbe dépasse la corde.
+
+</Depliable>
+
+**Exercice 3.** La somme de deux fonctions convexes est-elle convexe ? Déduis-en que la perte du gbaka $\frac{1}{4}\sum_i (w x_i - y_i)^2$ est convexe en $w$.
+
+<Depliable titre="Corrigé">
+
+Oui : si $f$ et $g$ vérifient chacune l'inégalité, on additionne les deux inégalités membre à membre, et $f + g$ la vérifie. Chaque terme $(w x_i - y_i)^2$ est le carré d'une fonction affine de $w$ ; on vérifie comme pour $x^2$ que c'est convexe, l'écart valant $t(1 - t)\,x_i^2\,(a - b)^2 \ge 0$. La somme, puis le produit par $\frac{1}{4} > 0$, restent convexes. La descente de gradient du gbaka ne pouvait donc pas se tromper de vallée.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "fonction convexe", en: "convex function", definition: "Fonction dont toutes les cordes restent au-dessus de la courbe." },
+  { fr: "corde", en: "chord", definition: "Segment qui relie deux points de la courbe." },
+  { fr: "minimum global", en: "global minimum", definition: "Point où la fonction atteint sa plus petite valeur sur tout son domaine." },
+  { fr: "minimum local", en: "local minimum", definition: "Point plus bas que tous ses voisins proches, mais pas forcément le plus bas de tous." }
+]} />
