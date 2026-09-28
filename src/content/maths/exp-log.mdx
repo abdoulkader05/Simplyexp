@@ -1,0 +1,144 @@
+---
+id: exp-log
+type: maths
+titre: "Exp et log : les deux fonctions que l'IA utilise partout"
+sous_titre: "Exponentielle, logarithme et leurs propriétés en machine learning"
+domaine: analyse
+niveau: 1
+prerequis: [fonctions]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions) et chapitre 8 (log-vraisemblance)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.1 (débordement et sous-débordement numériques, softmax stable)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Le [softmax](/concepts/softmax/), qui transforme des scores en probabilités, repose sur l'exponentielle. La perte de presque tous les classifieurs et de tous les LLM, l'entropie croisée, repose sur le logarithme. Et dès qu'on multiplie des milliers de probabilités, on passe au logarithme pour éviter que l'ordinateur arrondisse tout à zéro. Ces deux [fonctions](/maths/fonctions/) sont l'une le miroir de l'autre, et leurs règles de calcul reviennent sans cesse.
+
+## L'intuition
+
+Une épargne rapporte 1 % par mois, intérêts compris dans le calcul du mois suivant. Au bout d'un mois, 1 000 F deviennent 1 010 F ; au bout de 100 mois, $1\,000 \times 1{,}01^{100} \approx 2\,705$ F. Plus on découpe finement le temps, avec le même taux total, plus on s'approche d'un nombre précis : environ 2,718. C'est le nombre $e$, et la fonction $x \mapsto e^x$ décrit une croissance qui s'accélère d'elle-même.
+
+Le logarithme répond à la question inverse : combien de temps faut-il pour multiplier son épargne par un facteur donné ? Il transforme les multiplications en additions. Sur le dessin, les deux courbes sont symétriques par rapport à la droite $y = x$ : chaque point $(a\,;\,e^a)$ de l'exponentielle a son miroir $(e^a\,;\,a)$ sur le logarithme.
+
+<Simulation
+  rendu="exp-log-miroir"
+  label="Courbes de l'exponentielle et du logarithme, symétriques par rapport à la droite y = x"
+  parametres={[
+    { nom: "a", label: "Valeur a", min: -2, max: 1.5, pas: 0.05, valeur: 1, role: "entree", decimales: 2 }
+  ]}
+  legende="Doré : eˣ. Bleu : ln x. Le pointillé relie un point à son miroir."
+/>
+
+## La définition
+
+Le nombre $e \approx 2{,}718\,28$ est la limite de $(1 + \frac{1}{n})^n$ quand $n$ devient grand. L'exponentielle et le logarithme népérien sont :
+
+$$
+\exp(x) = e^x \qquad \ln(y) = x \iff e^x = y \quad (y > 0)
+$$
+
+où :
+- $x$ est un nombre réel quelconque, et $e^x$ est toujours strictement positif ;
+- $\ln$ n'est défini que pour $y > 0$ ; c'est la fonction réciproque de l'exponentielle.
+
+Leurs règles de calcul, pour tous $a$, $b$ réels et tous $u$, $v$ positifs :
+
+$$
+e^{a + b} = e^a\, e^b \qquad \ln(u v) = \ln u + \ln v \qquad \ln(u^k) = k \ln u \qquad \ln(e^x) = x
+$$
+
+Autrement dit : l'exponentielle transforme les additions en multiplications, le logarithme fait le chemin inverse.
+
+<Depliable titre="Pourquoi le logarithme d'un produit est la somme des logarithmes">
+
+Posons $a = \ln u$ et $b = \ln v$, c'est-à-dire $u = e^a$ et $v = e^b$.
+
+$$
+\begin{aligned}
+u\,v &= e^a\, e^b && \text{définition de } a \text{ et } b \\
+&= e^{a + b} && \text{règle de l'exponentielle} \\
+\ln(u\,v) &= a + b = \ln u + \ln v && \text{on prend le logarithme des deux côtés}
+\end{aligned}
+$$
+
+La règle $\ln(u^k) = k \ln u$ s'en déduit pour $k$ entier, en appliquant la précédente $k$ fois.
+
+**Une conséquence utile : le logarithme est croissant.** Si $u < v$, alors $\ln u < \ln v$. Chercher le maximum d'une quantité positive ou le maximum de son logarithme donne donc le même point, ce qu'on utilise pour le [maximum de vraisemblance](/maths/maximum-vraisemblance/).
+
+</Depliable>
+
+## Un exemple à la main
+
+**Un placement.** 1 000 F à 1 % par mois pendant 100 mois : $1{,}01^{100} = e^{100 \ln 1{,}01}$. Comme $\ln 1{,}01 \approx 0{,}00995$, on obtient $e^{0{,}995} \approx 2{,}705$, donc environ 2 705 F.
+
+**Un temps de doublement.** Combien de mois pour doubler à 1 % par mois ? Il faut $1{,}01^n = 2$, soit $n \ln 1{,}01 = \ln 2$, donc $n = 0{,}693 / 0{,}00995 \approx 69{,}7$ : 70 mois.
+
+**La probabilité d'une phrase.** Un modèle de langage donne une probabilité à chaque mot, sachant les précédents. Pour une phrase de 20 mots, chacun de probabilité 0,1, la probabilité de la phrase est $0{,}1^{20} = 10^{-20}$. Avec 400 mots, $10^{-400}$ : plus petit que tout ce que l'ordinateur sait représenter en double précision (la limite se situe entre $10^{-308}$ et $10^{-324}$) ; il l'arrondit à 0. Avec le logarithme : $\ln(0{,}1^{400}) = 400 \times \ln 0{,}1 \approx 400 \times (-2{,}303) = -921$. Un nombre tout à fait manipulable.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place $a$ à 0. Que valent $e^0$ et $\ln 1$ ? Puis fais descendre $a$ jusqu'à $-2$ : l'exponentielle devient-elle un jour négative ou nulle ? Que fait le logarithme près de 0 ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En $a = 0$ : $e^0 = 1$ et $\ln 1 = 0$. Les deux points sont $(0\,;\,1)$ et $(1\,;\,0)$, symétriques par rapport à la droite $y = x$.
+
+En descendant vers $a = -2$, $e^a$ tend vers 0 ($e^{-2} \approx 0{,}135$) sans jamais l'atteindre ni devenir négative. Sur le miroir, le logarithme plonge : $\ln 0{,}135 \approx -2$, et plus on s'approche de 0, plus il descend. C'est pourquoi $\ln 0$ n'existe pas, et pourquoi une probabilité nulle coûte une perte infinie dans l'entropie croisée.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Des scores aux probabilités.** Le [softmax](/concepts/softmax/) calcule $e^{z_k}$ pour chaque score : l'exponentielle rend tout positif et amplifie les écarts. Il sert aussi dans la [loi normale](/maths/loi-normale/), dont la courbe en cloche est une exponentielle.
+- **Des produits aux sommes.** Le [maximum de vraisemblance](/maths/maximum-vraisemblance/) multiplie les probabilités de milliers d'exemples ; on maximise plutôt la somme de leurs logarithmes, plus stable et plus facile à dériver.
+- **Mesurer la surprise.** L'[entropie](/maths/entropie/) et l'entropie croisée, la perte des LLM, sont des moyennes de $-\ln p$ : un événement de probabilité $p$ apporte une surprise de $-\ln p$.
+
+## Les pièges classiques
+
+**« $\ln(u + v) = \ln u + \ln v$. »** Non : c'est le logarithme d'un **produit** qui se sépare. $\ln(1 + 1) = \ln 2 \approx 0{,}693$, alors que $\ln 1 + \ln 1 = 0$.
+
+**« On peut prendre le logarithme de n'importe quoi. »** Le logarithme n'existe que pour des nombres strictement positifs. En pratique, on ajoute souvent un tout petit $\epsilon$ avant de prendre $\ln p$, pour éviter $\ln 0$.
+
+**« $e^x$ est juste un nombre à la puissance x, comme $2^x$. »** C'est vrai, et toutes les exponentielles se ramènent à elle : $2^x = e^{x \ln 2}$. Mais $e$ a une propriété unique : sa courbe a, en chaque point, une pente égale à sa hauteur, ce qui simplifie tous les calculs de [dérivée](/maths/derivee/).
+
+## Entraîne-toi
+
+**Exercice 1.** Simplifie $\ln(e^3) + \ln 1 + e^{\ln 5}$.
+
+<Depliable titre="Corrigé">
+
+$\ln(e^3) = 3$, $\ln 1 = 0$ et $e^{\ln 5} = 5$. Total : $3 + 0 + 5 = 8$.
+
+</Depliable>
+
+**Exercice 2.** Sachant $\ln 2 \approx 0{,}693$ et $\ln 3 \approx 1{,}099$, calcule $\ln 6$, $\ln 8$ et $\ln 1{,}5$ sans calculatrice.
+
+<Depliable titre="Corrigé">
+
+$\ln 6 = \ln 2 + \ln 3 \approx 1{,}792$. $\ln 8 = 3 \ln 2 \approx 2{,}079$. $\ln 1{,}5 = \ln 3 - \ln 2 \approx 0{,}406$ (le logarithme d'un quotient est la différence des logarithmes).
+
+</Depliable>
+
+**Exercice 3.** Un modèle donne aux trois mots d'une phrase les probabilités 0,5, 0,2 et 0,1. Calcule la probabilité de la phrase, puis la somme des $-\ln p$. Quelle est la moyenne de $-\ln p$ par mot ?
+
+<Depliable titre="Corrigé">
+
+Probabilité : $0{,}5 \times 0{,}2 \times 0{,}1 = 0{,}01$. Somme des $-\ln p$ : $0{,}693 + 1{,}609 + 2{,}303 = 4{,}605$, qui vaut bien $-\ln 0{,}01$. Moyenne : environ 1,535 par mot. C'est exactement ce qu'on appelle la perte d'entropie croisée d'un modèle de langage sur cette phrase.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "exponentielle", en: "exponential", definition: "Fonction x ↦ eˣ, toujours positive, qui transforme les sommes en produits." },
+  { fr: "logarithme népérien", en: "natural logarithm", definition: "Fonction réciproque de l'exponentielle, notée ln, définie pour les nombres positifs." },
+  { fr: "log-probabilité", en: "log-probability", definition: "Logarithme d'une probabilité ; un nombre négatif ou nul, facile à additionner." },
+  { fr: "sous-débordement", en: "underflow", definition: "Nombre trop petit pour être représenté, que l'ordinateur arrondit à zéro." }
+]} />
