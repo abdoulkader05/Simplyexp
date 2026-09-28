@@ -1,0 +1,151 @@
+---
+id: regle-chaine
+type: maths
+titre: "La règle de la chaîne : le secret caché derrière tout apprentissage"
+sous_titre: "Dériver des fonctions composées, base de la rétropropagation"
+domaine: analyse
+niveau: 2
+prerequis: [derivee]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 5 (Vector Calculus), règles de dérivation et règle de la chaîne"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.5.2 (règle de la chaîne du calcul différentiel)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un réseau de neurones est une [composition de fonctions](/maths/fonctions/) : une couche, puis une autre, puis une autre. Pour l'entraîner, il faut la [dérivée](/maths/derivee/) de la perte par rapport à chaque poids, même ceux de la première couche, enfouis sous toutes les autres. La règle de la chaîne dit comment dériver une composition : en multipliant les dérivées de chaque étape. C'est tout le moteur de la [rétropropagation](/concepts/backpropagation/).
+
+## L'intuition
+
+Un gbaka roule à 40 km/h, et chaque kilomètre coûte 136 F. À quelle vitesse le prix du trajet augmente-t-il, en francs par heure ? Chaque heure ajoute 40 km, et chaque kilomètre ajoute 136 F : le prix monte de $40 \times 136 = 5\,440$ F par heure. On a multiplié deux taux de variation, celui de la distance par rapport au temps et celui du prix par rapport à la distance.
+
+C'est exactement la règle de la chaîne. Quand une quantité dépend d'une deuxième, qui dépend elle-même d'une troisième, les taux de variation se multiplient le long de la chaîne. Dans l'animation, un petit écart $\Delta x$ sur l'entrée est étiré en $\Delta u$, puis en $\Delta y$ : on voit l'écart grossir à chaque étage.
+
+<Simulation
+  rendu="chaine-engrenages"
+  label="Un petit écart sur x transmis à u = 3x + 1 puis à y = u²"
+  parametres={[
+    { nom: "x", label: "Entrée x", min: -1, max: 1.5, pas: 0.05, valeur: 1, role: "entree", decimales: 2 },
+    { nom: "dx", label: "Petit écart Δx", min: 0.01, max: 0.5, pas: 0.01, valeur: 0.1, role: "parametre", decimales: 2 }
+  ]}
+  legende="Les bandes dorées montrent comment l'écart Δx se propage d'un étage à l'autre."
+/>
+
+## La définition
+
+Si $y = f(u)$ et $u = g(x)$, avec $f$ et $g$ dérivables, alors la composée $y = f(g(x))$ est dérivable et :
+
+$$
+\frac{dy}{dx} = \frac{dy}{du} \cdot \frac{du}{dx} = f'(g(x)) \cdot g'(x)
+$$
+
+où :
+- $\frac{dy}{dx}$ est la dérivée de $y$ par rapport à $x$, à travers toute la chaîne ;
+- $\frac{dy}{du} = f'(u)$ est la dérivée de l'étage extérieur, calculée au point $u = g(x)$ ;
+- $\frac{du}{dx} = g'(x)$ est la dérivée de l'étage intérieur.
+
+Avec plus d'étages, $y = f(g(h(x)))$, on multiplie simplement toutes les dérivées : $\frac{dy}{dx} = f'(g(h(x))) \cdot g'(h(x)) \cdot h'(x)$.
+
+Autrement dit : pour dériver une chaîne de fonctions, on dérive chaque maillon au bon endroit, et on multiplie.
+
+<Depliable titre="Pourquoi les dérivées se multiplient">
+
+On écrit le taux de variation de la composée en passant par $u$. Notons $\Delta u = g(x + h) - g(x)$, et supposons $\Delta u \neq 0$ pour $h$ petit :
+
+$$
+\begin{aligned}
+\frac{f(g(x + h)) - f(g(x))}{h}
+&= \frac{f(u + \Delta u) - f(u)}{\Delta u} \cdot \frac{\Delta u}{h} && \text{on multiplie et divise par } \Delta u \\
+&\longrightarrow f'(u) \cdot g'(x) && \text{quand } h \to 0 \text{, donc } \Delta u \to 0
+\end{aligned}
+$$
+
+Le premier quotient est le taux de variation de $f$ autour de $u$, qui tend vers $f'(u)$ ; le second, celui de $g$ autour de $x$, qui tend vers $g'(x)$. Le cas où $\Delta u$ s'annule demande un argument un peu plus soigné, qu'on admet ici (chapitre 5 de *Mathematics for Machine Learning*) ; le résultat reste le même.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prenons $y = (3x + 1)^2$, en $x = 1$. On découpe : $u = 3x + 1$ et $y = u^2$.
+
+- Étage intérieur : $u = 3 \times 1 + 1 = 4$ et $\frac{du}{dx} = 3$.
+- Étage extérieur : $y = 16$ et $\frac{dy}{du} = 2u = 8$.
+- Règle de la chaîne : $\frac{dy}{dx} = 8 \times 3 = 24$.
+
+Vérification en développant : $(3x + 1)^2 = 9x^2 + 6x + 1$, dont la dérivée vaut $18x + 6$, soit 24 en $x = 1$.
+
+Un neurone, maintenant. Avec une entrée $x = 2$, un poids $w$ et la sigmoïde $\sigma$, la sortie est $y = \sigma(w x)$. Dérivons par rapport au poids, en $w = 0$ :
+
+- intérieur : $z = w x = 0$, et $\frac{dz}{dw} = x = 2$ ;
+- extérieur : $\sigma'(z) = \sigma(z)\,(1 - \sigma(z)) = 0{,}5 \times 0{,}5 = 0{,}25$ ;
+- chaîne : $\frac{dy}{dw} = 0{,}25 \times 2 = 0{,}5$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place $x = 1$ et réduis $\Delta x$ de 0,5 à 0,01 en regardant $\Delta y / \Delta x$. Vers quelle valeur tend-il ? Place ensuite $x = -1/3$ environ ($-0{,}35$ ou $-0{,}3$) : que devient la dérivée ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En $x = 1$, le taux moyen vaut 28,5 pour $\Delta x = 0{,}5$, 24,9 pour $\Delta x = 0{,}1$ et 24,09 pour $\Delta x = 0{,}01$ : il tend vers 24, la valeur donnée par la règle de la chaîne.
+
+Près de $x = -1/3$, $u = 3x + 1$ est proche de 0, et la dérivée $6u$ aussi : l'étage extérieur $u^2$ est plat en 0, et il « écrase » l'écart transmis par l'étage intérieur. Il suffit qu'un seul maillon ait une dérivée presque nulle pour que toute la chaîne le soit. C'est l'origine du [gradient qui disparaît](/concepts/gradient-evanescent/) dans les réseaux profonds.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **La rétropropagation.** Pour chaque poids d'un réseau, la dérivée de la perte est un produit de dérivées locales, une par couche traversée. La [rétropropagation](/concepts/backpropagation/) organise ce calcul de la sortie vers l'entrée.
+- **Les pertes des classifieurs.** La perte de la [régression logistique](/concepts/regression-logistique/) enchaîne un score linéaire, une sigmoïde et un logarithme ; la règle de la chaîne donne son gradient simple, $(p - y)\,x$.
+- **Comprendre l'instabilité.** Un produit de nombreux facteurs peut devenir minuscule ou énorme : c'est le [gradient qui disparaît](/concepts/gradient-evanescent/) ou qui explose.
+
+## Les pièges classiques
+
+**« On dérive l'extérieur au point x. »** Non : $f'$ se calcule au point $u = g(x)$. Pour $(3x + 1)^2$ en $x = 1$, la dérivée de $u^2$ vaut $2u = 8$, pas $2x = 2$.
+
+**« On additionne les dérivées des étages. »** Elles se multiplient. Si un étage double les écarts et le suivant les triple, l'ensemble les multiplie par 6, pas par 5.
+
+**« La règle de la chaîne ne sert qu'aux formules compliquées. »** Elle sert à chaque couche d'un réseau, même la plus simple : une couche linéaire suivie d'une activation est déjà une composition.
+
+## Entraîne-toi
+
+**Exercice 1.** Dérive $y = (2x - 5)^3$ et calcule la dérivée en $x = 3$.
+
+<Depliable titre="Corrigé">
+
+$u = 2x - 5$, $y = u^3$. $\frac{dy}{dx} = 3u^2 \times 2 = 6(2x - 5)^2$. En $x = 3$ : $u = 1$, donc $6$.
+
+</Depliable>
+
+**Exercice 2.** Dérive $y = e^{-x^2}$.
+
+<Depliable titre="Corrigé">
+
+$u = -x^2$, $y = e^u$. $\frac{dy}{dx} = e^u \times (-2x) = -2x\,e^{-x^2}$. C'est, à une constante près, la pente de la courbe en cloche de la [loi normale](/maths/loi-normale/).
+
+</Depliable>
+
+**Exercice 3.** Une perte vaut $\mathcal{L} = (\sigma(w x) - 1)^2$, avec $x = 2$. Calcule $\frac{d\mathcal{L}}{dw}$ en $w = 0$.
+
+<Depliable titre="Corrigé">
+
+Trois étages : $z = wx$, $p = \sigma(z)$, $\mathcal{L} = (p - 1)^2$. En $w = 0$ : $z = 0$, $p = 0{,}5$.
+
+$\frac{d\mathcal{L}}{dp} = 2(p - 1) = -1$ ; $\frac{dp}{dz} = p(1 - p) = 0{,}25$ ; $\frac{dz}{dw} = x = 2$.
+
+Produit : $-1 \times 0{,}25 \times 2 = -0{,}5$. La dérivée est négative : augmenter $w$ fait baisser la perte.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "règle de la chaîne", en: "chain rule", definition: "La dérivée d'une composition est le produit des dérivées de chaque étage, chacune prise au bon point." },
+  { fr: "fonction composée", en: "composite function", definition: "Fonction obtenue en enchaînant plusieurs fonctions : f(g(x))." },
+  { fr: "dérivée locale", en: "local derivative", definition: "Dérivée d'un seul étage de la chaîne, par rapport à son entrée directe." }
+]} />
