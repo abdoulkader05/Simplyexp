@@ -3,5 +3,6 @@
 export function fr(n: number, decimales = 2, min = decimales): string {
   if (Math.abs(n) < 0.5 * 10 ** -decimales) n = 0; // pas de « −0,00 »
   const s = n.toLocaleString('fr-FR', { minimumFractionDigits: min, maximumFractionDigits: decimales });
-  return s.replace('-', '−');
+  // Espace insécable ordinaire : l'espace fine (U+202F) manque dans certaines polices.
+  return s.replace('-', '−').replace(/ /g, ' ');
 }
