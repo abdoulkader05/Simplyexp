@@ -1,0 +1,167 @@
+---
+id: adam
+type: maths
+titre: "Adam : l'optimiseur que tout le monde utilise (et pourquoi)"
+sous_titre: "Algorithme Adam, moments d'ordre 1 et 2"
+domaine: optimisation
+niveau: 3
+prerequis: [momentum, learning-rate]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 11
+sources:
+  - "Kingma, Ba, « Adam: A Method for Stochastic Optimization », arXiv 1412.6980, v1 du 22 décembre 2014, ICLR 2015 — https://arxiv.org/abs/1412.6980 — algorithme 1 (valeurs par défaut α = 0,001, β₁ = 0,9, β₂ = 0,999, ε = 10⁻⁸) et section 3 (correction du biais)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 5.3 (Adam avec β₁ = 0,9, β₂ = 0,98, ε = 10⁻⁹)"
+  - "Brown et al., « Language Models are Few-Shot Learners », 2020 — https://arxiv.org/abs/2005.14165 — annexe B (Adam, β₁ = 0,9, β₂ = 0,95, ε = 10⁻⁸)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.5 (algorithmes à pas adaptatif, dont Adam)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Le [momentum](/maths/momentum/) règle la direction des pas, mais garde un seul [learning rate](/maths/learning-rate/) pour tous les paramètres. Or, dans un grand réseau, certains paramètres reçoivent des gradients énormes et d'autres des gradients minuscules. Un pas adapté aux premiers est ridicule pour les seconds. Adam donne à chaque paramètre son propre pas, calculé à partir de l'historique de ses gradients. C'est l'optimiseur qui a entraîné le Transformer d'origine, puis GPT-3.
+
+## L'intuition
+
+Un chauffeur de gbaka fait la même ligne tous les jours. Sur la voie express, il accélère franchement ; dans le marché bondé, il avance au pas. Il ne se fie pas à un seul coup d'œil : il se souvient de la route (la direction habituelle) et de sa difficulté (à quel point ça secoue d'habitude). Il règle sa vitesse sur chaque tronçon.
+
+Adam fait pareil pour chaque paramètre. Il garde deux moyennes mobiles : celle des gradients, qui donne la direction, comme le momentum ; et celle des gradients au carré, qui mesure leur taille habituelle. Le pas est la première divisée par la racine de la seconde. Un paramètre aux gradients toujours grands fait des pas prudents ; un paramètre aux gradients toujours petits fait des pas aussi longs que les autres.
+
+Dans le bol allongé de la fiche précédente, les pointillés montrent la descente simple : son premier pas va surtout vers le bas, la direction raide. Le premier pas d'Adam fait la même longueur dans les deux directions.
+
+<Simulation
+  rendu="adam-bol"
+  label="Trajectoire d'Adam sur un bol allongé, comparée à la descente simple"
+  parametres={[
+    { nom: "alpha", label: "Pas d'Adam α", min: 0.05, max: 0.5, pas: 0.05, valeur: 0.3, role: "parametre", decimales: 2 }
+  ]}
+  legende="f(x ; y) = x² + 25y², départ (−4 ; 1), 40 pas. Les six premiers points d'Adam sont marqués."
+/>
+
+## La définition
+
+On part de $\mathbf{m}_0 = \mathbf{0}$ et $\mathbf{v}_0 = \mathbf{0}$. À chaque pas $t = 1, 2, \dots$, avec $\mathbf{g}_t$ le gradient d'un mini-lot :
+
+$$
+\begin{aligned}
+\mathbf{m}_t &= \beta_1\, \mathbf{m}_{t-1} + (1 - \beta_1)\, \mathbf{g}_t \\
+\mathbf{v}_t &= \beta_2\, \mathbf{v}_{t-1} + (1 - \beta_2)\, \mathbf{g}_t^2 \\
+\hat{\mathbf{m}}_t &= \frac{\mathbf{m}_t}{1 - \beta_1^t} \qquad \hat{\mathbf{v}}_t = \frac{\mathbf{v}_t}{1 - \beta_2^t} \\
+\theta_t &= \theta_{t-1} - \alpha\, \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}
+\end{aligned}
+$$
+
+où :
+- $\mathbf{m}_t$ est la moyenne mobile exponentielle des gradients, le moment d'ordre 1 (*first moment*) ;
+- $\mathbf{v}_t$ est celle des gradients au carré, le moment d'ordre 2 (*second moment*) ; le carré, la racine et la division se font coordonnée par coordonnée ;
+- $\hat{\mathbf{m}}_t$ et $\hat{\mathbf{v}}_t$ sont les versions corrigées du biais (*bias correction*), expliqué plus bas ;
+- $\alpha$ est le pas, $\beta_1$ et $\beta_2$ les coefficients de mémoire, $\epsilon$ un tout petit nombre qui évite de diviser par zéro.
+
+Les valeurs par défaut proposées par Kingma et Ba (2014) sont $\alpha = 0{,}001$, $\beta_1 = 0{,}9$, $\beta_2 = 0{,}999$ et $\epsilon = 10^{-8}$. Le Transformer d'origine a utilisé $\beta_2 = 0{,}98$ et $\epsilon = 10^{-9}$.
+
+Autrement dit : Adam avance dans la direction moyenne des gradients récents, avec un pas divisé, pour chaque paramètre, par la taille habituelle de ses gradients.
+
+<Depliable titre="Pourquoi corriger le biais, et ce que vaut le premier pas">
+
+**Le biais du départ.** Les moyennes partent de zéro, donc elles sont trop petites au début. Si les gradients ont tous la même espérance $\mathbb{E}[g]$, on déroule $m_t$ comme dans la fiche momentum :
+
+$$
+\begin{aligned}
+m_t &= (1 - \beta_1) \sum_{k=1}^{t} \beta_1^{\,t-k}\, g_k && \text{récurrence déroulée, } m_0 = 0 \\
+\mathbb{E}[m_t] &= (1 - \beta_1)\, \mathbb{E}[g] \sum_{k=0}^{t-1} \beta_1^{\,k} && \text{linéarité de l'espérance} \\
+&= (1 - \beta_1)\, \mathbb{E}[g]\, \frac{1 - \beta_1^t}{1 - \beta_1} = (1 - \beta_1^t)\, \mathbb{E}[g] && \text{somme géométrique}
+\end{aligned}
+$$
+
+Diviser par $1 - \beta_1^t$ donne donc la bonne espérance. Au premier pas, $1 - 0{,}9 = 0{,}1$ : sans correction, $m_1$ serait dix fois trop petit. Le même calcul vaut pour $v_t$ avec $\beta_2$.
+
+**Le premier pas.** Pour $t = 1$ : $\hat{m}_1 = g_1$ et $\hat{v}_1 = g_1^2$, donc
+
+$$
+\theta_1 - \theta_0 = -\alpha\, \frac{g_1}{|g_1| + \epsilon} \approx -\alpha \times (\text{signe de } g_1)
+$$
+
+Chaque coordonnée bouge d'environ $\alpha$, quelle que soit la taille de son gradient. C'est ce que montre l'animation : premier pas $(0{,}30\,;\,-0{,}30)$ pour $\alpha = 0{,}3$, contre $(0{,}28\,;\,-1{,}75)$ pour la descente simple.
+
+**L'insensibilité à l'échelle.** Si on multiplie tous les gradients par un nombre $c > 0$, alors $\hat{m}$ est multiplié par $c$ et $\sqrt{\hat{v}}$ aussi : les pas ne changent pas, tant que $\epsilon$ reste négligeable.
+
+</Depliable>
+
+## Un exemple à la main
+
+Un seul paramètre, les valeurs par défaut $\beta_1 = 0{,}9$ et $\beta_2 = 0{,}999$. Les deux premiers gradients valent $g_1 = 4$ et $g_2 = 2$.
+
+Pas 1 :
+- $m_1 = 0{,}1 \times 4 = 0{,}4$ et $v_1 = 0{,}001 \times 16 = 0{,}016$ ;
+- corrections : $\hat{m}_1 = 0{,}4 / 0{,}1 = 4$ et $\hat{v}_1 = 0{,}016 / 0{,}001 = 16$ ;
+- pas : $-\alpha \times 4 / \sqrt{16} = -\alpha$.
+
+Pas 2 :
+- $m_2 = 0{,}9 \times 0{,}4 + 0{,}1 \times 2 = 0{,}56$ et $v_2 = 0{,}999 \times 0{,}016 + 0{,}001 \times 4 \approx 0{,}019\,98$ ;
+- corrections : $\hat{m}_2 = 0{,}56 / (1 - 0{,}81) \approx 2{,}947$ et $\hat{v}_2 = 0{,}019\,98 / (1 - 0{,}998\,001) \approx 9{,}997$ ;
+- pas : $-\alpha \times 2{,}947 / \sqrt{9{,}997} \approx -0{,}932\,\alpha$.
+
+Le gradient a été divisé par deux, mais le pas n'a baissé que de 7 % : Adam juge la taille d'un gradient par rapport à l'historique, pas dans l'absolu. Avec $\alpha = 0{,}001$, les deux premiers pas valent environ $-0{,}001$ et $-0{,}000\,93$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : pour $\alpha = 0{,}05$, $0{,}1$, $0{,}3$ et $0{,}5$, note la valeur $f_{40}$ atteinte après 40 pas, et compare avec la descente simple. Adam gagne-t-il toujours ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le premier pas d'Adam vaut toujours $(\alpha\,;\,-\alpha)$ : même longueur dans les deux directions, qu'elles soient raides ou plates.
+
+Après 40 pas, $f$ vaut environ 4,88 pour $\alpha = 0{,}05$ (les pas sont trop courts pour traverser le bol), 0,68 pour $0{,}1$, 0,18 pour $0{,}3$ et 0,04 pour $0{,}5$. La descente simple, avec son pas bien réglé, atteint environ 0,048. Sur ce petit problème régulier, Adam ne bat pas une descente bien réglée : il oscille un peu autour du centre. Sa force est ailleurs : il marche correctement sans qu'on ait réglé le pas pour chaque direction, ce qui est impossible à la main avec des millions de paramètres.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Le réglage par défaut.** Adam a été conçu pour que ses valeurs par défaut conviennent à beaucoup de problèmes sans réglage fin, d'après ses auteurs. Le paper qui l'a proposé est présenté dans la fiche [Kingma et Ba (2014)](/papers/kingma-2014/).
+- **Les Transformers et les LLM.** Le Transformer d'origine a été entraîné avec Adam et un [planning du pas](/maths/learning-rate/) avec échauffement. GPT-3 a lui aussi été [pré-entraîné](/concepts/pretraining/) avec Adam, avec $\beta_2 = 0{,}95$ (Brown et ses coauteurs, 2020, annexe B).
+- **Le prix en mémoire.** Adam stocke deux nombres de plus par paramètre, $m$ et $v$. Pour un modèle de plusieurs milliards de paramètres, cela représente plusieurs fois la place des poids eux-mêmes ; c'est une des raisons pour lesquelles [LoRA](/concepts/lora/) n'entraîne qu'une petite partie des paramètres.
+
+## Les pièges classiques
+
+**« Adam est toujours meilleur que la descente de gradient. »** L'animation montre le contraire sur un problème simple et bien réglé. Adam est surtout plus facile à régler : il n'a pas besoin d'un pas adapté à chaque direction.
+
+**« Avec Adam, le learning rate n'a plus d'importance. »** Le pas $\alpha$ fixe la longueur typique des pas de chaque paramètre. Trop grand, Adam oscille ; trop petit, il n'avance pas, comme avec $\alpha = 0{,}05$ dans l'animation. On le règle, et on le fait souvent varier avec un planning.
+
+**« La correction du biais est un détail. »** Sans elle, les premiers pas seraient faussés : $m_1$ serait dix fois trop petit avec $\beta_1 = 0{,}9$, et $v_1$ mille fois trop petit avec $\beta_2 = 0{,}999$. Comme on divise par $\sqrt{v}$, les premiers pas seraient environ trois fois trop grands, au moment où l'on sait le moins où aller.
+
+## Entraîne-toi
+
+**Exercice 1.** Avec les valeurs par défaut et $\alpha = 0{,}001$, un paramètre reçoit $g_1 = -0{,}002$. De combien bouge-t-il au premier pas ? Et si $g_1 = -200$ ?
+
+<Depliable titre="Corrigé">
+
+Dans les deux cas, $\hat{m}_1 = g_1$ et $\sqrt{\hat{v}_1} = |g_1|$, donc le pas vaut $-\alpha \times g_1 / |g_1| = +0{,}001$. Le paramètre augmente de 0,001, que le gradient soit minuscule ou énorme ; $\epsilon = 10^{-8}$ est négligeable devant 0,002.
+
+</Depliable>
+
+**Exercice 2.** Sans correction du biais, que vaudrait le premier pas avec $\beta_1 = 0{,}9$, $\beta_2 = 0{,}999$ et $g_1 = 4$ ?
+
+<Depliable titre="Corrigé">
+
+$m_1 = 0{,}4$ et $v_1 = 0{,}016$, donc $\sqrt{v_1} \approx 0{,}126\,5$. Le pas serait $-\alpha \times 0{,}4 / 0{,}126\,5 \approx -3{,}16\,\alpha$ au lieu de $-\alpha$. Les deux biais ne se compensent pas : $0{,}1 / \sqrt{0{,}001} \approx 3{,}16$.
+
+</Depliable>
+
+**Exercice 3.** Un modèle a 7 milliards de paramètres stockés sur 2 octets chacun. Adam garde $m$ et $v$ sur 4 octets chacun. Combien de mémoire pour les poids ? Pour l'état d'Adam ?
+
+<Depliable titre="Corrigé">
+
+Poids : $7 \times 10^9 \times 2 = 14 \times 10^9$ octets, soit 14 Go. État d'Adam : $7 \times 10^9 \times 2 \times 4 = 56 \times 10^9$ octets, soit 56 Go, quatre fois plus que les poids.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "Adam", en: "Adam (adaptive moment estimation)", definition: "Optimiseur qui combine une moyenne mobile des gradients et une moyenne mobile de leurs carrés pour donner à chaque paramètre son propre pas." },
+  { fr: "moment d'ordre 1", en: "first moment", definition: "Moyenne mobile des gradients : la direction habituelle." },
+  { fr: "moment d'ordre 2", en: "second moment", definition: "Moyenne mobile des gradients au carré : leur taille habituelle." },
+  { fr: "correction du biais", en: "bias correction", definition: "Division par 1 − βᵗ qui compense le départ à zéro des moyennes mobiles." }
+]} />
