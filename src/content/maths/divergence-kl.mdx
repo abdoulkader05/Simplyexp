@@ -1,0 +1,147 @@
+---
+id: divergence-kl
+type: maths
+titre: "La divergence KL : l'écart entre deux façons de voir le monde"
+sous_titre: "Divergence de Kullback-Leibler, définition et usages"
+domaine: theorie-information
+niveau: 3
+prerequis: [entropie-croisee]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (divergence de Kullback-Leibler : positivité, asymétrie, lien avec l'entropie croisée)"
+  - "Ouyang et al., « Training language models to follow instructions with human feedback », 2022 — https://arxiv.org/abs/2203.02155 — section 3.5 (pénalité KL par token par rapport au modèle SFT)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Deux lois de probabilité peuvent décrire le même phénomène de façons différentes : la vraie loi des mots d'une langue, et celle qu'un modèle en a apprise ; un modèle avant et après un réglage. La divergence de Kullback-Leibler mesure l'écart entre elles. Elle est exactement ce qui sépare l'[entropie croisée](/maths/entropie-croisee/) de son plancher, l'[entropie](/maths/entropie/), et elle sert de garde-fou quand on ajuste un LLM par [RLHF](/concepts/rlhf/).
+
+## L'intuition
+
+Imagine un mototaxi qui a appris ses prix dans un quartier : il pense que les courses courtes sont de loin les plus fréquentes. Dans un autre quartier, les clients font surtout de longues courses. À chaque course, il est surpris : il s'attendait à autre chose. Le surplus moyen de surprise, par rapport à quelqu'un qui connaît vraiment le quartier, c'est la divergence KL.
+
+Elle a une particularité : elle n'est pas symétrique. Se tromper en croyant rare ce qui est fréquent coûte très cher ; se tromper en croyant fréquent ce qui est rare coûte moins. Dans l'animation, le modèle $q$ donne de moins en moins de probabilité au mot « champ ». Regarde les deux divergences diverger.
+
+<Simulation
+  rendu="kl-asymetrie"
+  label="Vraie loi p, modèle q, et divergences dans les deux sens"
+  parametres={[
+    { nom: "c", label: "q(champ)", min: 0.01, max: 0.6, pas: 0.01, valeur: 0.02, role: "parametre", decimales: 2 }
+  ]}
+  legende="Le reste de la probabilité du modèle se partage également entre « marché » et « travail »."
+/>
+
+## La définition
+
+Pour deux lois $p$ et $q$ sur les mêmes issues, la divergence de Kullback-Leibler (*Kullback-Leibler divergence*) de $p$ par rapport à $q$ est :
+
+$$
+D_{\mathrm{KL}}(p \,\|\, q) = \sum_{k} p_k \ln \frac{p_k}{q_k} = H(p, q) - H(p)
+$$
+
+où :
+- $p$ est la loi de référence, souvent la vraie loi ou les données ;
+- $q$ est la loi qu'on compare, souvent le modèle ;
+- $\ln(p_k/q_k)$ est le surplus de surprise pour l'issue $k$ quand on utilise $q$ au lieu de $p$ ;
+- $H(p, q)$ est l'entropie croisée et $H(p)$ l'entropie de $p$.
+
+Trois propriétés : $D_{\mathrm{KL}}(p \,\|\, q) \ge 0$ ; elle vaut 0 seulement si $p = q$ ; et en général $D_{\mathrm{KL}}(p \,\|\, q) \neq D_{\mathrm{KL}}(q \,\|\, p)$. Ce n'est donc pas une distance au sens strict.
+
+Autrement dit : la divergence KL mesure combien de surprise on paie en trop, en moyenne, quand on se sert de la loi $q$ alors que les choses arrivent selon $p$.
+
+<Depliable titre="Pourquoi elle est toujours positive">
+
+On utilise l'inégalité $\ln x \le x - 1$, vraie pour tout $x > 0$ : la courbe du logarithme est sous sa tangente en $x = 1$.
+
+$$
+\begin{aligned}
+-D_{\mathrm{KL}}(p \,\|\, q) &= \sum_k p_k \ln \frac{q_k}{p_k} && \text{on retourne la fraction} \\
+&\le \sum_k p_k \left(\frac{q_k}{p_k} - 1\right) && \ln x \le x - 1 \\
+&= \sum_k q_k - \sum_k p_k = 1 - 1 = 0 && \text{les deux lois somment à 1}
+\end{aligned}
+$$
+
+Donc $D_{\mathrm{KL}}(p \,\|\, q) \ge 0$. L'égalité $\ln x = x - 1$ n'a lieu qu'en $x = 1$ : la divergence n'est nulle que si $q_k = p_k$ pour toutes les issues. C'est ce qui garantit que l'entropie croisée ne descend jamais sous l'entropie.
+
+</Depliable>
+
+## Un exemple à la main
+
+La vraie loi $p = (0{,}5\,;\,0{,}3\,;\,0{,}2)$ et le modèle $q = (0{,}4\,;\,0{,}4\,;\,0{,}2)$ de la fiche précédente :
+
+- $0{,}5 \ln(0{,}5/0{,}4) \approx 0{,}5 \times 0{,}223 = 0{,}112$ ;
+- $0{,}3 \ln(0{,}3/0{,}4) \approx 0{,}3 \times (-0{,}288) = -0{,}086$ ;
+- $0{,}2 \ln(0{,}2/0{,}2) = 0$ ;
+- total : $D_{\mathrm{KL}}(p \,\|\, q) \approx 0{,}025$ nat, exactement $H(p, q) - H(p) = 1{,}055 - 1{,}030$.
+
+L'asymétrie, sur deux issues : $p = (0{,}9\,;\,0{,}1)$ et $q = (0{,}5\,;\,0{,}5)$.
+
+- $D_{\mathrm{KL}}(p \,\|\, q) = 0{,}9 \ln 1{,}8 + 0{,}1 \ln 0{,}2 \approx 0{,}529 - 0{,}161 = 0{,}368$.
+- $D_{\mathrm{KL}}(q \,\|\, p) = 0{,}5 \ln(5/9) + 0{,}5 \ln 5 \approx -0{,}294 + 0{,}805 = 0{,}511$.
+
+Deux sens, deux valeurs différentes.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : fais descendre $q(\text{champ})$ de 0,2 à 0,01. Laquelle des deux divergences grandit le plus vite ? Pourquoi ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Vers $q(\text{champ}) = 0{,}2$, les deux divergences sont petites et proches (environ 0,025). En descendant à 0,02, $D_{\mathrm{KL}}(p \,\|\, q)$ monte à environ 0,32, alors que $D_{\mathrm{KL}}(q \,\|\, p)$ ne monte qu'à environ 0,18.
+
+$D_{\mathrm{KL}}(p \,\|\, q)$ contient le terme $0{,}2 \ln(0{,}2/q(\text{champ}))$ : quand le modèle néglige un mot que les vraies données utilisent 20 % du temps, ce terme explose, et il deviendrait infini si $q(\text{champ})$ valait 0. C'est pour cela que l'entraînement par entropie croisée, qui minimise $D_{\mathrm{KL}}(\text{données} \,\|\, \text{modèle})$, pousse le modèle à ne jamais exclure complètement un mot qui apparaît dans les données.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Entraîner un modèle.** Minimiser l'entropie croisée revient à minimiser $D_{\mathrm{KL}}(\text{données} \,\|\, \text{modèle})$, puisque l'entropie des données ne dépend pas du modèle.
+- **Ajuster un LLM sans le dénaturer.** Dans l'entraînement d'InstructGPT par [RLHF](/concepts/rlhf/), Ouyang et ses coauteurs (2022) ajoutent à la récompense une pénalité KL par token par rapport au modèle de départ, pour éviter que le modèle ne s'éloigne trop en cherchant à exploiter le modèle de récompense.
+- **Comparer des modèles.** La divergence entre les lois de deux modèles mesure à quel point ils « voient » différemment un même texte.
+
+## Les pièges classiques
+
+**« C'est une distance entre lois. »** Elle n'est pas symétrique et ne vérifie pas l'inégalité triangulaire. On dit « divergence » justement pour éviter le mot « distance ».
+
+**« Le sens n'a pas d'importance. »** $D_{\mathrm{KL}}(p \,\|\, q)$ punit fortement un modèle qui néglige ce que $p$ utilise ; $D_{\mathrm{KL}}(q \,\|\, p)$ punit plutôt un modèle qui met de la probabilité là où $p$ n'en met pas. Le choix du sens change le comportement du modèle entraîné.
+
+**« Une divergence nulle est facile à atteindre. »** Il faudrait que le modèle reproduise exactement la loi des données. En pratique, on la fait baisser sans jamais l'annuler ; c'est l'écart restant qui sépare la perte d'un modèle de l'entropie de la langue.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule $D_{\mathrm{KL}}(p \,\|\, q)$ pour $p = (0{,}5\,;\,0{,}5)$ et $q = (0{,}25\,;\,0{,}75)$.
+
+<Depliable titre="Corrigé">
+
+$0{,}5 \ln 2 + 0{,}5 \ln(2/3) \approx 0{,}347 - 0{,}203 = 0{,}144$ nat.
+
+</Depliable>
+
+**Exercice 2.** Une entropie croisée vaut 2,3 nats et l'entropie de la vraie loi 1,9 nat. Que vaut la divergence KL ?
+
+<Depliable titre="Corrigé">
+
+$2{,}3 - 1{,}9 = 0{,}4$ nat.
+
+</Depliable>
+
+**Exercice 3.** Pourquoi $D_{\mathrm{KL}}(p \,\|\, q)$ est-elle infinie si $q_k = 0$ pour une issue telle que $p_k > 0$ ?
+
+<Depliable titre="Corrigé">
+
+Le terme $p_k \ln(p_k / q_k)$ contient une division par zéro : $\ln(p_k/0)$ est infini. Un modèle qui déclare impossible un événement qui arrive réellement subit une surprise infinie quand il se produit.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "divergence de Kullback-Leibler", en: "Kullback-Leibler (KL) divergence", definition: "Surplus moyen de surprise quand on utilise q au lieu de la vraie loi p : Σ p ln(p/q)." },
+  { fr: "asymétrie", en: "asymmetry", definition: "D(p ‖ q) et D(q ‖ p) sont en général différentes." },
+  { fr: "pénalité KL", en: "KL penalty", definition: "Terme ajouté à un objectif pour empêcher un modèle de s'éloigner trop d'un modèle de référence." }
+]} />
