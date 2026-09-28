@@ -3,27 +3,17 @@
 // Tirages pseudo-aléatoires à graine fixe : l'animation est la même à chaque visite.
 import type { Etat } from '../animations/types';
 import { fr } from '../animations/format';
+import { generateur, gaussien } from '../animations/alea';
 import { svgDe, q, texte, attrs, points } from '../animations/svg';
 
 export const fiche = 'sgd-minibatch';
 const ETA = 0.004, PAS = 40, N = 200;
 
-function generateur(graine: number) {
-  let a = graine >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 const alea = generateur(2026);
 const X: number[] = [], Y: number[] = [];
 for (let i = 0; i < N; i++) {
   const x = 1 + Math.round(alea() * 18) / 2; // de 1 à 10 km, par demi-kilomètre
-  const bruit = Math.sqrt(-2 * Math.log(alea() + 1e-12)) * Math.cos(2 * Math.PI * alea()) * 80;
+  const bruit = gaussien(alea) * 80;
   X.push(x); Y.push(Math.round((140 * x + bruit) / 25) * 25);
 }
 const gradient = (w: number, lot: number[]) => (2 / lot.length) * lot.reduce((s, i) => s + X[i] * (w * X[i] - Y[i]), 0);
