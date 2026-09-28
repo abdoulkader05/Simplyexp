@@ -1,0 +1,152 @@
+---
+id: gradient
+type: maths
+titre: "Le gradient : la boussole qui pointe vers la montée"
+sous_titre: "Vecteur gradient, direction de plus forte pente"
+domaine: analyse
+niveau: 2
+prerequis: [derivees-partielles, vecteurs]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 5 (Vector Calculus), dérivées partielles et gradients"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4 (Numerical Computation), optimisation par gradient et dérivée directionnelle"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un modèle a des millions de paramètres, et une seule question compte à chaque étape d'apprentissage : dans quelle direction les bouger pour réduire l'erreur ? Les [dérivées partielles](/maths/derivees-partielles/) répondent paramètre par paramètre. Rangées dans un [vecteur](/maths/vecteurs/), elles forment le gradient, qui donne la direction d'un coup. La [descente de gradient](/maths/descente-gradient/) n'est rien d'autre que « suivre le gradient à l'envers ».
+
+## L'intuition
+
+Imagine une colline dessinée sur une carte par ses lignes de niveau : chaque ligne relie des points de même altitude. Tu es quelque part sur la pente. Tu peux faire un pas dans n'importe quelle direction. Laquelle te fait monter le plus vite ?
+
+Le gradient répond : c'est une flèche posée à tes pieds, qui pointe vers la montée la plus raide. Sa longueur dit à quel point ça monte. Et elle coupe toujours la ligne de niveau à angle droit : marcher le long de la ligne ne fait ni monter ni descendre.
+
+Déplace le point : la flèche dorée change de direction et de longueur, mais reste perpendiculaire au pointillé, qui suit la ligne de niveau.
+
+<Simulation
+  rendu="gradient-bol"
+  label="Lignes de niveau d'une fonction en forme de bol, un point et son gradient"
+  parametres={[
+    { nom: "x", label: "Position x", min: -2, max: 2, pas: 0.1, valeur: 1, role: "entree", decimales: 1 },
+    { nom: "y", label: "Position y", min: -1.2, max: 1.2, pas: 0.1, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="f(x ; y) = x² + 2y² : un bol plus raide dans la direction y que dans la direction x."
+/>
+
+## La définition
+
+Pour une fonction $f$ de $d$ variables, dérivable, le gradient au point $\mathbf{x} = (x_1\,;\,\dots\,;\,x_d)$ est le vecteur de ses dérivées partielles :
+
+$$
+\nabla f(\mathbf{x}) = \left(\frac{\partial f}{\partial x_1}(\mathbf{x})\,;\,\frac{\partial f}{\partial x_2}(\mathbf{x})\,;\,\dots\,;\,\frac{\partial f}{\partial x_d}(\mathbf{x})\right)
+$$
+
+où :
+- $\nabla f(\mathbf{x})$ se lit « nabla $f$ en $\mathbf{x}$ » ;
+- $\frac{\partial f}{\partial x_i}(\mathbf{x})$ est la dérivée partielle de $f$ par rapport à $x_i$ : la pente quand on bouge seulement $x_i$ ;
+- $d$ est le nombre de variables, donc la dimension du gradient.
+
+Autrement dit : le gradient range toutes les pentes « un bouton à la fois » dans un seul vecteur. Deux propriétés en font une boussole. Il pointe dans la direction où $f$ augmente le plus vite, et il est perpendiculaire aux lignes de niveau.
+
+<Depliable titre="Pourquoi le gradient pointe vers la montée la plus raide">
+
+On admet un résultat de calcul différentiel, démontré au chapitre 5 de *Mathematics for Machine Learning* : si on part de $\mathbf{x}$ dans la direction d'un vecteur $\mathbf{u}$ de norme 1, la pente rencontrée, appelée dérivée directionnelle (*directional derivative*), vaut
+
+$$
+D_{\mathbf{u}} f(\mathbf{x}) = \nabla f(\mathbf{x}) \cdot \mathbf{u}
+$$
+
+Le reste se démontre avec la [similarité cosinus](/maths/similarite-cosinus/). Soit $\theta$ l'angle entre $\nabla f(\mathbf{x})$ et $\mathbf{u}$ :
+
+$$
+\begin{aligned}
+D_{\mathbf{u}} f(\mathbf{x}) &= \nabla f(\mathbf{x}) \cdot \mathbf{u} && \text{résultat admis} \\
+&= \|\nabla f(\mathbf{x})\|\,\|\mathbf{u}\| \cos\theta && \text{produit scalaire et angle} \\
+&= \|\nabla f(\mathbf{x})\| \cos\theta && \|\mathbf{u}\| = 1
+\end{aligned}
+$$
+
+- Le cosinus vaut au plus 1, atteint pour $\theta = 0$ : la pente la plus forte est dans la direction du gradient, et elle vaut $\|\nabla f(\mathbf{x})\|$.
+- Il vaut au moins $-1$, pour $\theta = 180°$ : la descente la plus raide est dans la direction de $-\nabla f(\mathbf{x})$.
+- Il vaut 0 pour $\theta = 90°$ : perpendiculairement au gradient, la pente est nulle. C'est la direction de la ligne de niveau, où $f$ ne change pas.
+
+</Depliable>
+
+## Un exemple à la main
+
+Prends $f(x\,;\,y) = x^2 + 2y^2$, la fonction de l'animation.
+
+- Dérivée partielle en $x$ : on traite $y$ comme une constante, $\frac{\partial f}{\partial x} = 2x$.
+- Dérivée partielle en $y$ : on traite $x$ comme une constante, $\frac{\partial f}{\partial y} = 4y$.
+- Gradient : $\nabla f(x\,;\,y) = (2x\,;\,4y)$.
+- Au point $(1\,;\,1)$ : $\nabla f(1\,;\,1) = (2\,;\,4)$, de norme $\sqrt{4 + 16} = \sqrt{20} \approx 4{,}47$.
+
+Vérifions sur un petit pas de longueur 0,01. Dans la direction du gradient, $\mathbf{u} = (2\,;\,4)/4{,}47 \approx (0{,}447\,;\,0{,}894)$ ; on arrive en $(1{,}004\,47\,;\,1{,}008\,94)$ et $f$ passe de 3 à environ 3,044 8. Dans la direction de l'axe $x$, on arrive en $(1{,}01\,;\,1)$ et $f$ passe de 3 à 3,020 1. La montée dans la direction du gradient est plus de deux fois plus forte, comme prévu : $4{,}47 \times 0{,}01 \approx 0{,}045$ contre $2 \times 0{,}01 = 0{,}02$.
+
+Au point $(0\,;\,0)$, le gradient vaut $(0\,;\,0)$ : c'est le fond du bol, aucune direction ne monte au premier ordre.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : place le point en $(2\,;\,0)$ puis en $(0\,;\,1)$. Les deux points sont-ils à la même altitude ? Où la pente est-elle la plus forte ? Ensuite, approche-toi de $(0\,;\,0)$ : que devient la flèche ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En $(2\,;\,0)$, $f = 4$ et $\nabla f = (4\,;\,0)$ : la flèche pointe vers la droite, de longueur 4. En $(0\,;\,1)$, $f = 2$ et $\nabla f = (0\,;\,4)$ : la flèche pointe vers le haut, de longueur 4 aussi. Les altitudes diffèrent, mais les pentes sont égales : le bol est plus raide en $y$, ce qui compense une altitude plus basse.
+
+Près de $(0\,;\,0)$, la flèche rétrécit jusqu'à disparaître. Au fond du bol, le gradient est nul : c'est ainsi qu'un algorithme reconnaît qu'il a atteint un minimum, ou du moins un point plat.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Apprendre.** La [descente de gradient](/maths/descente-gradient/) déplace les paramètres d'un petit pas dans la direction $-\nabla \mathcal{L}$, où $\mathcal{L}$ est la [fonction de perte](/maths/fonction-perte/) : c'est la direction où l'erreur baisse le plus vite.
+- **Calculer vite.** La [rétropropagation](/concepts/backpropagation/) est une méthode pour calculer le gradient de la perte par rapport à des millions de paramètres, en une seule passe arrière dans le réseau.
+- **Diagnostiquer.** La norme du gradient sert d'alarme : trop petite, l'apprentissage s'arrête (le [gradient qui disparaît](/concepts/gradient-evanescent/)) ; trop grande, il devient instable.
+
+## Les pièges classiques
+
+**« Le gradient pointe vers le minimum. »** On y croit parce qu'on s'en sert pour descendre. Mais le gradient pointe vers la montée ; c'est $-\nabla f$ qui descend. Et même $-\nabla f$ ne vise pas le minimum : dans le bol allongé, la flèche en $(2\,;\,1)$ ne pointe pas vers le centre.
+
+**« Le gradient est un nombre, la pente. »** En dimension 1, on confond volontiers dérivée et gradient. Dès qu'il y a deux variables, le gradient est un vecteur : il a une direction et une longueur. La pente dans une direction donnée s'obtient par un produit scalaire.
+
+**« Gradient nul, donc minimum. »** Un gradient nul dit seulement que le point est plat au premier ordre. Ce peut être un minimum, un maximum ou un col, comme le point $(0\,;\,0)$ de $x^2 - y^2$.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule le gradient de $f(x\,;\,y) = 3x + x y^2$ au point $(1\,;\,2)$.
+
+<Depliable titre="Corrigé">
+
+$\frac{\partial f}{\partial x} = 3 + y^2$ et $\frac{\partial f}{\partial y} = 2xy$. Au point $(1\,;\,2)$ : $\nabla f = (3 + 4\,;\,2 \times 1 \times 2) = (7\,;\,4)$.
+
+</Depliable>
+
+**Exercice 2.** Pour $f(x\,;\,y) = x^2 + 2y^2$ au point $(1\,;\,1)$, donne la direction de plus forte descente et la pente dans cette direction.
+
+<Depliable titre="Corrigé">
+
+La plus forte descente suit $-\nabla f(1\,;\,1) = (-2\,;\,-4)$, soit, ramenée à une norme 1, $(-0{,}447\,;\,-0{,}894)$. La pente y vaut $-\|\nabla f\| = -\sqrt{20} \approx -4{,}47$.
+
+</Depliable>
+
+**Exercice 3.** Une perte dépend de deux poids : $\mathcal{L}(w_1\,;\,w_2) = (w_1 - 3)^2 + (w_2 + 1)^2$. Calcule $\nabla \mathcal{L}$ en $(0\,;\,0)$. Dans quelle direction faut-il bouger les poids ? Où est le minimum ?
+
+<Depliable titre="Corrigé">
+
+$\nabla \mathcal{L} = (2(w_1 - 3)\,;\,2(w_2 + 1))$, soit $(-6\,;\,2)$ en $(0\,;\,0)$. Pour réduire la perte, on bouge dans la direction $-\nabla \mathcal{L} = (6\,;\,-2)$ : augmenter $w_1$, diminuer $w_2$. Le minimum est en $(3\,;\,-1)$, où le gradient s'annule. Ici, comme le bol est rond, $-\nabla \mathcal{L}$ pointe exactement vers lui.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "gradient", en: "gradient", definition: "Vecteur des dérivées partielles ; il pointe vers la montée la plus raide." },
+  { fr: "ligne de niveau", en: "level curve", definition: "Ensemble des points où la fonction prend une même valeur." },
+  { fr: "dérivée directionnelle", en: "directional derivative", definition: "Pente de la fonction quand on part dans une direction donnée ; elle vaut le produit scalaire du gradient et de cette direction." }
+]} />
