@@ -1,0 +1,143 @@
+---
+id: loi-normale
+type: maths
+titre: "La loi normale : pourquoi la courbe en cloche est partout"
+sous_titre: "Distribution gaussienne, moyenne et écart-type"
+domaine: probabilites
+niveau: 2
+prerequis: [esperance-variance, exp-log]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), section sur la loi gaussienne"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.9.3 (loi gaussienne et théorème central limite) ; chapitre 5, section 5.5.1 (moindres carrés et vraisemblance gaussienne)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Le bruit d'une mesure, l'erreur d'un modèle, l'initialisation des poids d'un réseau : dès qu'une quantité continue varie au hasard autour d'une moyenne, on la modélise presque toujours par une loi normale. Elle ne dépend que de deux nombres, l'[espérance et la variance](/maths/esperance-variance/), et sa formule repose sur l'[exponentielle](/maths/exp-log/). Elle explique aussi pourquoi la [régression linéaire](/concepts/regression-lineaire/) minimise des erreurs au carré.
+
+## L'intuition
+
+Mesure la taille des élèves de toutes les classes de terminale d'une ville. La plupart sont proches de la moyenne ; quelques-uns sont très grands ou très petits ; presque personne n'est extrême. L'histogramme prend une forme de cloche, symétrique autour de la moyenne. La même forme apparaît pour les erreurs de mesure d'une balance, ou pour le total de nombreux petits hasards indépendants.
+
+La cloche a deux réglages : où elle se trouve (la moyenne $\mu$) et à quel point elle est large (l'écart type $\sigma$). Une règle simple la décrit : environ 68 % des valeurs tombent à moins d'un écart type de la moyenne, 95 % à moins de deux, 99,7 % à moins de trois.
+
+<Simulation
+  rendu="normale-cloche"
+  label="Courbe en cloche et aire entre μ − kσ et μ + kσ"
+  parametres={[
+    { nom: "sigma", label: "Écart type σ (cm)", min: 3, max: 15, pas: 0.5, valeur: 8, role: "parametre", decimales: 1 },
+    { nom: "k", label: "Nombre d'écarts types k", min: 0.5, max: 3, pas: 0.5, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="Moyenne fixée à 165 cm. L'aire dorée est la probabilité d'être à moins de k écarts types de la moyenne."
+/>
+
+## La définition
+
+Une variable continue $X$ suit une loi normale (*normal distribution*), ou gaussienne, de moyenne $\mu$ et d'écart type $\sigma > 0$, notée $\mathcal{N}(\mu, \sigma^2)$, si sa densité vaut :
+
+$$
+f(x) = \frac{1}{\sigma \sqrt{2\pi}}\, \exp\!\left(-\frac{(x - \mu)^2}{2\sigma^2}\right)
+$$
+
+où :
+- $\mu$ est l'espérance, le centre de la cloche ;
+- $\sigma$ est l'écart type, qui règle sa largeur ; $\sigma^2$ est la variance ;
+- le facteur $\frac{1}{\sigma\sqrt{2\pi}}$ assure que l'aire totale sous la courbe vaut 1.
+
+La loi normale centrée réduite (*standard normal*) est $\mathcal{N}(0, 1)$. Toute variable normale s'y ramène : si $X$ suit $\mathcal{N}(\mu, \sigma^2)$, alors $Z = (X - \mu)/\sigma$ suit $\mathcal{N}(0, 1)$.
+
+Autrement dit : la loi normale est la courbe en cloche, entièrement décrite par son centre et sa largeur.
+
+<Depliable titre="Pourquoi la forme est une cloche, et d'où viennent les moindres carrés">
+
+**La forme.** Dans l'exposant, $-(x - \mu)^2/(2\sigma^2)$ vaut 0 en $x = \mu$ et devient de plus en plus négatif quand $x$ s'en éloigne, des deux côtés de la même façon. L'exponentielle d'un nombre très négatif est presque nulle : la densité est maximale en $\mu$, symétrique, et s'effondre vite. À une distance de $2\sigma$, elle vaut $e^{-2} \approx 0{,}135$ fois son maximum ; à $3\sigma$, $e^{-4{,}5} \approx 0{,}011$ fois.
+
+**Le lien avec les moindres carrés.** Supposons qu'un prix observé $y_i$ soit la prédiction $\hat{y}_i$ plus un bruit gaussien de variance $\sigma^2$. La probabilité (la densité) d'observer $y_i$ vaut $f(y_i)$ avec $\mu = \hat{y}_i$. Pour $n$ observations [indépendantes](/maths/independance/), on multiplie, puis on prend le [logarithme](/maths/exp-log/) :
+
+$$
+\ln \prod_{i} f(y_i) = \sum_i \left(-\ln(\sigma\sqrt{2\pi}) - \frac{(y_i - \hat{y}_i)^2}{2\sigma^2}\right) = \text{constante} - \frac{1}{2\sigma^2}\sum_i (y_i - \hat{y}_i)^2
+$$
+
+Rendre cette quantité maximale revient à rendre $\sum_i (y_i - \hat{y}_i)^2$ minimale. Minimiser l'erreur quadratique, c'est donc faire l'hypothèse d'un bruit gaussien : c'est le [maximum de vraisemblance](/maths/maximum-vraisemblance/) appliqué à la loi normale.
+
+**Pourquoi elle est partout.** Le théorème central limite, qu'on admet ici (chapitre 3 de *Deep Learning*), dit que la somme de nombreuses variables indépendantes de même loi, une fois centrée et réduite, suit approximativement une loi normale, quelle que soit la loi de départ. D'où la cloche de la loi binomiale pour $n = 20$ dans la fiche sur les [variables aléatoires](/maths/variables-aleatoires/).
+
+</Depliable>
+
+## Un exemple à la main
+
+Les tailles des élèves suivent $\mathcal{N}(165, 8^2)$, en cm.
+
+- Entre 157 et 173 cm, soit à moins d'un écart type : environ 68 % des élèves.
+- Entre 149 et 181 cm, à moins de deux écarts types : environ 95 %.
+- Au-dessus de 181 cm : la moitié des 5 % restants, soit environ 2,5 %.
+- Un élève de 185 cm : $z = (185 - 165)/8 = 2{,}5$ écarts types au-dessus de la moyenne.
+
+La densité au centre vaut $f(165) = \frac{1}{8\sqrt{2\pi}} \approx 0{,}050$ par cm. Ce n'est pas une probabilité : la probabilité d'avoir une taille entre 164,5 et 165,5 cm est d'environ $0{,}050 \times 1 = 0{,}05$, l'aire d'une bande d'un centimètre de large.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec $k = 1$, fais varier $\sigma$ de 3 à 15. La probabilité affichée change-t-elle ? Puis passe $k$ de 1 à 2 et à 3.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $k = 1$, la probabilité reste environ 68,3 % quel que soit $\sigma$ : la cloche s'élargit, l'intervalle aussi, et la proportion ne bouge pas. C'est pour cela qu'on mesure les écarts en « nombre d'écarts types ».
+
+Avec $k = 2$, on obtient environ 95,4 % ; avec $k = 3$, environ 99,7 %. Au-delà de trois écarts types, il ne reste que 0,3 % des valeurs : un point qui s'en écarte autant est suspect, souvent une erreur de mesure ou une donnée aberrante.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Modéliser le bruit.** La [régression linéaire](/concepts/regression-lineaire/) suppose, souvent sans le dire, un bruit gaussien : c'est ce qui justifie l'erreur quadratique, via le [maximum de vraisemblance](/maths/maximum-vraisemblance/).
+- **Initialiser les réseaux.** Les poids d'un réseau de neurones sont souvent tirés au départ selon une loi normale de petit écart type, choisi pour garder les signaux à la bonne échelle.
+- **La GELU.** L'activation GELU, vue dans la fiche sur les [fonctions d'activation](/concepts/fonctions-activation/), multiplie son entrée par la fonction de répartition de la loi normale.
+
+## Les pièges classiques
+
+**« Toutes les données suivent une loi normale. »** Les revenus, les tailles de fichiers ou les fréquences des mots ont des queues bien plus longues : des valeurs extrêmes y sont beaucoup plus fréquentes que ce que prédit la cloche.
+
+**« La densité est une probabilité. »** $f(165) \approx 0{,}050$ n'est pas la probabilité de mesurer exactement 165 cm, qui est nulle. Seules les aires sont des probabilités.
+
+**« 95 % des valeurs sont à moins de 2 écarts types, pour n'importe quelle loi. »** C'est une propriété de la loi normale. Pour une autre loi, la proportion peut être bien différente.
+
+## Entraîne-toi
+
+**Exercice 1.** Les prix d'un trajet suivent $\mathcal{N}(820, 30^2)$ en F. Dans quel intervalle se trouvent environ 95 % des prix ?
+
+<Depliable titre="Corrigé">
+
+$820 \pm 2 \times 30$, soit entre 760 et 880 F.
+
+</Depliable>
+
+**Exercice 2.** Avec $\mathcal{N}(165, 8^2)$, quelle proportion d'élèves mesure moins de 157 cm ?
+
+<Depliable titre="Corrigé">
+
+157 cm est à un écart type sous la moyenne. Il y a environ 68 % à moins d'un écart type, donc 32 % au-delà, répartis également des deux côtés : environ 16 %.
+
+</Depliable>
+
+**Exercice 3.** Si $X$ suit $\mathcal{N}(10, 4)$, quelle est la loi de $Y = 3X + 1$ ?
+
+<Depliable titre="Corrigé">
+
+$\mathbb{E}[Y] = 3 \times 10 + 1 = 31$ et $\mathrm{Var}(Y) = 9 \times 4 = 36$. On admet qu'une transformation affine d'une variable normale reste normale : $Y$ suit $\mathcal{N}(31, 36)$, d'écart type 6.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "loi normale", en: "normal (Gaussian) distribution", definition: "Loi continue en forme de cloche, décrite par sa moyenne μ et son écart type σ." },
+  { fr: "loi normale centrée réduite", en: "standard normal distribution", definition: "La loi normale de moyenne 0 et d'écart type 1." },
+  { fr: "centrer-réduire", en: "standardize", definition: "Transformer X en (X − μ) / σ, pour mesurer les écarts en nombre d'écarts types." },
+  { fr: "théorème central limite", en: "central limit theorem", definition: "Une somme de nombreuses variables indépendantes suit approximativement une loi normale." }
+]} />
