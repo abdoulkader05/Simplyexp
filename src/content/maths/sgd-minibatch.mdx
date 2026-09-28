@@ -1,0 +1,148 @@
+---
+id: sgd-minibatch
+type: maths
+titre: "SGD et mini-batch : apprendre sans tout relire"
+sous_titre: "Descente de gradient stochastique et par mini-lots"
+domaine: optimisation
+niveau: 3
+prerequis: [descente-gradient, loi-grands-nombres]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.1.3 (algorithmes par lots et mini-lots, erreur standard en racine de m) et section 8.3.1 (descente de gradient stochastique)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+La [descente de gradient](/maths/descente-gradient/) calcule, à chaque pas, le gradient de la perte sur toutes les données. Avec quatre trajets de gbaka, c'est instantané. Avec des milliards de phrases, un seul pas prendrait des jours. L'idée de la descente de gradient stochastique (SGD) : estimer le gradient sur un petit échantillon tiré au hasard, et faire beaucoup plus de pas. La [loi des grands nombres](/maths/loi-grands-nombres/) dit pourquoi l'estimation est bonne en moyenne.
+
+## L'intuition
+
+Pour connaître le goût d'une grande marmite de sauce, personne ne la boit en entier : on goûte une cuillère, après avoir remué. Une cuillère ne dit pas tout, mais elle dit l'essentiel, et on peut goûter souvent en ajustant le sel au fur et à mesure.
+
+Le gradient calculé sur un petit lot d'exemples est une cuillère : il pointe à peu près dans la bonne direction, avec un peu de hasard. Ici, on reprend le tarif du gbaka avec 200 trajets simulés. Compare les 40 premiers pas avec des lots de taille $m$ et la descente sur les 200 trajets, en pointillés.
+
+<Simulation
+  rendu="sgd-bruit"
+  label="Évolution du tarif w au fil des pas, pour une taille de lot choisie, comparée à la descente sur toutes les données"
+  parametres={[
+    { nom: "taille", label: "Taille du lot m", min: 1, max: 200, pas: 1, valeur: 1, role: "parametre" }
+  ]}
+  legende="Données simulées : prix d'environ 140 F par km plus un bruit aléatoire, 200 trajets. Pas d'apprentissage 0,004."
+/>
+
+## La définition
+
+La perte est une moyenne sur les $n$ exemples : $\mathcal{L}(\theta) = \frac{1}{n}\sum_{i=1}^{n} \ell_i(\theta)$, où $\ell_i$ est la perte sur l'exemple $i$. À chaque pas, on tire au hasard un lot $B$ de $m$ exemples et on met à jour :
+
+$$
+\theta_{t+1} = \theta_t - \eta\, \mathbf{g}_B \qquad \text{avec} \qquad \mathbf{g}_B = \frac{1}{m} \sum_{i \in B} \nabla_\theta\, \ell_i(\theta_t)
+$$
+
+où :
+- $B$ est le mini-lot (*mini-batch*), un ensemble de $m$ exemples tirés au hasard ;
+- $m$ est la taille du lot (*batch size*) ;
+- $\mathbf{g}_B$ est le gradient estimé sur ce lot seulement ;
+- $\eta$ est le *learning rate*, comme dans la [descente de gradient](/maths/descente-gradient/).
+
+Avec $m = 1$, c'est la descente de gradient stochastique au sens strict (*stochastic gradient descent*, SGD). Avec $m = n$, on retrouve la descente complète. En pratique, on mélange les données puis on les parcourt lot par lot : un passage complet sur les données s'appelle une époque (*epoch*).
+
+Autrement dit : au lieu de mesurer la vraie pente sur toutes les données, on l'estime sur quelques exemples, et on accepte un peu de bruit en échange de pas beaucoup moins chers.
+
+<Depliable titre="Pourquoi le gradient d'un lot vise juste en moyenne">
+
+On tire chaque exemple du lot uniformément parmi les $n$, indépendamment. Pour un tirage $I$, chaque exemple a la probabilité $1/n$ :
+
+$$
+\begin{aligned}
+\mathbb{E}\big[\nabla \ell_I(\theta)\big] &= \sum_{i=1}^{n} \frac{1}{n}\, \nabla \ell_i(\theta) && \text{définition de l'espérance} \\
+&= \nabla \Big(\frac{1}{n}\sum_{i=1}^{n} \ell_i(\theta)\Big) && \text{le gradient d'une somme est la somme des gradients} \\
+&= \nabla \mathcal{L}(\theta) && \text{définition de la perte}
+\end{aligned}
+$$
+
+Le gradient d'un seul exemple tiré au hasard est donc un estimateur sans biais (*unbiased*) du vrai gradient. Le gradient d'un lot est une moyenne de $m$ tels estimateurs, et reste sans biais par linéarité de l'espérance.
+
+Son bruit diminue avec $m$ : pour des tirages indépendants, la variance d'une moyenne de $m$ termes est la variance d'un terme divisée par $m$ (on l'admet, c'est le même calcul que pour la [loi des grands nombres](/maths/loi-grands-nombres/)). L'écart type, lui, est divisé par $\sqrt{m}$ : un lot 100 fois plus grand ne rend le gradient que 10 fois plus précis, pour un coût 100 fois plus élevé.
+
+</Depliable>
+
+## Un exemple à la main
+
+Reprends les quatre trajets du gbaka de la fiche [fonction de perte](/maths/fonction-perte/), le tarif actuel $w = 100$, et la perte $\ell_i(w) = (w x_i - y_i)^2$ sur chaque trajet. Sa dérivée est $\ell_i'(w) = 2 x_i (w x_i - y_i)$.
+
+- Trajet 1 (2 km, 300 F) : $2 \times 2 \times (200 - 300) = -400$.
+- Trajet 2 (4 km, 500 F) : $2 \times 4 \times (400 - 500) = -800$.
+- Trajet 3 (5 km, 700 F) : $2 \times 5 \times (500 - 700) = -2\,000$.
+- Trajet 4 (8 km, 1 100 F) : $2 \times 8 \times (800 - 1\,100) = -4\,800$.
+- Gradient complet : $(-400 - 800 - 2\,000 - 4\,800) / 4 = -2\,000$.
+
+Avec des lots de deux trajets, le gradient estimé dépend du tirage. Le lot $\{1, 4\}$ donne $(-400 - 4\,800) / 2 = -2\,600$. Le lot $\{2, 3\}$ donne $(-800 - 2\,000) / 2 = -1\,400$. Sur les six lots possibles, les estimations sont $-600$, $-1\,200$, $-2\,600$, $-1\,400$, $-2\,800$ et $-3\,400$ ; leur moyenne vaut exactement $-2\,000$. Toutes ont le bon signe : quel que soit le lot, on augmente $w$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : compare $m = 1$, $m = 5$, $m = 20$ et $m = 200$. Regarde la forme de la courbe et l'agitation en fin de parcours. Combien de trajets faut-il lire au total pour faire 40 pas avec chaque taille ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $m = 1$, la courbe monte vers la bonne zone, autour de 140, mais continue de trembler : chaque pas suit un seul trajet, parfois trompeur. Avec $m = 5$ puis $m = 20$, le tremblement diminue nettement. Avec $m = 200$, on retrouve la courbe lisse en pointillés.
+
+Le prix à payer est dans le nombre de trajets lus : $40 \times 1 = 40$ lectures avec $m = 1$, 200 avec $m = 5$, 800 avec $m = 20$ et 8 000 avec $m = 200$. Les petits lots arrivent presque aussi vite dans la bonne zone pour une fraction du calcul. En revanche, à pas d'apprentissage constant, ils ne s'immobilisent jamais tout à fait : c'est une raison de faire décroître le [learning rate](/maths/learning-rate/) en fin d'entraînement.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Entraîner à grande échelle.** Les réseaux de neurones sont entraînés par mini-lots, typiquement de quelques dizaines à quelques milliers d'exemples, parce que le calcul d'un lot se parallélise bien sur une carte graphique.
+- **Un bruit parfois utile.** Le bruit des petits lots empêche la descente de s'installer trop tôt dans un creux étroit ; il est souvent présenté comme une forme de régularisation, sans que ce soit une garantie.
+- **La base des optimiseurs modernes.** Le [momentum](/maths/momentum/) et [Adam](/maths/adam/) travaillent tous deux à partir de gradients de mini-lots, et cherchent à en lisser le bruit.
+
+## Les pièges classiques
+
+**« SGD converge vers le minimum exact. »** Avec un pas constant, les estimations bruitées font trembler les paramètres autour du minimum sans s'y poser. Pour s'en approcher vraiment, il faut faire décroître le pas.
+
+**« Un pas, c'est une époque. »** Une époque est un passage sur toutes les données. Avec 200 trajets et des lots de 20, une époque compte 10 pas. Les deux mots ne se remplacent pas l'un l'autre.
+
+**« Un lot plus grand, c'est toujours mieux. »** Un lot 4 fois plus grand coûte 4 fois plus de calcul pour un gradient seulement 2 fois plus précis. Au-delà d'une certaine taille, on paie beaucoup pour un gain faible.
+
+## Entraîne-toi
+
+**Exercice 1.** Un jeu de données compte 50 000 exemples et on utilise des lots de 250. Combien de pas fait-on par époque ? Et en 10 époques ?
+
+<Depliable titre="Corrigé">
+
+$50\,000 / 250 = 200$ pas par époque, donc $2\,000$ pas en 10 époques.
+
+</Depliable>
+
+**Exercice 2.** Pour les quatre trajets, calcule le gradient estimé des lots $\{1, 2\}$ et $\{3, 4\}$ en $w = 100$. Vérifie que la moyenne des six lots possibles vaut $-2\,000$.
+
+<Depliable titre="Corrigé">
+
+$\{1, 2\}$ : $(-400 - 800) / 2 = -600$. $\{3, 4\}$ : $(-2\,000 - 4\,800) / 2 = -3\,400$.
+
+Les six lots donnent $-600$, $-1\,200$ ($\{1, 3\}$), $-2\,600$ ($\{1, 4\}$), $-1\,400$ ($\{2, 3\}$), $-2\,800$ ($\{2, 4\}$) et $-3\,400$. Somme : $-12\,000$, moyenne : $-2\,000$.
+
+</Depliable>
+
+**Exercice 3.** Avec des lots de 16, l'écart type du gradient estimé vaut 8 (dans une certaine unité). Quelle taille de lot faut-il pour le ramener à 2 ? Combien de fois plus de calcul par pas ?
+
+<Depliable titre="Corrigé">
+
+L'écart type est proportionnel à $1/\sqrt{m}$. Pour le diviser par 4, il faut multiplier $m$ par $4^2 = 16$ : des lots de 256. Chaque pas coûte alors 16 fois plus de calcul.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "descente de gradient stochastique", en: "stochastic gradient descent (SGD)", definition: "Descente de gradient où le gradient est estimé sur des exemples tirés au hasard." },
+  { fr: "mini-lot", en: "mini-batch", definition: "Petit groupe d'exemples sur lequel on calcule un gradient estimé." },
+  { fr: "taille du lot", en: "batch size", definition: "Nombre m d'exemples dans un mini-lot." },
+  { fr: "époque", en: "epoch", definition: "Un passage complet sur toutes les données d'entraînement." },
+  { fr: "sans biais", en: "unbiased", definition: "Se dit d'un estimateur dont l'espérance est égale à la valeur visée." }
+]} />
