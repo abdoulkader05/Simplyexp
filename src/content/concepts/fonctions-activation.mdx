@@ -1,0 +1,208 @@
+---
+id: fonctions-activation
+type: concept
+titre: "Les fonctions d'activation : la dose de non-linéarité qui change tout"
+sous_titre: "ReLU, sigmoïde, tanh, GELU"
+domaine: deep-learning
+niveau: 3
+prerequis: [neurone-artificiel]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Glorot, Bordes, Bengio, « Deep Sparse Rectifier Neural Networks », AISTATS 2011, PMLR 15:315-323 — https://proceedings.mlr.press/v15/glorot11a.html — résumé (unités rectifiées contre tanh)"
+  - "Hendrycks, Gimpel, « Gaussian Error Linear Units (GELUs) », arXiv 1606.08415, 2016 — https://arxiv.org/abs/1606.08415 — résumé (GELU(x) = x Φ(x))"
+  - "Devlin et al., « BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding », 2018 — https://arxiv.org/abs/1810.04805 — annexe A.2 (activation gelu, à la suite d'OpenAI GPT)"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.3 (unités cachées : ReLU, sigmoïde, tanh)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Un [neurone artificiel](/concepts/neurone-artificiel/) seul trace une frontière droite. L'idée naturelle est d'en empiler plusieurs couches pour obtenir des frontières courbes. Mais si chaque neurone se contente de sa somme pondérée, l'empilement ne sert à rien : une somme pondérée de sommes pondérées reste une somme pondérée. Toute la puissance des réseaux profonds tient à un petit ingrédient ajouté après chaque somme : une fonction non linéaire. Laquelle choisir ? Pendant des années, ce choix a décidé si un réseau profond apprenait ou non.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Une fonction d'activation tord la sortie de chaque neurone ; sans elle, un réseau de cent couches ne vaudrait pas mieux qu'une seule.
+</PhraseCle>
+
+## En image
+
+Pense à un robinet d'eau sur une borne-fontaine.
+
+- Le score $z$ du neurone est l'effort que tu mets pour tourner la poignée.
+- Le débit d'eau est la sortie $\varphi(z)$.
+- Avec la ReLU, c'est un robinet simple : tant que tu tournes dans le mauvais sens, rien ne coule ; dans le bon sens, le débit suit ton effort.
+- Avec la sigmoïde, c'est un robinet bridé : au-delà d'un certain point, tourner plus fort ne change plus rien, le débit plafonne.
+- La pente $\varphi'(z)$ est ce que tu sens dans la main : si tourner ne change plus rien, tu ne sais plus dans quel sens corriger.
+
+Là où l'image s'arrête : un robinet ne coule jamais « négativement ». La tanh, elle, donne des sorties négatives, et la GELU laisse passer un tout petit débit négatif pour des efforts légèrement négatifs.
+
+## Comment ça marche
+
+Après la somme pondérée $z = \mathbf{w} \cdot \mathbf{x} + b$, le neurone calcule $a = \varphi(z)$. Quatre choix dominent :
+
+<FormuleVivante
+  tex="\htmlClass{t-sig}{\sigma}(z) = \frac{1}{1 + e^{-z}} \quad \htmlClass{t-tanh}{\tanh}(z) = \frac{e^{z} - e^{-z}}{e^{z} + e^{-z}} \quad \htmlClass{t-relu}{\mathrm{ReLU}}(z) = \max(0, z) \quad \htmlClass{t-gelu}{\mathrm{GELU}}(z) = z\,\Phi(z)"
+  termes={{
+    sig: { role: "sortie", texte: "sigmoïde : sortie entre 0 et 1 ; pente maximale 0,25" },
+    tanh: { role: "sortie", texte: "tangente hyperbolique : sortie entre −1 et 1, centrée en 0 ; pente maximale 1" },
+    relu: { role: "sortie", texte: "unité linéaire rectifiée : 0 pour z négatif, z sinon ; pente 0 ou 1" },
+    gelu: { role: "sortie", texte: "GELU : z multiplié par la probabilité Φ(z) qu'une loi normale soit inférieure à z" }
+  }}
+  label="Quatre fonctions d'activation"
+/>
+
+où :
+- $z$ est la pré-activation du neurone ;
+- $e$ est la base de l'exponentielle et $\max(0, z)$ le plus grand des deux nombres ;
+- $\Phi(z)$ est la fonction de répartition de la loi normale centrée réduite : la probabilité qu'une telle variable soit inférieure à $z$.
+
+Quelques valeurs à la main. En $z = 1$ : $\sigma(1) \approx 0{,}731$, $\tanh(1) \approx 0{,}762$, $\mathrm{ReLU}(1) = 1$ et $\mathrm{GELU}(1) = 1 \times \Phi(1) \approx 0{,}841$. En $z = -1$ : $0{,}269$, $-0{,}762$, $0$ et environ $-0{,}159$.
+
+Ce qui compte autant que la valeur, c'est la pente $\varphi'(z)$, car c'est elle que l'apprentissage utilise pour remonter les erreurs dans le réseau. Pour la <Terme id="sig">sigmoïde</Terme>, $\sigma'(z) = \sigma(z)(1 - \sigma(z))$ : elle vaut au plus 0,25, en $z = 0$, et seulement 0,045 en $z = 3$. Le neurone est alors saturé : ses entrées peuvent bouger, sa sortie ne bouge presque plus. Pour la <Terme id="relu">ReLU</Terme>, la pente vaut exactement 1 pour tout $z > 0$ : pas de saturation du côté positif. Glorot, Bordes et Bengio ont montré en 2011 que des réseaux profonds à ReLU apprenaient aussi bien ou mieux que des réseaux à tanh, sans avoir besoin d'un pré-entraînement spécial. La <Terme id="gelu">GELU</Terme>, proposée par Hendrycks et Gimpel en 2016, adoucit la ReLU autour de zéro.
+
+<Simulation
+  rendu="activation-courbes"
+  label="Courbe d'une fonction d'activation, sa dérivée et la pente au point choisi"
+  parametres={[
+    { nom: "fonction", label: "Fonction (0 sigmoïde, 1 tanh, 2 ReLU, 3 GELU)", min: 0, max: 3, pas: 1, valeur: 0, role: "entree" },
+    { nom: "z", label: "Pré-activation z", min: -5, max: 5, pas: 0.1, valeur: 3, role: "entree", decimales: 1 }
+  ]}
+  legende="Trait doré : la fonction. Pointillés : sa dérivée. Trait rouge : la tangente au point choisi."
+/>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Sans activation, les couches s'effondrent en une seule.** Deux couches linéaires successives calculent, avec des [matrices](/maths/produit-matriciel/) de poids $\mathbf{W}_1$, $\mathbf{W}_2$ et des vecteurs de biais $\mathbf{b}_1$, $\mathbf{b}_2$ :
+
+$$
+\begin{aligned}
+\mathbf{W}_2\big(\mathbf{W}_1 \mathbf{x} + \mathbf{b}_1\big) + \mathbf{b}_2 &= \mathbf{W}_2 \mathbf{W}_1 \mathbf{x} + \mathbf{W}_2 \mathbf{b}_1 + \mathbf{b}_2 && \text{distributivité du produit matriciel} \\
+&= \mathbf{W}\,\mathbf{x} + \mathbf{b} && \mathbf{W} = \mathbf{W}_2\mathbf{W}_1,\ \mathbf{b} = \mathbf{W}_2\mathbf{b}_1 + \mathbf{b}_2
+\end{aligned}
+$$
+
+C'est une seule couche linéaire. Par récurrence, cent couches linéaires aussi. Il faut une fonction non linéaire entre les couches pour échapper à cet effondrement.
+
+**Pourquoi la saturation freine l'apprentissage.** Dans un réseau, le signal d'erreur qui remonte vers une couche est multiplié par la pente $\varphi'(z)$ de chaque couche traversée (c'est la [règle de la chaîne](/maths/regle-chaine/)). Avec des sigmoïdes, chaque facteur vaut au plus 0,25. À travers 10 couches, dans le meilleur cas :
+
+$$
+0{,}25^{10} \approx 9{,}5 \times 10^{-7}
+$$
+
+Le signal est divisé par un million : les premières couches n'apprennent presque rien. Avec des ReLU actives, chaque facteur vaut 1 et le signal passe intact. C'est le cœur du [gradient qui disparaît](/concepts/gradient-evanescent/).
+
+**La dérivée de la tanh.** $\tanh(z) = 2\sigma(2z) - 1$, donc $\tanh'(z) = 4\sigma'(2z) = 1 - \tanh^2(z)$, qui vaut 1 en zéro : quatre fois plus que la sigmoïde.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : pour chaque fonction, place $z$ à 3, puis à $-3$, et note la pente. Laquelle garde une pente utile des deux côtés ? Laquelle a une pente nulle d'un côté ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Sigmoïde : pente d'environ 0,045 en 3 comme en $-3$ ; elle sature des deux côtés. Tanh : environ 0,010 des deux côtés, elle sature encore plus loin du centre, même si sa pente en zéro est plus forte. ReLU : pente 1 en 3, pente 0 en $-3$ ; un neurone dont la pré-activation reste toujours négative n'apprend plus, on dit qu'il est « mort ». GELU : pente d'environ 1 en 3 et presque nulle en $-3$, mais légèrement négative autour de $-1$ (environ $-0{,}08$) : elle ne coupe pas net.
+
+Aucune n'est parfaite. La ReLU et la GELU évitent la saturation du côté positif, ce qui explique leur succès dans les réseaux profonds ; la sigmoïde reste utile en sortie, pour produire une probabilité.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+from math import erf, sqrt
+
+sigmoide = lambda z: 1 / (1 + np.exp(-z))
+relu = lambda z: np.maximum(0, z)
+gelu = lambda z: z * 0.5 * (1 + np.vectorize(erf)(z / sqrt(2)))
+
+z = np.array([-3.0, -1.0, 0.0, 1.0, 3.0])
+print("sigmoïde :", sigmoide(z).round(3))
+print("tanh     :", np.tanh(z).round(3))
+print("ReLU     :", relu(z))
+print("GELU     :", gelu(z).round(3))
+
+# Pentes : la sigmoïde sature, la ReLU non
+print("pente sigmoïde :", (sigmoide(z) * (1 - sigmoide(z))).round(3))
+print("signal après 10 couches de sigmoïdes, au mieux :", 0.25 ** 10)
+
+# Deux couches linéaires sans activation = une seule couche
+rng = np.random.default_rng(0)
+W1, W2, x = rng.normal(size=(4, 3)), rng.normal(size=(2, 4)), rng.normal(size=3)
+print("mêmes résultats :", np.allclose(W2 @ (W1 @ x), (W2 @ W1) @ x))
+```
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+z = torch.linspace(-3, 3, 7)
+print(torch.relu(z), torch.sigmoid(z), torch.tanh(z), torch.nn.functional.gelu(z))
+```
+
+## Les pièges classiques
+
+**« La fonction d'activation sert à mettre la sortie entre 0 et 1. »** C'est vrai pour la sigmoïde, mais la ReLU et la GELU ne sont pas bornées. Leur rôle premier est d'être non linéaires ; borner la sortie n'est utile qu'en fin de réseau, pour une probabilité.
+
+**« La ReLU n'est pas dérivable en 0, donc on ne peut pas l'utiliser. »** Le point $z = 0$ exactement n'arrive presque jamais avec des nombres réels ; les bibliothèques prennent une pente de 0 ou de 1 en ce point, et l'apprentissage fonctionne très bien.
+
+**« Plus la fonction est compliquée, mieux c'est. »** La ReLU est la plus simple de toutes, un simple maximum, et c'est justement sa pente constante qui l'a imposée dans les réseaux profonds. Une fonction plus riche n'apporte un gain que si ses propriétés de pente sont bonnes.
+
+## Dans la vraie vie
+
+La ReLU est devenue l'activation par défaut des réseaux profonds après les travaux de 2011 cités plus haut. BERT, l'un des premiers grands Transformers de langage, utilise la GELU plutôt que la ReLU, « à la suite d'OpenAI GPT », écrivent ses auteurs (Devlin et ses coauteurs, 2018, annexe A.2) ; la sigmoïde et le [softmax](/concepts/softmax/) restent réservés aux sorties, là où l'on veut des probabilités, ou aux portes des [LSTM](/concepts/lstm/).
+
+Le même principe du « rien sous le seuil, proportionnel au-dessus » se retrouve dans des règles de tous les jours : une commission de vendeur qui ne démarre qu'au-delà d'un chiffre d'affaires minimum, puis grandit avec les ventes, a exactement la forme d'une ReLU décalée.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que vaut ReLU(−2,5) ? Et ReLU(2,5) ?",
+    choix: ["0 et 2,5", "−2,5 et 2,5", "0 et 1", "2,5 et 2,5"],
+    bonne: 0,
+    explication: "ReLU(z) = max(0, z) : 0 pour les valeurs négatives, z lui-même pour les positives."
+  },
+  {
+    question: "Un réseau de 5 couches n'utilise aucune fonction d'activation. Que peut-il représenter ?",
+    choix: ["N'importe quelle fonction", "Seulement une fonction linéaire (plus une constante)", "Seulement des probabilités", "Rien du tout"],
+    bonne: 1,
+    explication: "Des couches linéaires successives se combinent en une seule couche linéaire : W₅…W₁x plus un biais."
+  },
+  {
+    question: "Quelle est la pente maximale de la sigmoïde ?",
+    choix: ["1", "0,5", "0,25", "0"],
+    bonne: 2,
+    explication: "σ'(z) = σ(z)(1 − σ(z)), maximale en z = 0 où elle vaut 0,5 × 0,5 = 0,25."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi la ReLU a-t-elle remplacé la sigmoïde dans les couches cachées ?">
+
+La sigmoïde sature : sa dérivée est au plus 0,25 et devient presque nulle loin de zéro. En rétropropagation, le gradient est multiplié par ces dérivées couche après couche et s'éteint dans les réseaux profonds. La ReLU a une dérivée de 1 pour toute entrée positive, donc le gradient traverse les couches actives sans être atténué ; elle est aussi très rapide à calculer et produit des activations creuses (beaucoup de zéros). Son défaut est le neurone mort, dont la pré-activation reste négative et qui ne reçoit plus de gradient ; des variantes comme Leaky ReLU ou GELU l'atténuent. La sigmoïde reste utilisée en sortie pour des probabilités binaires et dans les portes des LSTM.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "fonction d'activation", en: "activation function", definition: "Fonction non linéaire appliquée à la pré-activation d'un neurone." },
+  { fr: "unité linéaire rectifiée", en: "rectified linear unit (ReLU)", definition: "ReLU(z) = max(0, z)." },
+  { fr: "tangente hyperbolique", en: "hyperbolic tangent (tanh)", definition: "Fonction en S à valeurs entre −1 et 1, centrée en 0." },
+  { fr: "GELU", en: "Gaussian error linear unit", definition: "GELU(z) = z Φ(z), une version adoucie de la ReLU." },
+  { fr: "saturation", en: "saturation", definition: "Zone où la fonction est presque plate : sa dérivée est proche de zéro et l'apprentissage ralentit." },
+  { fr: "neurone mort", en: "dead neuron", definition: "Neurone ReLU dont la pré-activation reste négative : il sort toujours 0 et n'apprend plus." }
+]} />
