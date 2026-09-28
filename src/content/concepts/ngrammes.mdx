@@ -1,0 +1,226 @@
+---
+id: ngrammes
+type: concept
+titre: "Les n-grammes : les ancêtres oubliés de ChatGPT"
+sous_titre: "Modèles de langage n-grammes et leurs limites"
+domaine: langage
+niveau: 3
+prerequis: [modele-langage]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre 3 (N-gram Language Models : hypothèse de Markov, estimation par comptage, n-grammes absents, lissage de Laplace)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [modèle de langage](/concepts/modele-langage/) doit donner la probabilité du token suivant sachant **tout** ce qui précède. Aujourd'hui, un réseau de neurones fait ce calcul. Mais bien avant, on avait une méthode beaucoup plus simple, qui ne demande qu'un corpus et la capacité de compter. Elle a servi pendant des décennies en reconnaissance de la parole, en correction orthographique et en traduction automatique. Comprendre ses forces et surtout ses limites, c'est comprendre pourquoi on est passé aux réseaux de neurones.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un modèle n-gramme oublie tout le passé sauf les n − 1 derniers mots, et estime la probabilité du mot suivant en comptant combien de fois chaque suite apparaît dans un corpus.
+</PhraseCle>
+
+## En image
+
+Imagine quelqu'un qui n'aurait lu que des horaires de train et qui devrait deviner le mot suivant en ne regardant que le dernier mot écrit.
+
+- Après « départ », il a vu « à » presque à chaque fois : il parie sur « à ».
+- Après « voie », il a toujours vu un numéro : il parie sur un numéro.
+- Il ne se souvient pas du début de la phrase : après « le train de Lyon arrive voie », il ne sait plus qu'on parlait de Lyon.
+- Et si on lui montre un mot qu'il n'a jamais vu suivi de rien, il est perdu.
+
+Là où l'image s'arrête : un vrai modèle n-gramme regarde souvent les deux ou trois derniers mots, pas un seul, et il est entraîné sur des milliards de mots plutôt que sur un seul type de texte. Mais sa mémoire reste bornée, et c'est tout le problème.
+
+## Comment ça marche
+
+On fait l'**hypothèse de Markov** (*Markov assumption*) : le mot suivant ne dépend que des $n - 1$ mots qui le précèdent.
+
+$$
+P(x_t \mid x_1, \dots, x_{t-1}) \approx P(x_t \mid x_{t-n+1}, \dots, x_{t-1})
+$$
+
+où :
+- $x_1, \dots, x_{t-1}$ sont les mots déjà présents, $x_t$ le mot suivant ;
+- $n$ est l'ordre du modèle : $n = 2$ donne un modèle **bigramme** (le dernier mot seulement), $n = 3$ un modèle **trigramme** (les deux derniers).
+
+Un n-gramme (*n-gram*) est une suite de $n$ mots consécutifs. Pour un bigramme, la probabilité s'estime en comptant :
+
+$$
+P(b \mid a) = \frac{C(a\,b)}{C(a)}
+$$
+
+où $C(a\,b)$ est le nombre d'apparitions de la paire « $a$ suivi de $b$ » dans le corpus, et $C(a)$ le nombre d'apparitions de $a$ suivi d'un mot quelconque. Exemple : si « le » apparaît 3 fois, dont 2 fois suivi de « chat », alors $P(\text{chat} \mid \text{le}) = 2/3$. Fais défiler.
+
+<PasAPas rendu="ngrammes-comptes" label="Estimation de bigrammes par comptage et lissage">
+  <Etape etat="initial">
+    Le corpus : « le chat dort . », « le chien dort . », « le chat mange . ». Le point compte comme un mot. On repère les paires de mots voisins.
+  </Etape>
+  <Etape etat="le">
+    **Après « le ».** « le » apparaît 3 fois, suivi 2 fois de « chat » et 1 fois de « chien ». D'où $P(\text{chat} \mid \text{le}) = 2/3$ et $P(\text{chien} \mid \text{le}) = 1/3$.
+  </Etape>
+  <Etape etat="chat">
+    **Après « chat ».** Une fois « dort », une fois « mange » : $1/2$ chacun. Par la règle du produit, $P(\text{le chat dort .} \mid \text{le}) = 2/3 \times 1/2 \times 1 = 1/3$.
+  </Etape>
+  <Etape etat="zero">
+    **Le problème.** « chien » n'a été vu qu'une fois, suivi de « dort ». Donc $P(\text{mange} \mid \text{chien}) = 0$, et la phrase parfaitement correcte « le chien mange . » reçoit une probabilité **nulle**.
+  </Etape>
+  <Etape etat="laplace">
+    **Le lissage de Laplace** ajoute 1 à chaque compte. Avec $V = 6$ mots dans le vocabulaire, $P(\text{mange} \mid \text{chien}) = (0+1)/(1+6) = 1/7$. La phrase n'est plus impossible.
+  </Etape>
+</PasAPas>
+
+Le lissage de Laplace (*add-one smoothing*) s'écrit :
+
+$$
+P_{\text{Laplace}}(b \mid a) = \frac{C(a\,b) + 1}{C(a) + V}
+$$
+
+où $V$ est la taille du vocabulaire. On ajoute $V$ au dénominateur parce qu'on a ajouté 1 à chacun des $V$ mots possibles après $a$ : les probabilités somment encore à 1. Le prix à payer : les suites vues perdent de la probabilité. $P(\text{le chat dort .} \mid \text{le})$ passe de $1/3$ à $3/9 \times 2/8 \times 3/8 \approx 0{,}031$. Des lissages plus fins existent, mais tous se heurtent au même mur.
+
+**Le mur : l'explosion combinatoire.** Avec un vocabulaire de 50 000 mots, il existe $50\,000^2 = 2{,}5$ milliards de bigrammes possibles, et $50\,000^3 = 1{,}25 \times 10^{14}$ trigrammes. Aucun corpus ne les contient tous : la plupart des comptes valent zéro. Augmenter $n$ pour avoir plus de contexte rend le problème pire. Et surtout, deux mots différents sont deux cases de comptage sans aucun lien : avoir vu « le chien dort » n'apprend rien sur « le chiot dort ». C'est ce qu'apporteront les [embeddings](/concepts/embeddings/) et les [RNN](/concepts/rnn/).
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi compter donne la bonne estimation">
+
+Fixons le mot $a$. Après lui, le mot suivant suit une [loi catégorielle](/maths/loi-categorielle/) de paramètres $p_b = P(b \mid a)$, avec $\sum_b p_b = 1$. Dans le corpus, on a observé $C(a)$ fois le mot $a$, suivi $C(a\,b)$ fois de chaque $b$.
+
+La vraisemblance de ces observations est un produit (les apparitions sont supposées indépendantes) :
+
+$$
+\begin{aligned}
+L &= \prod_b p_b^{\,C(a\,b)} && \text{chaque suite observée apporte un facteur } p_b \\
+\ln L &= \sum_b C(a\,b) \ln p_b && \text{le logarithme transforme le produit en somme}
+\end{aligned}
+$$
+
+Cas de deux mots possibles, $p$ et $1 - p$, vus $k$ et $m - k$ fois : $\ln L = k \ln p + (m-k)\ln(1-p)$. La dérivée $\frac{k}{p} - \frac{m-k}{1-p}$ s'annule pour $p = k/m$ : la fréquence observée. Le cas général donne de même $p_b = C(a\,b)/C(a)$ : c'est l'estimateur du [maximum de vraisemblance](/maths/maximum-vraisemblance/).
+
+Le défaut apparaît aussitôt : si $C(a\,b) = 0$, l'estimateur donne $p_b = 0$, alors que « jamais vu » ne veut pas dire « impossible ». Le lissage corrige ce défaut en s'écartant volontairement de la vraisemblance maximale.
+
+</Depliable>
+
+## Essaie toi-même
+
+Avec le même corpus et le lissage de Laplace ($V = 6$), calcule $P(\text{chat} \mid \text{le})$ et $P(\text{chien} \mid \text{le})$. Puis calcule $P(\text{dort} \mid \text{le})$, une suite jamais vue. Les trois valeurs, plus celles des trois autres mots, doivent sommer à 1 : vérifie-le.
+
+<Depliable titre="Ce que tu devrais observer">
+
+$C(\text{le}) = 3$, donc le dénominateur vaut $3 + 6 = 9$.
+
+- $P(\text{chat} \mid \text{le}) = (2+1)/9 = 1/3$ (contre $2/3$ sans lissage) ;
+- $P(\text{chien} \mid \text{le}) = (1+1)/9 = 2/9$ ;
+- $P(\text{dort} \mid \text{le}) = (0+1)/9 = 1/9$, et de même pour « le », « mange » et « . ».
+
+Somme : $3/9 + 2/9 + 4 \times 1/9 = 9/9 = 1$. Remarque le prix : avec un corpus minuscule, le lissage donne presque autant de poids aux suites absurdes (« le . ») qu'aux suites observées. Sur un grand corpus, les comptes dominent et l'effet s'atténue.
+
+</Depliable>
+
+## En code
+
+Depuis zéro : compter les bigrammes, estimer, lisser, générer.
+
+```python
+from collections import Counter
+import numpy as np
+
+corpus = ["le chat dort .", "le chien dort .", "le chat mange ."]
+phrases = [p.split() for p in corpus]
+vocab = sorted({m for p in phrases for m in p})
+V = len(vocab)
+
+bigrammes = Counter((p[i], p[i + 1]) for p in phrases for i in range(len(p) - 1))
+precedents = Counter(p[i] for p in phrases for i in range(len(p) - 1))
+
+def proba(b, a, lissage=False):
+    if lissage:
+        return (bigrammes[(a, b)] + 1) / (precedents[a] + V)
+    return bigrammes[(a, b)] / precedents[a]
+
+def proba_phrase(phrase, lissage=False):
+    m = phrase.split()
+    return np.prod([proba(m[i + 1], m[i], lissage) for i in range(len(m) - 1)])
+
+for p in ["le chat dort .", "le chien mange ."]:
+    print(p, "->", round(proba_phrase(p), 4), "| lissé :", round(proba_phrase(p, True), 4))
+
+# Génération : on tire le mot suivant selon les comptes
+rng = np.random.default_rng(1)
+mot, sortie = "le", ["le"]
+while mot != ".":
+    loi = np.array([proba(b, mot) for b in vocab])
+    mot = rng.choice(vocab, p=loi)
+    sortie.append(str(mot))
+print(" ".join(sortie))
+```
+
+En vrai, avec la bibliothèque NLTK :
+
+```python
+# no-run
+from nltk.lm import Laplace
+from nltk.lm.preprocessing import padded_everygram_pipeline
+textes = [p.split() for p in ["le chat dort .", "le chien dort .", "le chat mange ."]]
+donnees, vocabulaire = padded_everygram_pipeline(2, textes)
+modele = Laplace(2)
+modele.fit(donnees, vocabulaire)
+print(modele.score("mange", ["chien"]))
+```
+
+## Les pièges classiques
+
+**« Un n-gramme plus long est toujours meilleur. »** Plus $n$ grandit, plus les suites deviennent rares et plus les comptes tombent à zéro. Au-delà d'un certain ordre, le modèle ne fait plus que recopier les phrases vues ou renvoyer des zéros.
+
+**« Probabilité nulle veut dire phrase incorrecte. »** Dans un modèle non lissé, zéro veut seulement dire « jamais vu dans ce corpus ». « le chien mange . » est correcte ; notre corpus était simplement trop petit.
+
+**« Le lissage est un détail technique. »** Sans lui, une seule suite inconnue annule la probabilité de toute la phrase, et la [perplexité](/maths/perplexite/) devient infinie. Le choix du lissage a longtemps été ce qui distinguait un bon modèle n-gramme d'un mauvais.
+
+## Dans la vraie vie
+
+Les modèles n-grammes ont longtemps été la pièce centrale des systèmes de reconnaissance de la parole et de traduction statistique : ils départagent des hypothèses qui sonnent pareil, comme « vers » et « verre », en préférant celle qui forme la suite la plus fréquente. Ils restent utiles quand il faut un modèle minuscule et très rapide, par exemple pour des suggestions sur un appareil peu puissant, ou comme point de comparaison simple pour juger un modèle neuronal. Leur limite fondamentale, une mémoire bornée et aucune notion de ressemblance entre mots, est précisément ce que les réseaux de neurones ont levé.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans un modèle trigramme, de quoi dépend la probabilité du mot suivant ?",
+    choix: ["De tout le texte précédent", "Des deux derniers mots", "Du dernier mot seulement", "D'aucun mot"],
+    bonne: 1,
+    explication: "n = 3 : on garde les n − 1 = 2 derniers mots."
+  },
+  {
+    question: "« il » apparaît 10 fois dans un corpus, dont 4 fois suivi de « pleut ». Que vaut P(pleut | il) sans lissage ?",
+    choix: ["0,4", "4", "0,1", "0,04"],
+    bonne: 0,
+    explication: "P(pleut | il) = C(il pleut) / C(il) = 4/10 = 0,4."
+  },
+  {
+    question: "Pourquoi a-t-on besoin d'un lissage ?",
+    choix: ["Pour accélérer le calcul", "Parce qu'une suite jamais vue recevrait une probabilité nulle", "Pour réduire le vocabulaire", "Pour rendre le texte plus poli"],
+    bonne: 1,
+    explication: "Sans lissage, un seul bigramme absent annule la probabilité de toute la phrase."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quelles sont les limites des modèles n-grammes, et comment les réseaux de neurones les lèvent-ils ?">
+
+Premièrement, la mémoire est bornée à $n - 1$ mots : une dépendance à longue distance, comme l'accord d'un verbe avec un sujet lointain, échappe au modèle. Deuxièmement, la parcimonie : le nombre de n-grammes possibles croît comme $V^n$, donc la plupart ne sont jamais observés, ce qui oblige à lisser. Troisièmement, les mots sont des symboles sans lien : ce qu'on apprend sur « chien » ne se transfère pas à « chiot ». Les réseaux de neurones représentent les mots par des vecteurs appris (embeddings), ce qui permet de généraliser entre mots proches, et les architectures récurrentes puis les transformers conditionnent sur un contexte bien plus long sans table de comptage.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "n-gramme", en: "n-gram", definition: "Suite de n mots consécutifs ; par extension, modèle de langage qui ne regarde que les n − 1 mots précédents." },
+  { fr: "hypothèse de Markov", en: "Markov assumption", definition: "Supposer que le mot suivant ne dépend que d'un nombre fixe de mots précédents." },
+  { fr: "lissage de Laplace", en: "add-one smoothing", definition: "Ajouter 1 à chaque compte pour qu'aucune suite ne reçoive une probabilité nulle." },
+  { fr: "parcimonie", en: "sparsity", definition: "Le fait que la plupart des suites possibles n'apparaissent jamais dans le corpus." }
+]} />
