@@ -1,0 +1,225 @@
+---
+id: mlp
+type: concept
+titre: "Le perceptron multicouche : empiler des neurones pour tout approximer"
+sous_titre: "Réseau de neurones à couches cachées (MLP)"
+domaine: deep-learning
+niveau: 4
+prerequis: [fonctions-activation]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.1 (exemple XOR et sa solution exacte avec ReLU) et section 6.4.1 (théorème d'approximation universelle, Hornik et al. 1989, Cybenko 1989)"
+  - "Kaplan et al., « Scaling Laws for Neural Language Models », 2020 — https://arxiv.org/abs/2001.08361 — section 2.1, équation 2.1 et tableau 1 (paramètres de l'attention et du feed-forward)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PasAPas, Etape, FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+Un [neurone](/concepts/neurone-artificiel/) seul ne sait tracer qu'une frontière droite : il échoue même sur le « ou exclusif », qui vaut 1 quand exactement une de ses deux entrées vaut 1. En 1969, cette limite a refroidi l'intérêt pour les réseaux de neurones. La solution tient en une idée : mettre des neurones en couches, pour que les sorties des uns deviennent les entrées des autres, avec une [fonction d'activation](/concepts/fonctions-activation/) entre les deux. Mais qu'est-ce que la couche du milieu fait réellement aux données ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Une couche cachée transforme les données en une nouvelle représentation où le problème devient simple, et la couche de sortie n'a plus qu'à tracer une droite dans cette représentation.
+</PhraseCle>
+
+## En image
+
+Dans une grande gare routière, on doit trier des colis vers deux destinations. Au guichet d'entrée, rien ne se voit : les colis sont mélangés. Des agents intermédiaires les pèsent, les mesurent et collent sur chacun deux étiquettes chiffrées. Au guichet de sortie, il suffit de regarder ces étiquettes : un seul coup d'œil trie tout.
+
+- Les colis à l'entrée sont les données brutes $\mathbf{x}$.
+- Les agents intermédiaires sont les neurones de la couche cachée.
+- Les étiquettes qu'ils collent forment la représentation cachée $\mathbf{h}$.
+- Le guichet de sortie est un simple neurone linéaire.
+- Apprendre, c'est trouver quelles étiquettes coller pour que le tri final devienne facile.
+
+Là où l'image s'arrête : les agents d'une gare savent ce que mesurent leurs étiquettes. Dans un réseau, personne ne choisit à l'avance ce que représente chaque neurone caché ; ce sens émerge de l'apprentissage, et il est souvent difficile à interpréter.
+
+## Comment ça marche
+
+Un perceptron multicouche (*multilayer perceptron*, MLP) à une couche cachée calcule :
+
+<FormuleVivante
+  tex="\htmlClass{t-h}{\mathbf{h}} = \htmlClass{t-phi}{\varphi}\big(\htmlClass{t-W1}{\mathbf{W}_1}\, \htmlClass{t-x}{\mathbf{x}} + \htmlClass{t-b1}{\mathbf{b}_1}\big) \qquad \htmlClass{t-y}{\hat{y}} = \htmlClass{t-W2}{\mathbf{w}_2} \cdot \htmlClass{t-h}{\mathbf{h}} + \htmlClass{t-b2}{b_2}"
+  termes={{
+    x: { role: "entree", texte: "les entrées du réseau" },
+    W1: { role: "parametre", texte: "la matrice de poids de la couche cachée : une ligne par neurone caché" },
+    b1: { role: "parametre", texte: "les biais de la couche cachée, un par neurone" },
+    phi: { role: "sortie", texte: "la fonction d'activation, appliquée à chaque coordonnée" },
+    h: { role: "sortie", texte: "la représentation cachée : les sorties des neurones cachés" },
+    W2: { role: "parametre", texte: "les poids de la couche de sortie" },
+    b2: { role: "parametre", texte: "le biais de sortie" },
+    y: { role: "sortie", texte: "la sortie du réseau" }
+  }}
+  label="Perceptron multicouche à une couche cachée"
+/>
+
+où :
+- $\mathbf{x}$ est le vecteur d'entrée, de dimension $d$ ;
+- $\mathbf{W}_1$ est une [matrice](/maths/produit-matriciel/) $m \times d$ et $\mathbf{b}_1$ un vecteur de dimension $m$, où $m$ est le nombre de neurones cachés ;
+- $\varphi$ s'applique à chaque coordonnée, et $\mathbf{h}$ est la <Terme id="h">représentation cachée</Terme> ;
+- $\mathbf{w}_2$ et $b_2$ forment le neurone de sortie.
+
+L'exemple du ou exclusif, avec la solution exacte donnée au chapitre 6 de *Deep Learning* : deux neurones cachés ReLU, $\mathbf{W}_1 = \begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}$, $\mathbf{b}_1 = (0\,;\,-1)$, puis $\mathbf{w}_2 = (1\,;\,-2)$ et $b_2 = 0$. Fais défiler.
+
+<PasAPas rendu="mlp-xor" label="Le perceptron multicouche qui calcule le ou exclusif">
+  <Etape etat="initial">
+    Les quatre entrées possibles : $(0\,;\,0)$ et $(1\,;\,1)$ doivent donner 0, $(0\,;\,1)$ et $(1\,;\,0)$ doivent donner 1. Aucune droite ne sépare les points dorés des bleus.
+  </Etape>
+  <Etape etat="lineaire">
+    **Couche linéaire.** On calcule $\mathbf{u} = \mathbf{W}_1 \mathbf{x} + \mathbf{b}_1 = (x_1 + x_2\,;\,x_1 + x_2 - 1)$. Les entrées deviennent $(0\,;\,-1)$, $(1\,;\,0)$, $(1\,;\,0)$ et $(2\,;\,1)$ : les deux points dorés tombent au même endroit.
+  </Etape>
+  <Etape etat="relu">
+    **Activation ReLU.** On remplace chaque coordonnée négative par 0 : $(0\,;\,-1)$ devient $(0\,;\,0)$. Dans ce nouvel espace, les points bleus sont en $(0\,;\,0)$ et $(2\,;\,1)$, le point doré en $(1\,;\,0)$ : une droite les sépare.
+  </Etape>
+  <Etape etat="sortie">
+    **Sortie.** $\hat{y} = h_1 - 2\,h_2$ donne $0 - 0 = 0$, $1 - 0 = 1$, $1 - 0 = 1$ et $2 - 2 = 0$. Le réseau calcule exactement le ou exclusif.
+  </Etape>
+</PasAPas>
+
+La couche cachée n'a pas « résolu » le problème : elle a déplacé les points pour qu'un simple neurone linéaire puisse le résoudre. C'est tout le principe des réseaux profonds : chaque couche fabrique une représentation plus commode pour la suivante. Un réseau profond (*deep*) empile simplement plusieurs couches cachées : $\mathbf{h}_1 = \varphi(\mathbf{W}_1 \mathbf{x} + \mathbf{b}_1)$, puis $\mathbf{h}_2 = \varphi(\mathbf{W}_2 \mathbf{h}_1 + \mathbf{b}_2)$, et ainsi de suite.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Pourquoi assez de neurones ReLU peuvent approcher n'importe quelle courbe.** Prenons une fonction $f$ d'une variable sur un intervalle, et des points $t_0 < t_1 < \dots < t_n$. La ligne brisée qui relie les points $(t_k\,;\,f(t_k))$ s'écrit exactement comme la sortie d'un MLP à $n$ neurones ReLU :
+
+$$
+g(x) = f(t_0) + \sum_{k=0}^{n-1} a_k\, \mathrm{ReLU}(x - t_k)
+$$
+
+où :
+- chaque neurone caché calcule $\mathrm{ReLU}(x - t_k)$, avec un poids 1 et un biais $-t_k$ ;
+- $a_0$ est la pente du premier segment, et $a_k$ le changement de pente au point $t_k$.
+
+En effet, sur $[t_k\,;\,t_{k+1}]$, les neurones $0$ à $k$ sont actifs et leurs pentes s'additionnent : $a_0 + \dots + a_k$, qui vaut la pente du segment $k$ par construction. En resserrant les points, la ligne brisée colle à $f$ d'aussi près qu'on veut, si $f$ est continue.
+
+**Le résultat général**, qu'on admet ici, est le théorème d'approximation universelle (*universal approximation theorem*), démontré en 1989 par Hornik, Stinchcombe et White et par Cybenko : un MLP à une seule couche cachée, avec assez de neurones et une activation adaptée, peut approcher n'importe quelle fonction continue sur un domaine borné, avec la précision voulue (chapitre 6, section 6.4.1 de *Deep Learning*).
+
+**Ce que le théorème ne dit pas.** Il ne dit ni combien de neurones il faut (parfois un nombre énorme), ni que la descente de gradient trouvera les bons poids, ni que le réseau généralisera. En pratique, plusieurs couches de taille raisonnable marchent mieux qu'une seule couche géante.
+
+</Depliable>
+
+## Essaie toi-même
+
+Une seule couche cachée de neurones ReLU essaie d'imiter la courbe de fréquentation du marché, vue dans la fiche sur le [surapprentissage](/concepts/surapprentissage/). Les petits traits dorés en bas marquent l'endroit où chaque neurone « s'allume ».
+
+<Simulation
+  rendu="mlp-approximation"
+  label="Sortie d'un réseau à une couche cachée ReLU qui approche une courbe"
+  parametres={[
+    { nom: "n", label: "Neurones cachés", min: 1, max: 24, pas: 1, valeur: 3, role: "parametre" }
+  ]}
+  legende="Chaque neurone ReLU ajoute un coude à la ligne brisée."
+/>
+
+Consigne : combien de neurones faut-il pour que l'écart descende sous 0,1 ? Sous 0,01 ? L'écart baisse-t-il toujours quand on ajoute un neurone ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec 1 neurone, la sortie est une droite (écart environ 7,8). Avec 6 neurones, on passe à environ 0,13, avec 8 à 0,07 : sous 0,1. Avec 12, l'écart vaut 0,014, et il faut 24 neurones pour descendre sous 0,01 (environ 0,001).
+
+L'écart ne baisse pas toujours : il vaut 0,95 avec 3 neurones et 1,15 avec 4. Les coudes tombent à des heures régulières, et avec 4 neurones, ils ratent le sommet du pic de 10 h. Placer les coudes au bon endroit, c'est justement ce que l'apprentissage fait, au lieu d'une grille régulière.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : le réseau XOR, puis un petit MLP entraîné par descente de gradient.
+
+```python
+import numpy as np
+
+X = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+relu = lambda z: np.maximum(0, z)
+
+# La solution exacte du livre Deep Learning (section 6.1)
+W1, b1 = np.array([[1, 1], [1, 1]], dtype=float), np.array([0, -1], dtype=float)
+w2, b2 = np.array([1, -2], dtype=float), 0.0
+H = relu(X @ W1.T + b1)
+print("couche cachée :", H.tolist())
+print("sortie :", H @ w2 + b2)                                  # [0. 1. 1. 0.]
+
+# Le même problème appris par descente de gradient, avec 4 neurones cachés
+rng = np.random.default_rng(0)
+y = np.array([0, 1, 1, 0], dtype=float)
+W1, b1 = rng.normal(0, 1, (4, 2)), np.zeros(4)
+w2, b2 = rng.normal(0, 1, 4), 0.0
+for _ in range(5000):
+    Z = X @ W1.T + b1; H = relu(Z); p = H @ w2 + b2
+    e = (p - y) / len(y)                                         # dérivée de la MSE / 2
+    gH = np.outer(e, w2) * (Z > 0)                               # on remonte à travers ReLU
+    w2 -= 0.1 * H.T @ e; b2 -= 0.1 * e.sum()
+    W1 -= 0.1 * gH.T @ X; b1 -= 0.1 * gH.sum(axis=0)
+print("appris :", (relu(X @ W1.T + b1) @ w2 + b2).round(2))
+```
+
+La dernière boucle fait déjà, à la main, ce que la fiche suivante généralise : la [rétropropagation](/concepts/backpropagation/).
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+mlp = torch.nn.Sequential(torch.nn.Linear(2, 4), torch.nn.ReLU(), torch.nn.Linear(4, 1))
+```
+
+## Les pièges classiques
+
+**« Une couche cachée suffit, puisque le théorème le dit. »** Le théorème garantit l'existence d'un réseau, pas sa taille raisonnable ni la possibilité de l'apprendre. Certaines fonctions demandent exponentiellement plus de neurones avec une seule couche qu'avec plusieurs.
+
+**« Chaque neurone caché représente un concept précis. »** Parfois, mais rarement de façon nette. L'information est souvent répartie sur de nombreux neurones, et un même neurone participe à plusieurs choses.
+
+**« On peut tout initialiser à zéro. »** Si tous les poids d'une couche partent de la même valeur, tous les neurones calculent la même chose et reçoivent le même gradient : ils restent identiques pour toujours. On initialise au hasard, comme dans le code plus haut.
+
+## Dans la vraie vie
+
+Les MLP sont partout : ce sont les couches « feed-forward » présentes dans chaque bloc des Transformers ; dans le décompte de Kaplan et ses coauteurs (2020), avec la taille habituelle de ces couches, elles portent les deux tiers des paramètres hors embeddings ; ils servent aussi seuls pour des données en tableau. Ils se combinent avec d'autres briques, comme la [normalisation](/concepts/normalisation-couches/) et le [dropout](/concepts/dropout/), qui ont été inventées pour les entraîner plus facilement.
+
+L'exemple du marché montre ce que fait un MLP sur un problème concret : à partir de comptages horaires, il apprend une courbe sans qu'on lui dise qu'il y a deux pics. C'est la même mécanique, à plus grande échelle, qui permet de prévoir une consommation d'électricité heure par heure ou le remplissage d'un car selon le jour et l'heure.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un MLP a 3 entrées, une couche cachée de 5 neurones et 1 sortie. Combien a-t-il de paramètres (poids et biais) ?",
+    choix: ["15", "20", "26", "9"],
+    bonne: 2,
+    explication: "Couche cachée : 5 × 3 poids + 5 biais = 20. Sortie : 5 poids + 1 biais = 6. Total 26."
+  },
+  {
+    question: "Dans l'exemple XOR, que devient l'entrée (1 ; 1) après la couche cachée ?",
+    choix: ["(0 ; 0)", "(1 ; 0)", "(2 ; 1)", "(1 ; 1)"],
+    bonne: 2,
+    explication: "u = (1 + 1 ; 1 + 1 − 1) = (2 ; 1), et la ReLU ne change pas ces nombres positifs."
+  },
+  {
+    question: "Que se passe-t-il si on retire la fonction d'activation d'un MLP ?",
+    choix: ["Il apprend plus vite", "Il redevient un modèle linéaire", "Il devient un classifieur parfait", "Il ne peut plus rien calculer"],
+    bonne: 1,
+    explication: "Les couches linéaires successives se combinent en une seule : le réseau ne peut plus tracer qu'une frontière droite."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : que dit le théorème d'approximation universelle, et quelles en sont les limites ?">
+
+Il dit qu'un réseau à une couche cachée, avec une activation non linéaire adaptée et suffisamment de neurones, peut approcher n'importe quelle fonction continue sur un domaine borné avec une précision arbitraire. C'est un résultat d'existence : il ne donne ni le nombre de neurones nécessaire, qui peut être énorme, ni une méthode pour trouver les poids, ni de garantie de généralisation à partir d'un nombre fini d'exemples. En pratique, la profondeur rend les représentations plus économes, et l'entraînement par descente de gradient avec rétropropagation, la régularisation et les bonnes architectures comptent autant que la capacité théorique.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "perceptron multicouche", en: "multilayer perceptron (MLP)", definition: "Réseau de neurones en couches successives, avec une activation non linéaire entre elles." },
+  { fr: "couche cachée", en: "hidden layer", definition: "Couche de neurones entre l'entrée et la sortie." },
+  { fr: "représentation cachée", en: "hidden representation", definition: "Vecteur des sorties d'une couche cachée : les données vues autrement." },
+  { fr: "réseau profond", en: "deep network", definition: "Réseau qui empile plusieurs couches cachées." },
+  { fr: "théorème d'approximation universelle", en: "universal approximation theorem", definition: "Un MLP assez large peut approcher toute fonction continue sur un domaine borné." }
+]} />
