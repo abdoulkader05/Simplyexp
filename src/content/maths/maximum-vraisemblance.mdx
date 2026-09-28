@@ -90,6 +90,8 @@ Sept paiements mobiles sur dix clients :
 - en vraisemblance : $e^{-6{,}93} \approx 0{,}000\,98$ contre $e^{-6{,}11} \approx 0{,}002\,2$ ; la valeur 0,7 explique les données plus de deux fois mieux que 0,5 ;
 - le maximum est en $\hat{p} = 7/10 = 0{,}7$.
 
+Pourquoi travailler avec le logarithme ? Avec 400 clients, la vraisemblance est un produit de 400 nombres plus petits que 1, de l'ordre de $10^{-113}$ ici : bien trop petit pour être manipulé à l'aise, et sa dérivée serait un produit tout aussi encombrant. La log-vraisemblance, elle, vaut environ $-259$ : une somme de 400 termes, facile à calculer et à dériver terme à terme.
+
 Avec plus de données, 260 paiements mobiles sur 400 clients, on obtient $\hat{p} = 0{,}65$. La [loi des grands nombres](/maths/loi-grands-nombres/) garantit que cette estimation se rapproche de la vraie valeur quand le nombre de clients grandit.
 
 ## Essaie toi-même
