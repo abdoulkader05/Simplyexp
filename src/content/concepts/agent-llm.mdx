@@ -1,0 +1,276 @@
+---
+id: agent-llm
+type: concept
+titre: "Un agent, c'est un LLM dans une boucle"
+sous_titre: "Boucle observation, réflexion, action des agents LLM"
+domaine: agents
+niveau: 5
+prerequis: [appel-outils, chain-of-thought]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Schluntz, Zhang, « Building effective agents », Anthropic, 19 décembre 2024 — https://www.anthropic.com/engineering/building-effective-agents — définitions workflow et agent, retour « vérité terrain » de l'environnement à chaque étape, conditions d'arrêt comme un nombre maximal d'itérations"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Avec l'[usage d'outils](/concepts/appel-outils/), un modèle peut demander la météo ou faire un calcul exact. Mais une vraie tâche en demande souvent plusieurs, et l'on ne sait pas d'avance lesquelles. « Réserve-moi le train le moins cher pour Lyon samedi » : il faut chercher les trains, comparer, réserver, vérifier la confirmation. Et si le train est complet, il faut changer de plan. Un seul appel ne suffit pas, et écrire à la main toutes les combinaisons possibles est impossible. Il faut laisser le modèle décider, à chaque étape, de ce qu'il fait ensuite.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un agent est un modèle de langage placé dans une boucle : il réfléchit, choisit une action, observe son résultat, et recommence jusqu'à juger la tâche terminée.
+</PhraseCle>
+
+## En image
+
+Pense à une personne qui cherche une adresse dans un quartier qu'elle ne connaît pas, sans carte.
+
+- Elle **réfléchit** : « la pharmacie devait être près du marché ».
+- Elle **agit** : elle marche jusqu'au carrefour, ou elle demande à un passant.
+- Elle **observe** : « le passant dit deuxième rue à gauche », ou « tiens, cette rue est barrée ».
+- Elle recommence avec ce qu'elle sait de plus, et s'arrête quand elle est devant la porte, ou quand elle décide d'abandonner.
+
+Là où l'image s'arrête : l'agent ne garde aucun souvenir en dehors de son contexte. Tout ce qu'il a vu doit y être écrit, et ce contexte grandit à chaque tour, ce qui coûte de plus en plus cher.
+
+## Comment ça marche
+
+Un agent réunit trois éléments : un modèle de langage, des outils, et une boucle écrite par l'application. À chaque tour :
+
+1. **Penser.** Le modèle lit tout le contexte (l'objectif, les actions passées, leurs résultats) et écrit un raisonnement bref, comme dans le [chain-of-thought](/concepts/chain-of-thought/).
+2. **Agir.** Il écrit un appel d'outil, ou bien une réponse finale.
+3. **Observer.** L'application exécute l'appel et ajoute le résultat au contexte. C'est ce que les ingénieurs d'Anthropic appellent la « vérité terrain » : l'agent juge ses progrès sur des résultats réels, pas sur ce qu'il imagine.
+
+La boucle s'arrête quand le modèle donne une réponse finale, ou quand une **condition d'arrêt** fixée par l'application est atteinte, comme un nombre maximal de tours. Fais défiler.
+
+<PasAPas rendu="agent-boucle" label="Deux tours de boucle d'un agent qui réserve un train">
+  <Etape etat="initial">
+    **L'objectif est posé.** Le contexte ne contient que la demande et la description des outils : `chercher_trains` et `reserver`.
+  </Etape>
+  <Etape etat="penser">
+    **Tour 1, penser.** Le modèle ne connaît pas les trains de samedi. Il écrit ce qu'il doit faire d'abord.
+  </Etape>
+  <Etape etat="agir">
+    **Tour 1, agir.** Il appelle `chercher_trains` avec la destination et la date.
+  </Etape>
+  <Etape etat="observer">
+    **Tour 1, observer.** L'application renvoie trois trains avec leurs prix. Le contexte a grossi : la jauge en haut à gauche le montre.
+  </Etape>
+  <Etape etat="agir2">
+    **Tour 2.** Le modèle compare, trouve le train de 11 h 20 à 32 euros, et appelle `reserver`.
+  </Etape>
+  <Etape etat="fin">
+    **Arrêt.** La confirmation arrive. Le modèle juge la tâche terminée et écrit la réponse finale au lieu d'un nouvel appel : la boucle s'arrête.
+  </Etape>
+</PasAPas>
+
+Tout système qui combine un modèle et des outils n'est pas un agent. Les ingénieurs d'Anthropic distinguent deux familles : dans un **workflow** (*workflow*), le modèle et les outils sont orchestrés selon des chemins fixés à l'avance dans le code ; dans un **agent**, c'est le modèle qui dirige lui-même son déroulement et son usage des outils.
+
+<Schema rendu="workflow-agent" legende="En haut, un workflow suit toujours le même chemin, fixé par le code. En bas, un agent laisse le modèle choisir, à chaque tour, l'outil suivant ou la fin." />
+
+Cette liberté a un prix, qu'une formule simple permet de mesurer. Si chaque étape réussit avec la probabilité $p$, et si les étapes réussissent ou échouent indépendamment les unes des autres, une tâche de $n$ étapes réussit entièrement avec la probabilité :
+
+$$
+P(\text{succès}) = p^{\,n}
+$$
+
+où :
+- $p$ est la probabilité qu'une étape réussisse, entre 0 et 1 ;
+- $n$ est le nombre d'étapes nécessaires.
+
+Exemple : avec $p = 0{,}95$, une tâche de 10 étapes réussit avec la probabilité $0{,}95^{10} \approx 0{,}60$, et une tâche de 20 étapes avec $0{,}95^{20} \approx 0{,}36$. Une étape fiable à 95 % paraît excellente ; enchaînée vingt fois, elle échoue presque deux fois sur trois. C'est pourquoi un agent doit **observer** et corriger ses erreurs en route, au lieu d'enchaîner les actions à l'aveugle.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient p puissance n">
+
+Notons $R_i$ l'événement « l'étape $i$ réussit ». La tâche réussit si toutes les étapes réussissent :
+
+$$
+\begin{aligned}
+P(\text{succès}) &= P(R_1 \cap R_2 \cap \dots \cap R_n) && \text{toutes les étapes doivent réussir} \\
+&= P(R_1)\, P(R_2)\, \cdots\, P(R_n) && \text{si les étapes sont indépendantes} \\
+&= p \times p \times \dots \times p = p^{\,n} && \text{si chacune réussit avec la probabilité } p
+\end{aligned}
+$$
+
+La deuxième ligne utilise l'[indépendance](/maths/independance/). En réalité, les étapes d'un agent ne sont pas indépendantes : une erreur au début rend souvent les suivantes plus difficiles, ce qui aggrave encore le bilan. À l'inverse, un agent qui vérifie un résultat et **recommence** une étape ratée augmente sa fiabilité par étape. Si l'on s'autorise deux essais par étape, et que le second a les mêmes chances que le premier, l'étape échoue seulement si les deux essais échouent : $p$ devient $1 - (1-p)^2$. Avec $p = 0{,}95$, on passe à $0{,}997\,5$, et les 20 étapes réussissent alors avec la probabilité $0{,}997\,5^{20} \approx 0{,}95$.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Workflow ou agent ?" niveau="facile">
+
+Pour chacun de ces systèmes, dirais-tu que c'est un workflow ou un agent ?
+
+1. Chaque e-mail reçu est résumé, puis traduit, puis classé dans un dossier. Toujours ces trois étapes.
+2. Un assistant de programmation lit un bogue signalé, ouvre les fichiers qu'il juge utiles, lance les tests, modifie le code et relance les tests jusqu'à ce qu'ils passent.
+3. Un chatbot de service client répond à une question, et transmet à un humain si la question contient le mot « remboursement ».
+
+<div slot="solution">
+
+1. **Workflow** : le chemin est fixe, écrit dans le code.
+2. **Agent** : le modèle choisit quels fichiers ouvrir, quand relancer les tests et quand s'arrêter. Le nombre de tours n'est pas connu d'avance.
+3. **Workflow** : le branchement est une règle fixe (un mot-clé). Ce n'est pas le modèle qui décide de la suite.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien d'étapes peut-on se permettre ?" niveau="moyen" reponse={11} tolerance={0}>
+
+Un agent réussit chaque étape avec la probabilité $p = 0{,}98$. On veut que la tâche entière réussisse au moins 80 % du temps. Quel est le nombre maximal d'étapes $n$ ?
+
+<div slot="indice">
+
+Il faut $0{,}98^n \geq 0{,}8$. Prends le logarithme des deux côtés, sans oublier que $\ln 0{,}98$ est négatif.
+
+</div>
+<div slot="solution">
+
+$0{,}98^n \geq 0{,}8 \iff n \ln 0{,}98 \geq \ln 0{,}8 \iff n \leq \frac{\ln 0{,}8}{\ln 0{,}98} \approx \frac{-0{,}223}{-0{,}020\,2} \approx 11{,}0$.
+
+Le sens de l'inégalité change parce qu'on divise par un nombre négatif. Vérification : $0{,}98^{11} \approx 0{,}801$, c'est bon ; $0{,}98^{12} \approx 0{,}785$, c'est trop peu. Réponse : **11 étapes**.
+
+</div>
+</Exercice>
+
+<Exercice titre="La facture qui gonfle" niveau="defi" reponse={42500} tolerance={0} unite="tokens">
+
+À chaque tour, le modèle relit **tout** son contexte. Au premier tour, le contexte fait 2 000 tokens (objectif et description des outils). Chaque tour ajoute 500 tokens (le raisonnement, l'appel et le résultat). Combien de tokens le modèle aura-t-il lus au total après 10 tours ?
+
+<div slot="indice">
+
+Au tour $k$ (en comptant à partir de 0), le contexte fait $2\,000 + 500k$ tokens. Il faut additionner pour $k$ allant de 0 à 9.
+
+</div>
+<div slot="solution">
+
+$\sum_{k=0}^{9} (2\,000 + 500k) = 10 \times 2\,000 + 500 \times (0 + 1 + \dots + 9) = 20\,000 + 500 \times 45 = 42\,500$ tokens.
+
+Le premier terme grandit comme le nombre de tours, le second comme son **carré** : avec 100 tours, on dépasserait 2,6 millions de tokens lus. C'est pourquoi les agents résument ou élaguent leur contexte, et pourquoi la [mémoire d'un agent](/concepts/memoire-agent/) est une question à part entière.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une boucle d'agent complète, avec un « modèle » factice qui suit une stratégie simple, deux outils et une condition d'arrêt.
+
+```python
+import json
+
+TRAINS = [{"depart": "8h05", "prix": 45}, {"depart": "11h20", "prix": 32}, {"depart": "17h40", "prix": 39}]
+
+def chercher_trains(destination, date):
+    return TRAINS
+
+def reserver(depart):
+    return {"confirme": True, "numero": 4821, "depart": depart}
+
+OUTILS = {"chercher_trains": chercher_trains, "reserver": reserver}
+
+def modele_factice(contexte):
+    """Imite un LLM : décide de l'action suivante à partir des observations du contexte."""
+    observations = [m["contenu"] for m in contexte if m["role"] == "observation"]
+    if not observations:
+        return {"pensee": "Il me faut la liste des trains.",
+                "action": "chercher_trains", "arguments": {"destination": "Lyon", "date": "samedi"}}
+    dernier = observations[-1]
+    if isinstance(dernier, list):
+        moins_cher = min(dernier, key=lambda t: t["prix"])
+        return {"pensee": f"Le moins cher part à {moins_cher['depart']}.",
+                "action": "reserver", "arguments": {"depart": moins_cher["depart"]}}
+    return {"pensee": "C'est réservé.", "reponse": f"Réservé : train de {dernier['depart']}, n° {dernier['numero']}."}
+
+def agent(objectif, tours_max=5):
+    contexte = [{"role": "objectif", "contenu": objectif}]
+    for tour in range(1, tours_max + 1):
+        sortie = modele_factice(contexte)
+        print(f"tour {tour} | pense : {sortie['pensee']}")
+        if "reponse" in sortie:
+            return sortie["reponse"]
+        resultat = OUTILS[sortie["action"]](**sortie["arguments"])
+        print(f"       | agit : {sortie['action']}{sortie['arguments']} -> {json.dumps(resultat)[:60]}")
+        contexte.append({"role": "observation", "contenu": resultat})
+    return "Arrêt : nombre maximal de tours atteint."
+
+print(agent("Réserve le train le moins cher pour Lyon samedi."))
+
+# La fiabilité d'une chaîne d'étapes
+for p in (0.95, 0.99):
+    print(p, [round(p ** n, 2) for n in (5, 10, 20)])
+```
+
+En vrai, les SDK des fournisseurs de modèles proposent des boucles d'agent toutes faites. Le principe reste celui-ci : appeler le modèle, exécuter ses appels d'outils, renvoyer les résultats, et s'arrêter sur une réponse finale ou une limite.
+
+```python
+# no-run
+import anthropic
+client = anthropic.Anthropic()
+messages = [{"role": "user", "content": "Réserve le train le moins cher pour Lyon samedi."}]
+for tour in range(10):                                   # condition d'arrêt : 10 tours au plus
+    reponse = client.messages.create(model="claude-sonnet-5", max_tokens=1000, tools=outils, messages=messages)
+    messages.append({"role": "assistant", "content": reponse.content})
+    if reponse.stop_reason != "tool_use":
+        break                                            # réponse finale
+    resultats = [{"type": "tool_result", "tool_use_id": b.id, "content": str(executer(b.name, b.input))}
+                 for b in reponse.content if b.type == "tool_use"]
+    messages.append({"role": "user", "content": resultats})
+```
+
+## Les pièges classiques
+
+**« Un agent, c'est forcément mieux qu'un workflow. »** Un agent est plus souple, mais plus lent, plus cher et plus difficile à prévoir. Quand les étapes sont connues d'avance, un workflow est souvent le meilleur choix.
+
+**« L'agent sait quand il a fini. »** Il peut s'arrêter trop tôt en croyant avoir réussi, ou tourner en rond en répétant la même action. Il faut toujours une condition d'arrêt fixée par l'application, et si possible une vérification du résultat.
+
+**« Plus de tours, c'est plus de chances de réussir. »** Chaque tour est une nouvelle occasion d'erreur, et le contexte qui grandit peut noyer l'information utile. Sans observation et correction, allonger la boucle fait baisser $p^{\,n}$.
+
+## Dans la vraie vie
+
+Les assistants de programmation qui lisent un dépôt, lancent les tests et corrigent le code sont des agents : ils peuvent enchaîner des dizaines d'appels d'outils avant de rendre la main. Les assistants de recherche qui lancent plusieurs requêtes web, lisent les pages et rédigent une synthèse aussi. Dans les deux cas, la « vérité terrain » (un test qui passe ou échoue, une page qui existe ou non) est ce qui permet à l'agent de corriger sa trajectoire. Pour les tâches longues, on apprend à l'agent à [planifier](/concepts/planification-agent/) avant d'agir, ou on répartit le travail entre [plusieurs agents](/concepts/multi-agents/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Qu'est-ce qui distingue un agent d'un workflow ?",
+    choix: ["L'agent utilise un modèle plus gros", "Dans un agent, c'est le modèle qui choisit la suite des étapes", "Un workflow n'utilise jamais d'outils", "Un agent n'a pas besoin de contexte"],
+    bonne: 1,
+    explication: "Dans un workflow, le chemin est fixé par le code ; dans un agent, le modèle dirige lui-même ses actions."
+  },
+  {
+    question: "Chaque étape réussit avec la probabilité 0,9. Quelle est la probabilité de réussir 5 étapes indépendantes ?",
+    choix: ["0,9", "0,5", "environ 0,59", "4,5"],
+    bonne: 2,
+    explication: "0,9⁵ ≈ 0,59."
+  },
+  {
+    question: "Pourquoi fixer un nombre maximal de tours ?",
+    choix: ["Pour que le modèle réfléchisse plus", "Pour éviter qu'un agent tourne en rond indéfiniment et coûte trop cher", "Parce que les outils l'exigent", "Pour augmenter p"],
+    bonne: 1,
+    explication: "C'est une condition d'arrêt qui garde le contrôle du coût et du comportement."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment rendriez-vous un agent plus fiable sur une tâche de 30 étapes ?">
+
+D'abord, réduire le nombre d'étapes laissées au modèle : ce qui est prévisible passe dans un workflow fixe. Ensuite, augmenter la fiabilité par étape : des outils bien décrits, des arguments validés contre un schéma, des résultats d'outils clairs, y compris les messages d'erreur. Puis donner de la vérité terrain : tests, vérifications, relectures du résultat, avec la possibilité de réessayer une étape ratée, ce qui transforme $p$ en $1-(1-p)^k$ pour $k$ essais. Enfin, borner la boucle (nombre de tours, budget de tokens), résumer le contexte pour qu'il ne sature pas, et demander une confirmation humaine avant toute action irréversible.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "agent", en: "agent", definition: "Système où un modèle de langage dirige lui-même la suite de ses actions et de ses appels d'outils, dans une boucle." },
+  { fr: "workflow", en: "workflow", definition: "Système où le modèle et les outils suivent des étapes fixées à l'avance par le code." },
+  { fr: "observation", en: "observation", definition: "Résultat d'une action, ajouté au contexte de l'agent avant le tour suivant." },
+  { fr: "condition d'arrêt", en: "stopping condition", definition: "Règle fixée par l'application qui termine la boucle, comme un nombre maximal de tours." }
+]} />
