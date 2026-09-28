@@ -1,0 +1,149 @@
+---
+id: loi-categorielle
+type: maths
+titre: "La loi catégorielle : le dé à 100 000 faces d'un LLM"
+sous_titre: "Lois de Bernoulli et catégorielle, choix parmi K classes"
+domaine: probabilites
+niveau: 2
+prerequis: [variables-aleatoires]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.9.1 et 3.9.2 (lois de Bernoulli et multinoulli)"
+  - "Radford et al., « Language Models are Unsupervised Multitask Learners », OpenAI, 2019 — https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf — section 2.3 (vocabulaire de 50 257 tokens)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+À chaque étape, un LLM doit choisir le prochain morceau de texte parmi tout son vocabulaire. Ce choix est une [variable aléatoire](/maths/variables-aleatoires/) qui prend une valeur parmi $K$ possibles, chacune avec sa probabilité : c'est la loi catégorielle. Le vocabulaire de GPT-2 comptait déjà 50 257 éléments : un dé à plusieurs dizaines de milliers de faces. La même loi décrit la sortie de tout classifieur, et c'est sur elle que se calculent la [régression logistique](/concepts/regression-logistique/), l'[entropie croisée](/maths/entropie-croisee/) et le [modèle de langage](/concepts/modele-langage/).
+
+## L'intuition
+
+Imagine un dé truqué à cinq faces, chacune portant un mot : « marché », « travail », « lit », « champ », « autre ». Les faces ne sont pas également probables : après « je vais au », « marché » sort 40 fois sur 100, « travail » 25 fois, et ainsi de suite. Un LLM, c'est ce dé, avec des dizaines de milliers de faces, et des probabilités qui changent à chaque mot selon le contexte.
+
+Comment lancer un tel dé ? On range les probabilités bout à bout sur un segment de longueur 1, puis on tire un nombre au hasard entre 0 et 1 : le mot choisi est celui dont le segment contient ce nombre. Plus un mot est probable, plus son segment est long, plus il a de chances d'être touché.
+
+<Simulation
+  rendu="categorielle-tirage"
+  label="Probabilités de cinq mots et tirage par un nombre uniforme entre 0 et 1"
+  parametres={[
+    { nom: "u", label: "Nombre tiré u", min: 0, max: 0.99, pas: 0.01, valeur: 0.52, role: "entree", decimales: 2 }
+  ]}
+  legende="Le triangle rouge marque le nombre tiré ; le segment qu'il touche donne le mot choisi."
+/>
+
+## La définition
+
+**Loi de Bernoulli.** Une variable $X$ qui vaut 1 avec la probabilité $p$ et 0 sinon suit une loi de Bernoulli de paramètre $p$ :
+
+$$
+P(X = 1) = p, \quad P(X = 0) = 1 - p, \qquad \mathbb{E}[X] = p, \quad \mathrm{Var}(X) = p\,(1 - p)
+$$
+
+**Loi catégorielle.** Une variable $X$ qui prend une valeur parmi $K$ catégories $\{1, \dots, K\}$ suit une loi catégorielle (*categorical distribution*) de paramètres $\mathbf{p} = (p_1\,;\,\dots\,;\,p_K)$ :
+
+$$
+P(X = k) = p_k, \qquad p_k \ge 0, \qquad \sum_{k=1}^{K} p_k = 1
+$$
+
+où :
+- $K$ est le nombre de catégories (classes, ou mots du vocabulaire) ;
+- $p_k$ est la probabilité de la catégorie $k$ ;
+- avec $K = 2$, on retrouve la loi de Bernoulli.
+
+On représente souvent le résultat par un vecteur « one-hot » (*one-hot vector*) : un vecteur de $K$ coordonnées, toutes nulles sauf un 1 à la position de la catégorie tirée.
+
+Autrement dit : la loi catégorielle est un dé à $K$ faces, truqué selon les probabilités $p_k$.
+
+<Depliable titre="Espérance et variance de la loi de Bernoulli, et du vecteur one-hot">
+
+**Bernoulli.**
+
+$$
+\begin{aligned}
+\mathbb{E}[X] &= 1 \times p + 0 \times (1 - p) = p && \text{définition de l'espérance} \\
+\mathbb{E}[X^2] &= 1^2 \times p + 0^2 \times (1 - p) = p && X^2 = X \text{ car } X \in \{0, 1\} \\
+\mathrm{Var}(X) &= \mathbb{E}[X^2] - \mathbb{E}[X]^2 = p - p^2 = p\,(1 - p) && \text{formule de la fiche espérance-variance}
+\end{aligned}
+$$
+
+La variance est maximale pour $p = 0{,}5$ (elle vaut 0,25) : c'est là que le résultat est le plus incertain.
+
+**Le vecteur one-hot.** Sa coordonnée $k$ vaut 1 si la catégorie $k$ est tirée, 0 sinon : c'est une variable de Bernoulli de paramètre $p_k$. Son espérance vaut donc $p_k$, et l'espérance du vecteur entier est le vecteur des probabilités $\mathbf{p}$ lui-même.
+
+</Depliable>
+
+## Un exemple à la main
+
+Le mot après « je vais au », avec $\mathbf{p} = (0{,}40\,;\,0{,}25\,;\,0{,}15\,;\,0{,}10\,;\,0{,}10)$ pour (marché, travail, lit, champ, autre) :
+
+- somme : $0{,}40 + 0{,}25 + 0{,}15 + 0{,}10 + 0{,}10 = 1$ ;
+- segments bout à bout : marché $[0\,;\,0{,}40[$, travail $[0{,}40\,;\,0{,}65[$, lit $[0{,}65\,;\,0{,}80[$, champ $[0{,}80\,;\,0{,}90[$, autre $[0{,}90\,;\,1[$ ;
+- si le nombre tiré vaut $u = 0{,}52$, il tombe dans le segment de « travail » ;
+- vecteur one-hot de « travail » : $(0\,;\,1\,;\,0\,;\,0\,;\,0)$ ;
+- $P(\text{« lit » ou « champ »}) = 0{,}15 + 0{,}10 = 0{,}25$.
+
+Un classifieur binaire, maintenant : un filtre donne la probabilité 0,9 qu'un SMS soit une arnaque. La sortie est une variable de Bernoulli de paramètre 0,9, d'espérance 0,9 et de variance $0{,}9 \times 0{,}1 = 0{,}09$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : parcours $u$ de 0 à 0,99. Pour quelle part des valeurs de $u$ obtiens-tu « marché » ? Et « champ » ? Pourquoi est-ce le bon résultat ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+« Marché » est tiré pour tout $u$ entre 0 et 0,40 : 40 % des valeurs possibles, exactement sa probabilité. « Champ » est tiré entre 0,80 et 0,90 : 10 % des valeurs. Comme $u$ est uniforme entre 0 et 1, la probabilité de tomber dans un segment est égale à sa longueur : c'est ainsi qu'un ordinateur, qui ne sait tirer que des nombres uniformes, fabrique n'importe quelle loi catégorielle.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **La génération de texte.** Un LLM calcule une loi catégorielle sur son vocabulaire avec un [softmax](/concepts/softmax/), puis tire le mot suivant ; la [température](/concepts/decodage-sampling/) déforme cette loi avant le tirage.
+- **La classification.** La sortie d'un classifieur à $K$ classes est une loi catégorielle ; celle d'un classifieur binaire, comme la [régression logistique](/concepts/regression-logistique/), une loi de Bernoulli.
+- **La perte.** L'[entropie croisée](/maths/entropie-croisee/) compare la loi prédite au vecteur one-hot de la bonne réponse ; elle vaut $-\ln p_y$, où $y$ est la bonne catégorie.
+
+## Les pièges classiques
+
+**« Le LLM choisit toujours le mot le plus probable. »** Il peut le faire, mais le plus souvent il tire au hasard selon la loi : « marché » n'est choisi que 40 fois sur 100. C'est ce qui rend les réponses variées d'un essai à l'autre.
+
+**« Les numéros des catégories sont des nombres qu'on peut comparer. »** La catégorie 3 n'est pas « plus grande » que la catégorie 2 : ce sont des étiquettes. C'est pour cela qu'on utilise des vecteurs one-hot plutôt que les numéros eux-mêmes.
+
+**« Une probabilité de 0,1 est négligeable. »** Sur un texte de 100 mots, un événement de probabilité 0,1 à chaque mot arrive environ 10 fois. Les mots peu probables finissent par être tirés, ce qui explique certaines réponses surprenantes.
+
+## Entraîne-toi
+
+**Exercice 1.** Une loi catégorielle a pour paramètres $(0{,}5\,;\,0{,}3\,;\,p_3)$. Que vaut $p_3$ ? Quelle catégorie est tirée pour $u = 0{,}85$ ?
+
+<Depliable titre="Corrigé">
+
+$p_3 = 1 - 0{,}5 - 0{,}3 = 0{,}2$. Segments : $[0\,;\,0{,}5[$, $[0{,}5\,;\,0{,}8[$, $[0{,}8\,;\,1[$. Donc $u = 0{,}85$ tire la catégorie 3.
+
+</Depliable>
+
+**Exercice 2.** Pour quelle valeur de $p$ la variance d'une Bernoulli vaut-elle 0,16 ?
+
+<Depliable titre="Corrigé">
+
+$p(1 - p) = 0{,}16$, soit $p^2 - p + 0{,}16 = 0$, d'où $p = 0{,}2$ ou $p = 0{,}8$.
+
+</Depliable>
+
+**Exercice 3.** Un modèle donne la loi $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne réponse est la catégorie 2. Écris le vecteur one-hot de la bonne réponse, puis calcule $-\ln p_y$.
+
+<Depliable titre="Corrigé">
+
+One-hot : $(0\,;\,1\,;\,0)$. $-\ln p_y = -\ln 0{,}2 \approx 1{,}61$. Si la bonne réponse avait été la catégorie 1, la perte aurait été $-\ln 0{,}7 \approx 0{,}36$.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "loi de Bernoulli", en: "Bernoulli distribution", definition: "Loi d'une variable qui vaut 1 avec la probabilité p et 0 sinon." },
+  { fr: "loi catégorielle", en: "categorical distribution", definition: "Loi d'une variable qui prend une valeur parmi K catégories, chacune avec sa probabilité." },
+  { fr: "vecteur one-hot", en: "one-hot vector", definition: "Vecteur de K coordonnées nulles sauf un 1 à la position de la catégorie." },
+  { fr: "vocabulaire", en: "vocabulary", definition: "Ensemble des mots ou morceaux de mots qu'un modèle de langage peut produire ; les catégories de sa loi." }
+]} />
