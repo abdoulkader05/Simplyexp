@@ -1,0 +1,212 @@
+---
+id: softmax
+type: concept
+titre: "Softmax : transformer des scores en votes"
+sous_titre: "Fonction softmax, classification multiclasse et température"
+domaine: machine-learning
+niveau: 3
+prerequis: [regression-logistique]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.2.2.3 (unités softmax pour des sorties multinoulli) ; chapitre 4, section 4.1 (stabilité numérique du softmax)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.4 (transformation linéaire et softmax pour prédire le token suivant)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { FormuleVivante, Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+La [régression logistique](/concepts/regression-logistique/) répond à une question à deux réponses. Mais souvent, il y en a davantage. Dans quelle langue est écrit ce SMS : français, wolof ou dioula ? Quel est le mot suivant de la phrase, parmi des dizaines de milliers ? Un modèle peut facilement donner un score à chaque réponse possible. Il faut ensuite transformer ces scores, qui peuvent être négatifs ou immenses, en probabilités positives dont la somme fait exactement 1.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Le softmax passe chaque score dans l'exponentielle pour le rendre positif, puis divise par le total : les scores deviennent des parts d'un même gâteau.
+</PhraseCle>
+
+## En image
+
+Imagine un vote à main levée dans une réunion de quartier, où chaque proposition reçoit un score d'enthousiasme. On veut répartir un budget entre les propositions, proportionnellement à l'enthousiasme, mais en favorisant nettement les plus populaires.
+
+- Chaque proposition est une classe possible (une langue, un mot).
+- Son score d'enthousiasme est le score $z_k$ produit par le modèle.
+- Passer le score à l'exponentielle, c'est amplifier les écarts : une proposition un peu plus populaire reçoit nettement plus.
+- Diviser par le total, c'est partager tout le budget, ni plus ni moins.
+- La part de chaque proposition est sa probabilité.
+
+Là où l'image s'arrête : un vrai budget peut refuser toute part à une mauvaise proposition. Le softmax, lui, donne toujours une part strictement positive, même minuscule, à chaque classe.
+
+## Comment ça marche
+
+Un modèle lit un SMS et donne un score à chaque langue : 2 pour le français, 1 pour le wolof, 0 pour le dioula. Le softmax transforme ces scores en probabilités :
+
+<FormuleVivante
+  tex="\htmlClass{t-p}{p_k} = \frac{e^{\htmlClass{t-z}{z_k} / \htmlClass{t-T}{T}}}{\sum_{j=1}^{K} e^{\htmlClass{t-z}{z_j} / \htmlClass{t-T}{T}}}"
+  termes={{
+    z: { role: "entree", texte: "les scores bruts du modèle, un par classe, qu'on appelle aussi logits" },
+    T: { role: "parametre", texte: "la température : elle aplatit (T grand) ou durcit (T petit) la distribution" },
+    p: { role: "sortie", texte: "la probabilité de la classe k ; toutes sont positives et leur somme vaut 1" }
+  }}
+  label="Softmax avec température"
+/>
+
+où :
+- $K$ est le nombre de classes, ici 3 ;
+- $z_k$ est le score de la classe $k$ ; on les appelle souvent logits (*logits*) ;
+- $T > 0$ est la température (*temperature*) ; le softmax « normal » correspond à $T = 1$ ;
+- $p_k$ est la probabilité de la classe $k$.
+
+Calcul à la main, avec $T = 1$. Les exponentielles valent $e^2 \approx 7{,}389$, $e^1 \approx 2{,}718$ et $e^0 = 1$. Leur somme vaut environ 11,107. Les <Terme id="p">probabilités</Terme> sont donc $7{,}389 / 11{,}107 \approx 0{,}665$ pour le français, $2{,}718 / 11{,}107 \approx 0{,}245$ pour le wolof et $1 / 11{,}107 \approx 0{,}090$ pour le dioula.
+
+La <Terme id="T">température</Terme> divise les scores avant l'exponentielle. Avec $T = 0{,}5$, les scores deviennent $(4\,;\,2\,;\,0)$ et les probabilités $(0{,}867\,;\,0{,}117\,;\,0{,}016)$ : la distribution se durcit. Avec $T = 2$, ils deviennent $(1\,;\,0{,}5\,;\,0)$ et les probabilités $(0{,}506\,;\,0{,}307\,;\,0{,}186)$ : elle s'aplatit.
+
+Pour entraîner le modèle, on utilise la même idée que la log-loss : la perte d'un exemple est $-\ln p_y$, où $y$ est la bonne classe. Si le SMS était vraiment en français, la perte vaut $-\ln 0{,}665 \approx 0{,}41$ ; s'il était en wolof, $-\ln 0{,}245 \approx 1{,}41$.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+**Les probabilités sont positives et font 1.** Une exponentielle est toujours positive, donc chaque $p_k > 0$. Et :
+
+$$
+\sum_{k=1}^{K} p_k = \frac{\sum_k e^{z_k/T}}{\sum_j e^{z_j/T}} = 1 \qquad \text{numérateur et dénominateur sont la même somme}
+$$
+
+**Seuls les écarts entre scores comptent.** Si on ajoute une même constante $c$ à tous les scores :
+
+$$
+\frac{e^{(z_k + c)/T}}{\sum_j e^{(z_j + c)/T}} = \frac{e^{c/T}\, e^{z_k/T}}{e^{c/T} \sum_j e^{z_j/T}} = p_k
+$$
+
+C'est ce qu'on utilise en pratique : on retire le plus grand score avant de calculer les exponentielles, ce qui évite les nombres trop grands pour l'ordinateur sans changer le résultat.
+
+**Avec deux classes, on retrouve la sigmoïde.** Pour $K = 2$ et $T = 1$ :
+
+$$
+p_1 = \frac{e^{z_1}}{e^{z_1} + e^{z_2}} = \frac{1}{1 + e^{-(z_1 - z_2)}} = \sigma(z_1 - z_2)
+$$
+
+en divisant en haut et en bas par $e^{z_1}$. La régression logistique est donc le softmax à deux classes.
+
+**Le gradient de la perte.** Pour $\ell = -\ln p_y$ avec $T = 1$, on a $\ln p_y = z_y - \ln \sum_j e^{z_j}$. En dérivant par rapport à $z_k$ :
+
+$$
+\frac{\partial \ell}{\partial z_k} = -\mathbb{1}[k = y] + \frac{e^{z_k}}{\sum_j e^{z_j}} = p_k - \mathbb{1}[k = y]
+$$
+
+où $\mathbb{1}[k = y]$ vaut 1 si $k$ est la bonne classe et 0 sinon. Comme pour la régression logistique, le gradient est simplement « probabilité prédite moins vérité ».
+
+</Depliable>
+
+## Essaie toi-même
+
+Règle la température, et le score du wolof.
+
+<Simulation
+  rendu="softmax-temperature"
+  label="Scores de trois langues et probabilités données par le softmax"
+  parametres={[
+    { nom: "T", label: "Température T", min: 0.1, max: 5, pas: 0.05, valeur: 1, role: "parametre", decimales: 2 },
+    { nom: "wolof", label: "Score du wolof", min: -2, max: 4, pas: 0.5, valeur: 1, role: "entree", decimales: 1 }
+  ]}
+  legende="Scores du français et du dioula fixés à 2 et 0."
+/>
+
+Consigne : pousse la température à 5, puis descends-la à 0,1. Que devient la distribution ? Ensuite, remets $T = 1$ et monte le score du wolof à 2, puis à 3.
+
+<Depliable titre="Ce que tu devrais observer">
+
+À $T = 5$, les probabilités se rapprochent d'un tiers chacune : environ $(0{,}40\,;\,0{,}33\,;\,0{,}27)$. Le modèle devient hésitant. À $T = 0{,}1$, presque toute la probabilité va au français, qui a le plus grand score : le softmax se comporte comme « choisir le maximum ».
+
+Avec $T = 1$ et un score du wolof égal à 2, le français et le wolof se partagent la tête à égalité, 0,468 chacun, et le dioula garde 0,063. Avec un score de 3, le wolof passe devant avec 0,705. La somme reste toujours égale à 1 : quand une classe gagne, les autres perdent.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+
+def softmax(z, T=1.0):
+    z = np.asarray(z, dtype=float) / T
+    e = np.exp(z - z.max())              # on retire le max : même résultat, pas de débordement
+    return e / e.sum()
+
+scores = [2.0, 1.0, 0.0]                  # français, wolof, dioula
+for T in [1.0, 0.5, 2.0]:
+    print(f"T = {T} :", softmax(scores, T).round(3))
+
+p = softmax(scores)
+print("perte si le SMS est en français :", round(-np.log(p[0]), 3))   # 0.408
+print("perte si le SMS est en wolof :", round(-np.log(p[1]), 3))      # 1.408
+print("softmax de scores énormes :", softmax([1000.0, 999.0, 998.0]).round(3))
+```
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+p = torch.softmax(torch.tensor([2.0, 1.0, 0.0]) / 1.0, dim=0)
+perte = torch.nn.functional.cross_entropy(torch.tensor([[2.0, 1.0, 0.0]]), torch.tensor([0]))
+```
+
+## Les pièges classiques
+
+**« Le softmax donne la probabilité que le modèle ait raison. »** Il donne une distribution cohérente, mais rien ne garantit qu'un modèle qui annonce 0,9 ait raison neuf fois sur dix. Cette propriété, l'étalonnage (*calibration*), se vérifie à part, sur des données de test.
+
+**« On peut appliquer le softmax aux probabilités. »** Le softmax prend des scores quelconques. L'appliquer deux fois, ou à des probabilités déjà normalisées, écrase la distribution vers l'uniforme. En PyTorch, la perte `cross_entropy` attend les logits bruts et applique elle-même le softmax.
+
+**« Une température basse rend le modèle plus intelligent. »** Elle le rend seulement plus tranché. Elle ne change pas l'ordre des classes : la plus probable reste la même à toutes les températures.
+
+## Dans la vraie vie
+
+Le softmax est la dernière couche de presque tous les classifieurs à plusieurs classes. C'est aussi lui qui produit le mot suivant dans un LLM : le Transformer se termine par une transformation linéaire et un softmax sur tout le vocabulaire (Vaswani et ses coauteurs, 2017). La température est le réglage que proposent les interfaces de génération de texte : basse pour des réponses prévisibles, haute pour plus de variété ; la fiche sur l'[échantillonnage](/concepts/decodage-sampling/) y revient en détail. Enfin, le softmax est au cœur de l'[attention](/concepts/attention/), où il transforme des scores de pertinence en poids.
+
+Plus près de nous, les outils qui reconnaissent la langue d'un texte ou traduisent entre le français et les langues d'Afrique de l'Ouest se terminent eux aussi par un softmax : c'est lui qui transforme les scores de chaque langue ou de chaque mot en probabilités, comme pour le SMS de l'exemple.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Scores (3 ; 3 ; 3). Que donne le softmax ?",
+    choix: ["(1 ; 0 ; 0)", "(1/3 ; 1/3 ; 1/3)", "(3 ; 3 ; 3)", "(0,5 ; 0,25 ; 0,25)"],
+    bonne: 1,
+    explication: "Des scores égaux donnent des exponentielles égales : chaque classe reçoit un tiers."
+  },
+  {
+    question: "On ajoute 100 à tous les scores (2 ; 1 ; 0). Que deviennent les probabilités ?",
+    choix: ["Elles ne changent pas", "Elles valent toutes 1", "Le français passe à 1", "Elles deviennent négatives"],
+    bonne: 0,
+    explication: "Le facteur e¹⁰⁰ apparaît en haut et en bas et se simplifie : seuls les écarts entre scores comptent."
+  },
+  {
+    question: "Quand la température tend vers 0, le softmax se comporte comme…",
+    choix: ["une moyenne", "un choix au hasard uniforme", "le choix du plus grand score", "une sigmoïde"],
+    bonne: 2,
+    explication: "Diviser par un T minuscule creuse énormément les écarts : toute la probabilité va à la classe de plus grand score."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi soustrait-on le maximum des logits avant de calculer le softmax ?">
+
+Parce que l'exponentielle déborde très vite : e¹⁰⁰⁰ dépasse la capacité des nombres flottants et donne l'infini, puis une division infini sur infini, donc NaN. Comme le softmax est invariant quand on ajoute la même constante à tous les scores, soustraire le maximum ne change pas le résultat mathématique ; le plus grand score devient 0, son exponentielle vaut 1, et toutes les autres sont entre 0 et 1. Pour la perte, on calcule directement log-softmax avec l'astuce log-sum-exp, pour éviter aussi le logarithme d'un nombre trop petit.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "softmax", en: "softmax", definition: "Fonction qui transforme des scores en probabilités positives de somme 1, via l'exponentielle." },
+  { fr: "logits", en: "logits", definition: "Scores bruts, avant softmax, produits par un modèle pour chaque classe." },
+  { fr: "température", en: "temperature", definition: "Nombre T qui divise les scores : grand, il aplatit la distribution ; petit, il la durcit." },
+  { fr: "classification multiclasse", en: "multiclass classification", definition: "Tâche qui consiste à choisir une catégorie parmi plus de deux." },
+  { fr: "étalonnage", en: "calibration", definition: "Accord entre les probabilités annoncées et les fréquences réellement observées." }
+]} />
