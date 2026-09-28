@@ -1,0 +1,45 @@
+---
+// Liste des parcours.
+import Base from '../../layouts/Base.astro';
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { fichesEcrites, parcours, concepts, scinder, urlParcours } from '../../lib/site';
+
+const ecrites = await fichesEcrites();
+---
+<Base titre="Parcours" description="Des parcours de lecture qui mènent pas à pas vers une notion : attention, ChatGPT, agents…">
+  <main id="contenu" class="page">
+    <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <span>Parcours</span></nav>
+    <h1>Les parcours</h1>
+    <p class="chapo">Choisis où tu veux arriver. Le parcours remonte toutes les notions nécessaires et te les donne dans l’ordre, sans rien sauter.</p>
+    <ul class="liste">
+      {parcours.map((p) => {
+        const faites = p.etapes.filter((id) => ecrites.has(id)).length;
+        const cibles = (p as { cibles?: string[] }).cibles ?? [];
+        return (
+          <li><a href={urlParcours(p.id)}>
+            <span class="t">{corriger(p.titre)}</span>
+            <span class="s">Arrivée : {cibles.map((id) => scinder(concepts.get(id)!.titre)[0]).join(', ')}</span>
+            <span class="jauge" aria-hidden="true"><span style={`width:${Math.round((100 * faites) / p.etapes.length)}%`}></span></span>
+            <span class="s">{p.etapes.length} étapes · {faites} fiches écrites</span>
+          </a></li>
+        );
+      })}
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .page { max-width: var(--largeur-large); margin: 0 auto; padding: 1.5rem var(--espace) 2rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .chapo { font-size: var(--t-m); color: var(--encre-douce); max-width: var(--colonne); line-height: 1.5; margin-bottom: 2rem; }
+  .liste { list-style: none; padding: 0; margin: 0; display: grid; gap: .9rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .liste li + li { margin: 0; }
+  .liste a { display: grid; gap: .4rem; align-content: start; height: 100%; padding: 1.2rem; border: 1px solid var(--trait); border-radius: var(--rayon); text-decoration: none; color: var(--encre); background: var(--papier); }
+  .liste a:hover { border-color: var(--indigo); }
+  .liste a:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  .t { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-m); line-height: 1.25; }
+  .s { font-size: var(--t-xs); color: var(--encre-douce); }
+  .jauge { display: block; height: 5px; border-radius: 3px; background: var(--trait); overflow: hidden; }
+  .jauge span { display: block; height: 100%; background: var(--lagune); }
+  @media (max-width: 400px) { .liste { grid-template-columns: 1fr; } }
+</style>

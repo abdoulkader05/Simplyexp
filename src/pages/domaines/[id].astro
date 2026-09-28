@@ -1,0 +1,43 @@
+---
+// Page d'un domaine : ses fiches dans l'ordre de lecture, et les domaines voisins.
+import Base from '../../layouts/Base.astro';
+import ListeFiches from '../../components/navigation/ListeFiches.astro';
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { ETAGES, scinder, fichesEcrites, conceptsDu, urlDomaine, domaines } from '../../lib/site';
+
+export function getStaticPaths() {
+  return [...domaines.keys()].map((id) => ({ params: { id } }));
+}
+const { id } = Astro.params;
+const [titre, sous] = scinder(domaines.get(id!)!.titre);
+const liste = conceptsDu(id!);
+const ecrites = await fichesEcrites();
+const nb = liste.filter((c) => ecrites.has(c.id)).length;
+const ordre = ETAGES.flatMap((e) => e.domaines as readonly string[]);
+const i = ordre.indexOf(id!);
+const [avant, apres] = [ordre[i - 1], ordre[i + 1]];
+const etage = ETAGES.find((e) => (e.domaines as readonly string[]).includes(id!))!;
+---
+<Base titre={titre} description={`${titre} : ${sous}. Toutes les fiches du domaine, dans l’ordre de lecture.`}>
+  <main id="contenu" class="page">
+    <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <a href="/domaines/">Domaines</a> › <span>{titre}</span></nav>
+    <p class="surtitre">{etage.titre}</p>
+    <h1>{titre}</h1>
+    <p class="chapo">{corriger(sous.charAt(0).toUpperCase() + sous.slice(1))}. {nb} fiche{nb > 1 ? 's' : ''} écrite{nb > 1 ? 's' : ''} sur {liste.length}, dans l’ordre où les lire.</p>
+    <ListeFiches ids={liste.map((c) => c.id)} ecrites={ecrites} />
+    <nav class="voisins" aria-label="Domaines voisins">
+      {avant && <a href={urlDomaine(avant)}>← {scinder(domaines.get(avant)!.titre)[0]}</a>}
+      {apres && <a class="suivant" href={urlDomaine(apres)}>{scinder(domaines.get(apres)!.titre)[0]} →</a>}
+    </nav>
+  </main>
+</Base>
+
+<style>
+  .page { max-width: var(--largeur-large); margin: 0 auto; padding: 1.5rem var(--espace) 2rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .surtitre { font-family: var(--police-titre); font-size: var(--t-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--lagune); font-weight: 600; margin-bottom: .4rem; }
+  .chapo { font-size: var(--t-m); color: var(--encre-douce); max-width: var(--colonne); line-height: 1.5; margin-bottom: 2rem; }
+  .voisins { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 3rem; max-width: var(--colonne); border-top: 1px solid var(--trait); padding-top: 1rem; }
+  .voisins a { font-family: var(--police-titre); font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; }
+  .suivant { margin-left: auto; }
+</style>

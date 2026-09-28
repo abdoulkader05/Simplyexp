@@ -1,0 +1,35 @@
+---
+// À propos : la promesse du site et sa méthode.
+import Base from '../layouts/Base.astro';
+---
+<Base titre="À propos" description="Pourquoi ce cours d’IA en français, et comment chaque fiche est écrite et vérifiée.">
+  <main id="contenu" class="page">
+    <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <span>À propos</span></nav>
+    <h1>À propos</h1>
+    <div class="prose">
+      <p class="chapo">Simplyexp est un cours d’intelligence artificielle en français, pensé pour les étudiants et les curieux motivés, en particulier en Afrique de l’Ouest. Il part de zéro, une fonction, un vecteur, une probabilité, et va jusqu’au fonctionnement des grands modèles de langage et des agents.</p>
+
+      <h2>La méthode</h2>
+      <ul>
+        <li><strong>Des maths assumées.</strong> On démontre au lieu d’affirmer : chaque formule a ses symboles définis, un exemple calculable à la main et sa dérivation.</li>
+        <li><strong>Des animations qui expliquent.</strong> Une animation n’est là que si elle rend une idée plus claire. Chacune garde un état fixe lisible si tu as réduit les animations.</li>
+        <li><strong>Du code qui tourne.</strong> Chaque bloc Python d’une fiche est exécuté avant publication.</li>
+        <li><strong>Des sources consultées.</strong> Chaque date, auteur ou chiffre vient d’une source citée en bas de fiche ; les papers sont lus dans le texte original.</li>
+        <li><strong>Un graphe de notions.</strong> Chaque fiche renvoie à ses prérequis au lieu de les réexpliquer, et indique quoi lire ensuite.</li>
+      </ul>
+
+      <h2>Pensé pour les connexions lentes</h2>
+      <p>Les pages sont statiques, les animations ne se chargent qu’au moment où elles arrivent à l’écran, et chaque fiche reste lisible sur un téléphone de 360 pixels de large.</p>
+
+      <h2>Où en est le cours</h2>
+      <p>Les fiches sont rédigées dans l’ordre des parcours, puis vérifiées et relues avant d’être publiées. Le statut de chaque fiche est affiché en haut de la page : « brouillon », « relu » ou publiée.</p>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .page { max-width: var(--largeur-large); margin: 0 auto; padding: 1.5rem var(--espace) 2rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .prose { max-width: var(--colonne); line-height: 1.65; }
+  .chapo { font-size: var(--t-m); color: var(--encre-douce); line-height: 1.5; }
+</style>

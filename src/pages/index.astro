@@ -1,113 +1,212 @@
 ---
-// Accueil : les fiches rangées par domaine et par parcours, dans des sections repliables.
-import { getCollection } from 'astro:content';
+// Accueil : promesse, chemin en quatre étapes, points d'entrée, domaines et parcours.
 import Base from '../layouts/Base.astro';
-import { concepts, domaines, parcours, urlConcept } from '../lib/graphe';
 import { corriger } from '../lib/rehype-typo-fr.mjs';
+import { ETAGES, scinder, fichesEcrites, conceptsDu, urlDomaine, urlParcours, concepts, domaines, parcours, urlConcept } from '../lib/site';
 
-const ecrites = new Set([...(await getCollection('concepts')), ...(await getCollection('maths'))].map((f) => f.id));
-const parDomaine = [...domaines.values()].map((d) => {
-  const liste = [...concepts.values()].filter((c) => c.domaine === d.id).sort((a, b) => a.niveau - b.niveau);
-  return { ...d, liste, nbEcrites: liste.filter((c) => ecrites.has(c.id)).length };
+const ecrites = await fichesEcrites();
+const total = concepts.size;
+const nbEcrites = [...concepts.keys()].filter((id) => ecrites.has(id)).length;
+const etages = ETAGES.map((e) => {
+  const doms = e.domaines.map((id) => {
+    const liste = conceptsDu(id);
+    const [titre, sous] = scinder(domaines.get(id)!.titre);
+    return { id, titre, sous, total: liste.length, ecrites: liste.filter((c) => ecrites.has(c.id)).length, premiere: liste.find((c) => ecrites.has(c.id)) };
+  });
+  return { ...e, doms, total: doms.reduce((s, d) => s + d.total, 0), ecrites: doms.reduce((s, d) => s + d.ecrites, 0) };
 });
-const scinder = (t: string) => { const i = t.indexOf(' : '); return i < 0 ? [t, ''] : [t.slice(0, i), t.slice(i + 3)]; };
+const lien = (id: string) => urlConcept(concepts.get(id)!);
+const ENTREES = [
+  { titre: 'Je pars de zéro', texte: 'Une fonction, une dérivée, un vecteur : on reprend les bases, sans rien supposer.', href: lien('fonctions'), action: 'Commencer par les fonctions' },
+  { titre: 'J’ai des bases en maths', texte: 'Passe directement au premier modèle qui apprend : la régression linéaire.', href: lien('regression-lineaire'), action: 'Voir la régression linéaire' },
+  { titre: 'Je veux comprendre ChatGPT', texte: 'Un parcours complet, dans l’ordre, jusqu’au fonctionnement d’un assistant.', href: urlParcours('comment-marche-chatgpt'), action: 'Suivre le parcours' },
+];
+const ANATOMIE = [
+  { titre: 'L’idée en une phrase', texte: 'Avant tout calcul, ce qu’il faut retenir.' },
+  { titre: 'Une animation qui explique', texte: 'On fait défiler, le calcul se construit sous tes yeux.' },
+  { titre: 'Des formules démontrées', texte: 'Chaque symbole défini, un exemple à la main, la preuve dépliable.' },
+  { titre: 'Du code qui tourne', texte: 'En Python, depuis zéro, puis avec la bibliothèque qu’on utilise en vrai.' },
+  { titre: 'Des exercices et un quiz', texte: 'Des situations concrètes à résoudre, corrigé compris.' },
+];
+const pct = (a: number, b: number) => (b ? Math.round((100 * a) / b) : 0);
 ---
-<Base titre="Accueil" description="Apprendre l’IA en français, des maths jusqu’aux LLM.">
-  <main id="contenu" class="accueil">
-    <h1>Des maths jusqu’aux LLM, pas à pas</h1>
-    <p class="chapo">Chaque fiche explique un concept, démontre ses formules et renvoie à ce qu’il faut savoir avant. Ouvre un domaine pour voir ses fiches.</p>
+<Base titre="Apprendre l’IA, des maths aux LLM" description="Un cours d’IA en français, en fiches reliées : des fonctions et des vecteurs jusqu’aux transformers, aux LLM et aux agents.">
+  <main id="contenu">
+    <section class="heros">
+      <div class="heros-texte">
+        <p class="surtitre">Cours d’IA en français</p>
+        <h1>Comprendre l’IA pour de vrai, des maths jusqu’aux LLM</h1>
+        <p class="chapo">{corriger(`Des fiches courtes et reliées entre elles : chacune démontre ses formules, anime ses calculs et renvoie à ce qu’il faut savoir avant. Tu avances à ton rythme, de la notion de fonction jusqu’aux agents.`)}</p>
+        <div class="actions">
+          <a class="bouton bouton-plein" href={lien('fonctions')}>Commencer au début</a>
+          <a class="bouton" href="/parcours/">Choisir un parcours</a>
+        </div>
+        <p class="chiffres"><strong>{nbEcrites}</strong> fiches écrites sur {total} prévues · {domaines.size} domaines · {parcours.length} parcours</p>
+      </div>
 
-    <section aria-labelledby="titre-domaines">
-      <h2 id="titre-domaines">Par domaine</h2>
-      <div class="groupes">
-        {parDomaine.map((d) => {
-          const [titre, sous] = scinder(d.titre);
-          return (
-            <details class="groupe">
-              <summary>
-                <span class="groupe-nom">{titre}</span>
-                <span class="groupe-sous">{corriger(sous)}</span>
-                <span class="groupe-compte">{d.nbEcrites} / {d.liste.length} fiches écrites</span>
-              </summary>
-              <ul class="fiches">
-                {d.liste.map((c) => {
-                  const [n, p] = scinder(c.titre);
-                  return ecrites.has(c.id) ? (
-                    <li><a href={urlConcept(c)}><span class="fiche-nom">{n}</span><span class="fiche-promesse">{corriger(p)}</span></a></li>
-                  ) : (
-                    <li class="a-venir"><span class="fiche-nom">{n}</span><span class="fiche-promesse">à venir</span></li>
-                  );
-                })}
-              </ul>
-            </details>
-          );
-        })}
+      <ol class="route" aria-label="Le chemin, en quatre étapes">
+        {etages.map((e, i) => (
+          <li>
+            <a href={`#etage-${e.id}`}>
+              <span class="route-num">{i + 1}</span>
+              <span class="route-titre">{e.titre}</span>
+              <span class="route-resume">{e.resume}</span>
+              <span class="route-compte">{e.ecrites} / {e.total} fiches</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="bande" aria-labelledby="titre-entrees">
+      <div class="dedans">
+        <h2 id="titre-entrees">Par où commencer ?</h2>
+        <div class="entrees">
+          {ENTREES.map((e) => (
+            <a class="entree" href={e.href}>
+              <span class="entree-titre">{e.titre}</span>
+              <span class="entree-texte">{corriger(e.texte)}</span>
+              <span class="entree-action">{e.action} →</span>
+            </a>
+          ))}
+        </div>
       </div>
     </section>
 
-    <section aria-labelledby="titre-parcours">
-      <h2 id="titre-parcours">Par parcours</h2>
-      <p>Un parcours enchaîne les fiches dans l’ordre où il faut les lire.</p>
-      <div class="groupes">
-        {parcours.map((p) => (
-          <details class="groupe">
-            <summary>
-              <span class="groupe-nom">{corriger(p.titre)}</span>
-              <span class="groupe-compte">{p.etapes.filter((e) => ecrites.has(e)).length} / {p.etapes.length} fiches écrites</span>
-            </summary>
-            <ol class="ligne">
-              {p.etapes.map((id) => {
-                const c = concepts.get(id)!;
-                const n = scinder(c.titre)[0];
-                return <li class={ecrites.has(id) ? 'lu' : 'a-venir'}>{ecrites.has(id) ? <a href={urlConcept(c)}>{n}</a> : <span>{n}</span>}</li>;
-              })}
-            </ol>
-          </details>
+    <section class="dedans" aria-labelledby="titre-anatomie">
+      <h2 id="titre-anatomie">Dans chaque fiche</h2>
+      <ol class="anatomie">
+        {ANATOMIE.map((a) => (
+          <li><span class="anatomie-titre">{a.titre}</span><span class="anatomie-texte">{corriger(a.texte)}</span></li>
         ))}
+      </ol>
+    </section>
+
+    <section class="dedans" aria-labelledby="titre-domaines">
+      <h2 id="titre-domaines">Tous les domaines</h2>
+      {etages.map((e, i) => (
+        <div class="etage" id={`etage-${e.id}`}>
+          <h3><span class="etage-num">{i + 1}</span>{e.titre}</h3>
+          <div class="cartes">
+            {e.doms.map((d) => (
+              <a class="carte" href={urlDomaine(d.id)}>
+                <span class="carte-titre">{d.titre}</span>
+                <span class="carte-sous">{corriger(d.sous)}</span>
+                <span class="jauge" aria-hidden="true"><span style={`width:${pct(d.ecrites, d.total)}%`}></span></span>
+                <span class="carte-compte">{d.ecrites} / {d.total} fiches écrites</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <section class="bande" aria-labelledby="titre-parcours">
+      <div class="dedans">
+        <h2 id="titre-parcours">Les parcours</h2>
+        <p class="intro">Un parcours part de ta cible et remonte tous les prérequis, puis te les donne dans le bon ordre.</p>
+        <div class="cartes">
+          {parcours.map((p) => {
+            const faites = p.etapes.filter((id) => ecrites.has(id)).length;
+            return (
+              <a class="carte" href={urlParcours(p.id)}>
+                <span class="carte-titre">{corriger(p.titre)}</span>
+                <span class="carte-sous">{p.etapes.length} étapes</span>
+                <span class="jauge" aria-hidden="true"><span style={`width:${pct(faites, p.etapes.length)}%`}></span></span>
+                <span class="carte-compte">{faites} / {p.etapes.length} fiches écrites</span>
+              </a>
+            );
+          })}
+        </div>
       </div>
     </section>
   </main>
 </Base>
 
 <style>
-  .accueil { max-width: var(--largeur-page); margin: 0 auto; padding: 2rem var(--espace) 4rem; }
-  .chapo { font-size: var(--t-m); color: var(--encre-douce); line-height: 1.5; }
-  .groupes { display: grid; gap: .5rem; }
-  .groupe { border: 1px solid var(--trait); border-radius: var(--rayon); background: var(--papier); }
-  .groupe[open] { background: var(--papier-2); }
-  summary {
-    cursor: pointer; list-style: none; min-height: 44px; padding: .75rem 2.5rem .75rem 1rem; position: relative;
-    display: grid; gap: .1rem;
+  .dedans { max-width: var(--largeur-large); margin: 0 auto; padding: 0 var(--espace); }
+  section.dedans { padding-block: 1rem; }
+  .heros {
+    max-width: var(--largeur-large); margin: 0 auto; padding: 3rem var(--espace) 3.5rem;
+    display: grid; gap: 2.5rem; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center;
   }
-  summary::-webkit-details-marker { display: none; }
-  summary::after {
-    content: ''; position: absolute; right: 1rem; top: 1.2rem; width: .55rem; height: .55rem;
-    border-right: 2px solid var(--encre-douce); border-bottom: 2px solid var(--encre-douce);
-    transform: rotate(45deg); transition: transform var(--duree-courte) var(--courbe);
+  .surtitre { font-family: var(--police-titre); font-size: var(--t-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--lagune); font-weight: 600; margin-bottom: .75rem; }
+  .heros h1 { font-size: var(--t-3xl); line-height: 1.02; margin-bottom: 1rem; }
+  .chapo { font-size: var(--t-m); line-height: 1.5; color: var(--encre-douce); max-width: 38ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0 1.25rem; }
+  .bouton {
+    display: inline-flex; align-items: center; min-height: 48px; padding: 0 1.2rem; border-radius: var(--rayon);
+    font-family: var(--police-titre); font-weight: 600; text-decoration: none; border: 1.5px solid var(--indigo); color: var(--indigo);
   }
-  .groupe[open] summary::after { transform: rotate(225deg); top: 1.45rem; }
-  summary:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; border-radius: var(--rayon); }
-  .groupe-nom { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-m); line-height: 1.25; }
-  .groupe-sous { color: var(--encre-douce); font-size: var(--t-xs); }
-  .groupe-compte { font-size: var(--t-xs); color: var(--lagune); font-variant-numeric: tabular-nums; }
-  .fiches { list-style: none; margin: 0; padding: 0 .5rem .75rem; display: grid; gap: .15rem; }
-  .fiches li + li { margin: 0; }
-  .fiches a, .fiches .a-venir {
-    display: grid; gap: .05rem; padding: .5rem .5rem; border-radius: var(--rayon); min-height: 44px; text-decoration: none;
+  .bouton:hover { background: var(--papier-2); }
+  .bouton-plein { background: var(--indigo); color: var(--papier); }
+  .bouton-plein:hover { background: var(--encre); border-color: var(--encre); }
+  .bouton:focus-visible, .route a:focus-visible, .entree:focus-visible, .carte:focus-visible { outline: 2px solid var(--or); outline-offset: 3px; }
+  .chiffres { font-size: var(--t-xs); color: var(--encre-douce); font-variant-numeric: tabular-nums; }
+  .chiffres strong { color: var(--encre); }
+
+  /* La route : une ligne verticale, quatre arrêts, du plus simple au plus avancé. */
+  .route { list-style: none; margin: 0; padding: 0; position: relative; }
+  .route::before { content: ''; position: absolute; left: 1.2rem; top: 1.5rem; bottom: 1.5rem; width: 3px; background: linear-gradient(var(--indigo), var(--lagune), var(--or)); border-radius: 2px; }
+  .route li + li { margin-top: .5rem; }
+  .route a {
+    position: relative; display: grid; grid-template-columns: 2.4rem 1fr; column-gap: .9rem; row-gap: .1rem;
+    padding: .8rem 1rem .8rem 0; text-decoration: none; color: var(--encre); border-radius: var(--rayon);
   }
-  .fiches a:hover { background: var(--papier); }
-  .fiche-nom { font-weight: 600; }
-  .fiches a .fiche-nom { color: var(--indigo); }
-  .fiche-promesse { font-size: var(--t-xs); color: var(--encre-douce); }
-  .a-venir .fiche-nom { color: var(--encre-douce); font-weight: 400; }
-  /* Parcours : une ligne de transport, les arrêts écrits sont pleins. */
-  .ligne { list-style: none; margin: 0; padding: .25rem 1rem 1rem 2.2rem; position: relative; }
-  .ligne::before { content: ''; position: absolute; left: 1.35rem; top: .6rem; bottom: 1.6rem; width: 2px; background: var(--trait); }
-  .ligne li { position: relative; padding: .3rem 0; margin: 0; font-size: var(--t-xs); }
-  .ligne li::before {
-    content: ''; position: absolute; left: -1.08rem; top: .72rem; width: .6rem; height: .6rem; border-radius: 50%;
-    border: 2px solid var(--indigo); background: var(--papier-2);
+  .route a:hover { background: var(--papier-2); }
+  .route-num {
+    grid-row: 1 / span 3; width: 2.4rem; height: 2.4rem; border-radius: 50%; display: grid; place-items: center;
+    background: var(--papier); border: 3px solid var(--indigo); font-family: var(--police-titre); font-weight: 700; color: var(--indigo); position: relative;
   }
-  .ligne li.lu::before { background: var(--indigo); }
-  .ligne li.a-venir { color: var(--encre-douce); }
+  .route li:nth-child(2) .route-num { border-color: var(--lagune); color: var(--lagune); }
+  .route li:nth-child(3) .route-num { border-color: var(--lagune); color: var(--lagune); }
+  .route li:nth-child(4) .route-num { border-color: var(--or); color: var(--encre); }
+  .route-titre { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-m); line-height: 1.2; }
+  .route-resume { font-size: var(--t-xs); color: var(--encre-douce); }
+  .route-compte { font-size: var(--t-xs); color: var(--lagune); font-variant-numeric: tabular-nums; }
+
+  .bande { background: var(--papier-2); padding-block: 1.5rem 2.5rem; margin-block: 2rem; }
+  .bande h2 { margin-top: 1.5rem; }
+  .intro { color: var(--encre-douce); max-width: var(--colonne); }
+  .entrees { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .entree {
+    display: grid; gap: .5rem; align-content: start; padding: 1.25rem; background: var(--papier); border-radius: var(--rayon);
+    border: 1px solid var(--trait); text-decoration: none; color: var(--encre); border-top: 4px solid var(--indigo);
+  }
+  .entree:nth-child(2) { border-top-color: var(--lagune); }
+  .entree:nth-child(3) { border-top-color: var(--or); }
+  .entree:hover { border-color: var(--encre-douce); }
+  .entree-titre { font-family: var(--police-titre); font-weight: 700; font-size: var(--t-m); }
+  .entree-texte { color: var(--encre-douce); line-height: 1.5; }
+  .entree-action { color: var(--indigo); font-family: var(--police-titre); font-weight: 600; margin-top: .25rem; }
+
+  .anatomie { list-style: none; counter-reset: a; padding: 0; margin: 0; display: grid; gap: 1rem 1.5rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .anatomie li { counter-increment: a; margin: 0; display: grid; gap: .25rem; padding-top: .75rem; border-top: 2px solid var(--trait); }
+  .anatomie li::before { content: counter(a, decimal-leading-zero); font-family: var(--police-code); font-size: var(--t-xs); color: var(--lagune); }
+  .anatomie-titre { font-family: var(--police-titre); font-weight: 600; }
+  .anatomie-texte { font-size: var(--t-xs); color: var(--encre-douce); line-height: 1.5; }
+
+  .etage { margin-bottom: 2.25rem; scroll-margin-top: 5rem; }
+  .etage h3 { display: flex; align-items: center; gap: .6rem; }
+  .etage-num { font-family: var(--police-code); font-size: var(--t-xs); color: var(--lagune); border: 1.5px solid var(--lagune); border-radius: 50%; width: 1.7rem; height: 1.7rem; display: inline-grid; place-items: center; }
+  .cartes { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .carte {
+    display: grid; gap: .35rem; align-content: start; padding: 1rem 1.1rem; border: 1px solid var(--trait); border-radius: var(--rayon);
+    background: var(--papier); text-decoration: none; color: var(--encre);
+  }
+  .carte:hover { border-color: var(--indigo); }
+  .carte-titre { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-m); line-height: 1.2; }
+  .carte-sous { font-size: var(--t-xs); color: var(--encre-douce); }
+  .jauge { display: block; height: 5px; border-radius: 3px; background: var(--trait); overflow: hidden; margin-top: .4rem; }
+  .jauge span { display: block; height: 100%; background: var(--lagune); }
+  .carte-compte { font-size: var(--t-xs); color: var(--encre-douce); font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 900px) {
+    .heros { grid-template-columns: 1fr; padding-top: 2rem; }
+    .entrees { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .heros h1 { font-size: var(--t-2xl); }
+    .dedans, .heros { padding-inline: 1rem; }
+  }
 </style>

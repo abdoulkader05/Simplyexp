@@ -1,0 +1,90 @@
+---
+// Exercice concret : énoncé, réponse numérique vérifiable (facultative), indice et corrigé dépliables.
+// Usage MDX : <Exercice titre="…" niveau="moyen" reponse={0.4} tolerance={0.01}>énoncé
+//   <div slot="indice">…</div><div slot="solution">…</div></Exercice>
+interface Props { titre: string; niveau?: 'facile' | 'moyen' | 'defi'; reponse?: number; tolerance?: number; unite?: string }
+const { titre, niveau = 'moyen', reponse, tolerance = 0.01, unite = '' } = Astro.props;
+const NIVEAUX = { facile: 'Facile', moyen: 'Intermédiaire', defi: 'Défi' };
+const aIndice = Astro.slots.has('indice');
+---
+<section class={`exercice niveau-${niveau}`} data-exercice aria-label={`Exercice : ${titre}`}>
+  <header class="ex-tete">
+    <span class="ex-niveau">{NIVEAUX[niveau]}</span>
+    <h3 class="ex-titre">{titre}</h3>
+  </header>
+  <div class="ex-enonce"><slot /></div>
+  {reponse !== undefined && (
+    <form class="ex-reponse" data-reponse={reponse} data-tolerance={tolerance}>
+      <label>
+        <span>Ta réponse{unite && ` (${unite})`}</span>
+        <input type="text" inputmode="decimal" autocomplete="off" placeholder="ex. 0,25" />
+      </label>
+      <button type="submit">Vérifier</button>
+      <p class="ex-retour" aria-live="polite"></p>
+    </form>
+  )}
+  {aIndice && (
+    <details class="ex-bloc">
+      <summary>Un indice</summary>
+      <div class="ex-bloc-corps"><slot name="indice" /></div>
+    </details>
+  )}
+  <details class="ex-bloc">
+    <summary>Le corrigé</summary>
+    <div class="ex-bloc-corps"><slot name="solution" /></div>
+  </details>
+</section>
+
+<script>
+  document.addEventListener('submit', (ev) => {
+    const form = (ev.target as Element).closest<HTMLFormElement>('[data-exercice] form');
+    if (!form) return;
+    ev.preventDefault();
+    const brut = form.querySelector('input')!.value.trim().replace(/\s/g, '').replace(',', '.');
+    const retour = form.querySelector<HTMLElement>('.ex-retour')!;
+    let val = Number(brut);
+    const frac = brut.match(/^(-?\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+    if (frac) val = Number(frac[1]) / Number(frac[2]);
+    if (brut === '' || Number.isNaN(val)) {
+      retour.textContent = 'Écris un nombre, par exemple 0,25 ou 1/4.';
+      retour.className = 'ex-retour';
+      return;
+    }
+    const cible = Number(form.dataset.reponse), tol = Number(form.dataset.tolerance);
+    const juste = Math.abs(val - cible) <= tol * Math.max(1, Math.abs(cible));
+    retour.textContent = juste ? 'Juste ! Compare ta démarche avec le corrigé.' : 'Pas encore. Relis l’énoncé, ou ouvre l’indice.';
+    retour.className = `ex-retour ${juste ? 'juste' : 'faux'}`;
+  });
+</script>
+
+<style>
+  .exercice {
+    margin: 1.75rem 0; padding: 1.1rem 1.2rem 1rem; border: 1px solid var(--trait); border-left: 4px solid var(--lagune);
+    border-radius: var(--rayon); background: var(--papier);
+  }
+  .niveau-facile { border-left-color: var(--indigo); }
+  .niveau-defi { border-left-color: var(--laterite); }
+  .ex-tete { display: grid; gap: .15rem; margin-bottom: .6rem; }
+  .ex-niveau { font-family: var(--police-titre); font-size: var(--t-xs); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--lagune); }
+  .niveau-facile .ex-niveau { color: var(--indigo); }
+  .niveau-defi .ex-niveau { color: var(--laterite); }
+  .ex-titre { margin: 0; font-size: var(--t-m); }
+  .ex-enonce > :global(:last-child) { margin-bottom: .75rem; }
+  .ex-reponse { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem .75rem; margin-bottom: .75rem; }
+  .ex-reponse label { display: grid; gap: .2rem; font-size: var(--t-xs); color: var(--encre-douce); font-family: var(--police-titre); }
+  .ex-reponse input {
+    font: inherit; font-family: var(--police-code); font-size: 1rem; min-height: 44px; width: 11rem; max-width: 100%;
+    padding: 0 .7rem; border: 1px solid var(--trait); border-radius: var(--rayon); background: var(--papier-2); color: var(--encre);
+  }
+  .ex-reponse button {
+    min-height: 44px; padding: 0 1rem; border-radius: var(--rayon); border: 1.5px solid var(--indigo); background: var(--indigo);
+    color: var(--papier); font-family: var(--police-titre); font-weight: 600; cursor: pointer;
+  }
+  .ex-reponse input:focus-visible, .ex-reponse button:focus-visible, .ex-bloc summary:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  .ex-retour { flex-basis: 100%; margin: 0; min-height: 1.4em; font-size: var(--t-xs); }
+  .ex-retour.juste { color: var(--lagune); font-weight: 600; }
+  .ex-retour.faux { color: var(--laterite); }
+  .ex-bloc { border-top: 1px solid var(--trait); }
+  .ex-bloc summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-family: var(--police-titre); font-weight: 600; color: var(--indigo); }
+  .ex-bloc-corps > :global(:last-child) { margin-bottom: .75rem; }
+</style>

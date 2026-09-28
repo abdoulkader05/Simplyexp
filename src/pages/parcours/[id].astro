@@ -1,0 +1,37 @@
+---
+// Page d'un parcours : toutes les étapes dans l'ordre calculé par build_graph.py.
+import Base from '../../layouts/Base.astro';
+import ListeFiches from '../../components/navigation/ListeFiches.astro';
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { fichesEcrites, parcours, concepts, urlConcept, scinder } from '../../lib/site';
+
+export function getStaticPaths() {
+  return parcours.map((p) => ({ params: { id: p.id } }));
+}
+const p = parcours.find((x) => x.id === Astro.params.id)!;
+const ecrites = await fichesEcrites();
+const faites = p.etapes.filter((id) => ecrites.has(id)).length;
+const prochaine = p.etapes.find((id) => ecrites.has(id));
+const cibles = (p as { cibles?: string[] }).cibles ?? [];
+---
+<Base titre={p.titre} description={`Parcours en ${p.etapes.length} étapes : ${p.titre}.`}>
+  <main id="contenu" class="page">
+    <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <a href="/parcours/">Parcours</a> › <span>{corriger(scinder(p.titre)[0])}</span></nav>
+    <p class="surtitre">Parcours · {p.etapes.length} étapes</p>
+    <h1>{corriger(p.titre)}</h1>
+    {cibles.length > 0 && (
+      <p class="chapo">À l’arrivée : {cibles.map((id, i) => <>{i > 0 && ', '}<strong>{corriger(scinder(concepts.get(id)!.titre)[0])}</strong></>)}. Toutes les notions nécessaires sont remontées et rangées dans l’ordre.</p>
+    )}
+    <p class="avancement">{faites} / {p.etapes.length} fiches écrites{prochaine && <> · <a href={urlConcept(concepts.get(prochaine)!)}>Commencer</a></>}</p>
+    <ListeFiches ids={p.etapes} ecrites={ecrites} avecDomaine />
+  </main>
+</Base>
+
+<style>
+  .page { max-width: var(--largeur-large); margin: 0 auto; padding: 1.5rem var(--espace) 2rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .surtitre { font-family: var(--police-titre); font-size: var(--t-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--lagune); font-weight: 600; margin-bottom: .4rem; }
+  .chapo { font-size: var(--t-m); color: var(--encre-douce); max-width: var(--colonne); line-height: 1.5; }
+  .avancement { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .avancement a { font-family: var(--police-titre); font-weight: 600; }
+</style>

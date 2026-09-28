@@ -1,0 +1,17 @@
+---
+// Schéma illustratif : un rendu figé dans un état, avec sa légende. Pour montrer une structure
+// (architecture, boucle, flux) qui n'a pas besoin de défiler pour être comprise.
+import Scene from './Scene.astro';
+interface Props { rendu: string; etat?: string; legende: string; label?: string }
+const { rendu, etat = 'initial', legende, label } = Astro.props;
+---
+<figure class="schema" data-schema>
+  <Scene rendu={rendu} etat={etat} label={label ?? legende} />
+  <figcaption>{legende}</figcaption>
+</figure>
+
+<style>
+  .schema { margin: 2rem 0; }
+  .schema :global(.scene-fixe) { max-width: 100%; }
+  figcaption { font-size: var(--t-xs); color: var(--encre-douce); margin-top: .5rem; font-family: var(--police-titre); }
+</style>

@@ -1,0 +1,51 @@
+---
+// Liste ordonnée de fiches : une ligne de transport, arrêts pleins pour les fiches écrites.
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { concepts, domaines, urlConcept, scinder } from '../../lib/site';
+
+interface Props { ids: string[]; ecrites: Set<string>; avecDomaine?: boolean }
+const { ids, ecrites, avecDomaine = false } = Astro.props;
+---
+<ol class="liste">
+  {ids.map((id) => {
+    const c = concepts.get(id)!;
+    const [nom, promesse] = scinder(c.titre);
+    const ok = ecrites.has(id);
+    const dom = scinder(domaines.get(c.domaine)!.titre)[0];
+    return (
+      <li class={ok ? 'ecrite' : 'a-venir'}>
+        {ok ? (
+          <a href={urlConcept(c)}>
+            <span class="nom">{corriger(nom)}</span>
+            {promesse && <span class="promesse">{corriger(promesse)}</span>}
+            <span class="meta">{avecDomaine && <>{dom} · </>}{corriger(c.sous_titre)}</span>
+          </a>
+        ) : (
+          <div>
+            <span class="nom">{corriger(nom)}</span>
+            <span class="meta">{avecDomaine && <>{dom} · </>}à venir</span>
+          </div>
+        )}
+      </li>
+    );
+  })}
+</ol>
+
+<style>
+  .liste { list-style: none; margin: 0; padding: 0 0 0 1.9rem; position: relative; max-width: var(--colonne); }
+  .liste::before { content: ''; position: absolute; left: .6rem; top: 1rem; bottom: 1rem; width: 2px; background: var(--trait); }
+  li { position: relative; margin: 0; }
+  li::before {
+    content: ''; position: absolute; left: -1.62rem; top: 1rem; width: .75rem; height: .75rem; border-radius: 50%;
+    border: 2px solid var(--indigo); background: var(--papier);
+  }
+  li.ecrite::before { background: var(--indigo); }
+  li.a-venir::before { border-color: var(--trait); }
+  a, li > div { display: grid; gap: .1rem; padding: .6rem .75rem; border-radius: var(--rayon); text-decoration: none; min-height: 44px; }
+  a:hover { background: var(--papier-2); }
+  a:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  .nom { font-family: var(--police-titre); font-weight: 600; font-size: 1.05rem; color: var(--indigo); line-height: 1.25; }
+  .promesse { color: var(--encre); line-height: 1.35; }
+  .meta { font-size: var(--t-xs); color: var(--encre-douce); }
+  .a-venir .nom { color: var(--encre-douce); font-weight: 500; }
+</style>

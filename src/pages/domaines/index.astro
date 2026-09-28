@@ -1,0 +1,50 @@
+---
+// Tous les domaines, rangés par étape du chemin.
+import Base from '../../layouts/Base.astro';
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { ETAGES, scinder, fichesEcrites, conceptsDu, urlDomaine, domaines } from '../../lib/site';
+
+const ecrites = await fichesEcrites();
+---
+<Base titre="Domaines" description="Les domaines du cours, des maths de base jusqu’aux agents.">
+  <main id="contenu" class="page">
+    <nav class="fil" aria-label="Fil d’Ariane"><a href="/">Accueil</a> › <span>Domaines</span></nav>
+    <h1>Les domaines</h1>
+    <p class="chapo">Quatre grandes étapes, du plus fondamental au plus avancé. Chaque domaine regroupe des fiches d’un même thème.</p>
+    {ETAGES.map((e, i) => (
+      <section class="etage" aria-labelledby={`e-${e.id}`}>
+        <h2 id={`e-${e.id}`}><span class="num">{i + 1}</span>{e.titre}</h2>
+        <p class="resume">{corriger(e.resume)}</p>
+        <ul class="doms">
+          {e.domaines.map((id) => {
+            const [t, s] = scinder(domaines.get(id)!.titre);
+            const l = conceptsDu(id);
+            return (
+              <li><a href={urlDomaine(id)}>
+                <span class="t">{t}</span><span class="s">{corriger(s)}</span>
+                <span class="c">{l.filter((c) => ecrites.has(c.id)).length} / {l.length} fiches</span>
+              </a></li>
+            );
+          })}
+        </ul>
+      </section>
+    ))}
+  </main>
+</Base>
+
+<style>
+  .page { max-width: var(--largeur-large); margin: 0 auto; padding: 1.5rem var(--espace) 2rem; }
+  .fil { font-size: var(--t-xs); color: var(--encre-douce); margin-bottom: 1.5rem; }
+  .chapo { font-size: var(--t-m); color: var(--encre-douce); max-width: var(--colonne); line-height: 1.5; }
+  .etage h2 { display: flex; align-items: center; gap: .6rem; margin-bottom: .25rem; }
+  .num { font-family: var(--police-code); font-size: var(--t-xs); color: var(--lagune); border: 1.5px solid var(--lagune); border-radius: 50%; width: 1.8rem; height: 1.8rem; display: inline-grid; place-items: center; flex: none; }
+  .resume { color: var(--encre-douce); }
+  .doms { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .doms li + li { margin: 0; }
+  .doms a { display: grid; gap: .3rem; padding: 1rem 1.1rem; border: 1px solid var(--trait); border-left: 4px solid var(--lagune); border-radius: var(--rayon); text-decoration: none; color: var(--encre); background: var(--papier); height: 100%; }
+  .doms a:hover { border-color: var(--indigo); }
+  .doms a:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  .t { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-m); }
+  .s, .c { font-size: var(--t-xs); color: var(--encre-douce); }
+  .c { font-variant-numeric: tabular-nums; }
+</style>

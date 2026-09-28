@@ -1,5 +1,5 @@
 ---
-// Layout global : tokens, polices auto-hébergées, KaTeX.
+// Layout global : tokens, polices auto-hébergées, KaTeX, en-tête et pied de page du site.
 import '../../.claude/skills/design-system/references/tokens.css';
 import '@fontsource-variable/bricolage-grotesque/standard.css';
 import '@fontsource-variable/literata/wght.css';
@@ -11,6 +11,13 @@ import '../styles/global.css';
 interface Props { titre: string; description?: string }
 const { titre, description } = Astro.props;
 export const NOM_SITE = 'Simplyexp';
+const chemin = Astro.url.pathname;
+const MENU = [
+  { href: '/parcours/', libelle: 'Parcours' },
+  { href: '/domaines/', libelle: 'Domaines' },
+  { href: '/a-propos/', libelle: 'À propos' },
+];
+const actif = (href: string) => chemin.startsWith(href);
 ---
 <!doctype html>
 <html lang="fr">
@@ -25,19 +32,82 @@ export const NOM_SITE = 'Simplyexp';
   <body>
     <a class="lien-evitement" href="#contenu">Aller au contenu</a>
     <header class="entete-site">
-      <a href="/" class="nom-site">{NOM_SITE}</a>
+      <div class="entete-dedans">
+        <a href="/" class="nom-site" aria-label={`${NOM_SITE}, accueil`}>
+          <svg class="logo" viewBox="0 0 28 28" aria-hidden="true">
+            <circle cx="5" cy="22" r="3.2" class="logo-a" />
+            <circle cx="14" cy="12" r="3.2" class="logo-b" />
+            <circle cx="23" cy="6" r="3.2" class="logo-c" />
+            <path d="M5 22 L14 12 L23 6" class="logo-ligne" />
+          </svg>
+          {NOM_SITE}
+        </a>
+        <nav class="menu" aria-label="Navigation principale">
+          <ul>
+            {MENU.map((m) => (
+              <li><a href={m.href} aria-current={actif(m.href) ? 'page' : undefined}>{m.libelle}</a></li>
+            ))}
+          </ul>
+        </nav>
+      </div>
     </header>
     <slot />
+    <footer class="pied-site">
+      <div class="pied-dedans">
+        <div>
+          <p class="pied-nom">{NOM_SITE}</p>
+          <p>Apprendre l’IA en français, des fonctions jusqu’aux agents. Des maths démontrées, des animations qui expliquent, du code qui tourne.</p>
+        </div>
+        <ul class="pied-liens">
+          <li><a href="/">Accueil</a></li>
+          {MENU.map((m) => <li><a href={m.href}>{m.libelle}</a></li>)}
+        </ul>
+        <p class="pied-note">Les fiches sont en cours de relecture : leur statut est indiqué en haut de chaque page.</p>
+      </div>
+    </footer>
   </body>
 </html>
 
 <style>
   .entete-site {
-    max-width: var(--largeur-large); margin: 0 auto; padding: 1rem var(--espace);
-    border-bottom: 1px solid var(--trait);
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--papier) 92%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--trait);
+  }
+  .entete-dedans {
+    max-width: var(--largeur-large); margin: 0 auto; padding: 0 var(--espace);
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
   }
   .nom-site {
     font-family: var(--police-titre); font-weight: 700; font-size: var(--t-m);
-    color: var(--encre); text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px;
+    color: var(--encre); text-decoration: none; display: inline-flex; align-items: center; gap: .5rem; min-height: 56px;
   }
+  .logo { width: 26px; height: 26px; }
+  .logo-a { fill: var(--indigo); } .logo-b { fill: var(--lagune); } .logo-c { fill: var(--or); }
+  .logo-ligne { fill: none; stroke: var(--encre-douce); stroke-width: 1.5; stroke-dasharray: 2 2.5; }
+  .menu ul { list-style: none; margin: 0; padding: 0; display: flex; gap: .25rem; }
+  .menu li + li { margin: 0; }
+  .menu a {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 .7rem; border-radius: var(--rayon);
+    font-family: var(--police-titre); font-weight: 500; color: var(--encre); text-decoration: none;
+  }
+  .menu a:hover { background: var(--papier-2); }
+  .menu a[aria-current='page'] { color: var(--indigo); box-shadow: inset 0 -2px 0 var(--indigo); border-radius: 0; }
+  .menu a:focus-visible, .nom-site:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  @media (max-width: 520px) {
+    .entete-dedans { padding: 0 1rem; gap: 0; }
+    .nom-site { min-height: 48px; }
+    .menu { width: 100%; margin: 0 -.5rem .25rem; }
+    .menu a { padding: 0 .5rem; font-size: var(--t-xs); }
+  }
+  .pied-site { margin-top: 5rem; border-top: 1px solid var(--trait); background: var(--papier-2); }
+  .pied-dedans {
+    max-width: var(--largeur-large); margin: 0 auto; padding: 2.5rem var(--espace) 3rem;
+    display: grid; gap: 1.5rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); font-size: var(--t-xs); color: var(--encre-douce);
+  }
+  .pied-nom { font-family: var(--police-titre); font-weight: 700; font-size: var(--t-m); color: var(--encre); margin-bottom: .4rem; }
+  .pied-liens { list-style: none; padding: 0; margin: 0; display: grid; gap: .1rem; }
+  .pied-liens a { display: inline-block; min-height: 32px; line-height: 32px; }
+  .pied-note { grid-column: 1 / -1; margin: 0; }
+  @media (max-width: 640px) { .pied-dedans { grid-template-columns: 1fr; } }
 </style>
