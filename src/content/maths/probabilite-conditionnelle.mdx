@@ -70,7 +70,15 @@ Les trois règles des probabilités sont respectées : conditionner, c'est const
 
 ## Un exemple à la main
 
-Les 1 000 SMS de l'agence, avec $A$ = « arnaque » et $G$ = « contient gagnant » :
+Les 1 000 SMS de l'agence se rangent dans un tableau croisé, qui est souvent la meilleure façon de ne pas se tromper :
+
+| | contient « gagnant » | ne contient pas « gagnant » | total |
+|---|---|---|---|
+| arnaque | 80 | 20 | 100 |
+| normal | 45 | 855 | 900 |
+| total | 125 | 875 | 1 000 |
+
+Conditionner par une colonne, c'est ne lire que cette colonne ; conditionner par une ligne, ne lire que cette ligne. Avec $A$ = « arnaque » et $G$ = « contient gagnant » :
 
 - $P(A) = 100/1\,000 = 0{,}1$ ;
 - $P(A \cap G) = 80/1\,000 = 0{,}08$ ;
