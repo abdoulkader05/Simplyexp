@@ -1,0 +1,162 @@
+---
+id: fonction-perte
+type: maths
+titre: "La fonction de perte : noter ses erreurs pour mieux les corriger"
+sous_titre: "Loss function, MSE et rôle dans l'apprentissage"
+domaine: optimisation
+niveau: 2
+prerequis: [fonctions]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5 (Machine Learning Basics), régression linéaire et erreur quadratique moyenne ; chapitre 8, section 8.1 (minimisation du risque empirique)"
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), fonctions de perte"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+« Apprendre » est un mot vague. Pour qu'une machine apprenne, il faut lui donner une note chiffrée qui dit à quel point elle se trompe, et lui demander de faire baisser cette note. Cette note est la fonction de perte. Tout l'apprentissage, de la [descente de gradient](/maths/descente-gradient/) aux LLM, consiste à la rendre la plus petite possible.
+
+## L'intuition
+
+Kofi veut deviner le prix d'un trajet en gbaka à partir de la distance. Il a noté quatre trajets : 2 km pour 300 F, 4 km pour 500 F, 5 km pour 700 F et 8 km pour 1 100 F. Il essaie une règle simple : prix = $w$ francs par kilomètre. Mais quel $w$ choisir ?
+
+Pour comparer deux tarifs, il mesure l'écart entre le prix prédit et le prix payé sur chaque trajet. Il met ces écarts au carré, pour que les erreurs par excès et par défaut comptent pareil et que les grosses erreurs pèsent lourd. Puis il en fait la moyenne. Plus ce nombre est petit, meilleur est le tarif.
+
+Règle $w$ : la droite verte suit le tarif, les traits rouges sont les écarts, et le point rouge se déplace sur la courbe de la perte.
+
+<Simulation
+  rendu="perte-gbaka"
+  label="Les quatre trajets, la droite du tarif, les écarts et la courbe de la perte"
+  parametres={[
+    { nom: "w", label: "Tarif w (F par km)", min: 50, max: 250, pas: 1, valeur: 100, role: "parametre" }
+  ]}
+  legende="Gauche : trajets et droite prix = w × distance. Droite : la perte en fonction de w."
+/>
+
+## La définition
+
+On a $n$ exemples $(x_i\,;\,y_i)$ et un modèle qui prédit $\hat{y}_i = f_\theta(x_i)$. L'erreur quadratique moyenne (*mean squared error*, MSE) est :
+
+$$
+\mathcal{L}(\theta) = \frac{1}{n} \sum_{i=1}^{n} \big(\hat{y}_i - y_i\big)^2
+$$
+
+où :
+- $\mathcal{L}(\theta)$ est la fonction de perte (*loss function*), une fonction des paramètres ;
+- $\theta$ désigne les paramètres du modèle, ici le seul nombre $w$ ;
+- $x_i$ est l'entrée de l'exemple $i$ (la distance) et $y_i$ la vraie valeur (le prix payé) ;
+- $\hat{y}_i$ est la prédiction du modèle pour cet exemple, ici $w\,x_i$ ;
+- $n$ est le nombre d'exemples, ici 4.
+
+Autrement dit : la perte est une fonction qui prend des paramètres et rend un nombre, d'autant plus grand que le modèle se trompe sur les exemples. Les données sont fixées, ce sont les paramètres qui varient. Apprendre, c'est chercher le $\theta$ qui la rend minimale.
+
+<Depliable titre="Le meilleur tarif, sans dérivée">
+
+Avec le modèle $\hat{y}_i = w\,x_i$, on développe chaque carré :
+
+$$
+\begin{aligned}
+n\,\mathcal{L}(w) &= \sum_{i} (w x_i - y_i)^2 && \text{définition} \\
+&= \sum_{i} \big(w^2 x_i^2 - 2 w x_i y_i + y_i^2\big) && (a - b)^2 = a^2 - 2ab + b^2 \\
+&= w^2 S_{xx} - 2 w S_{xy} + S_{yy} && S_{xx} = \textstyle\sum x_i^2,\ S_{xy} = \sum x_i y_i,\ S_{yy} = \sum y_i^2 \\
+&= S_{xx}\Big(w - \frac{S_{xy}}{S_{xx}}\Big)^2 + S_{yy} - \frac{S_{xy}^2}{S_{xx}} && \text{forme canonique du trinôme}
+\end{aligned}
+$$
+
+Le premier terme est un carré multiplié par $S_{xx} > 0$ : il est positif, et nul seulement pour $w = S_{xy} / S_{xx}$. Le second terme ne dépend pas de $w$. La perte est donc minimale en
+
+$$
+w^* = \frac{S_{xy}}{S_{xx}}
+$$
+
+Pour le gbaka : $S_{xx} = 4 + 16 + 25 + 64 = 109$ et $S_{xy} = 600 + 2\,000 + 3\,500 + 8\,800 = 14\,900$. Donc $w^* = 14\,900 / 109 \approx 136{,}7$ F par km.
+
+Ce calcul ne marche que parce que la perte est un trinôme en $w$. Avec des millions de paramètres et un réseau de neurones, il n'y a plus de formule : il faudra la [descente de gradient](/maths/descente-gradient/).
+
+</Depliable>
+
+## Un exemple à la main
+
+Tarif $w = 100$ F par km :
+
+- prédictions : 200, 400, 500 et 800 F ;
+- écarts $\hat{y}_i - y_i$ : $-100$, $-100$, $-200$ et $-300$ ;
+- carrés : 10 000, 10 000, 40 000 et 90 000 ;
+- perte : $(10\,000 + 10\,000 + 40\,000 + 90\,000) / 4 = 37\,500$.
+
+Tarif $w = 150$ F par km :
+
+- prédictions : 300, 600, 750 et 1 200 F ;
+- écarts : 0, 100, 50 et 100 ;
+- carrés : 0, 10 000, 2 500 et 10 000 ;
+- perte : $22\,500 / 4 = 5\,625$.
+
+Le tarif à 150 F est bien meilleur. Au meilleur tarif, $w^* \approx 136{,}7$, la perte descend à environ 803. Elle ne tombe jamais à zéro : aucune droite qui part de 0 ne passe exactement par les quatre points.
+
+La perte s'exprime en francs au carré, une unité peu parlante. On prend souvent sa racine : $\sqrt{803} \approx 28$ F. Au meilleur tarif, Kofi se trompe d'environ 28 F par trajet, en moyenne quadratique.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve à la main le tarif qui rend la perte la plus petite, en regardant seulement le point rouge sur la courbe. Puis compare les pertes pour $w = 110$ et $w = 163$.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Le point rouge touche le bas de la courbe vers $w = 137$, où la perte vaut environ 805. Les traits rouges ne disparaissent pas : il reste des écarts, positifs et négatifs, qui se compensent au mieux.
+
+Pour $w = 110$, la perte vaut 20 225 ; pour $w = 163$, environ 19 655. Les deux tarifs sont à peu près à la même distance du meilleur, un en dessous et un au-dessus, et donnent des pertes voisines. La courbe est une parabole, symétrique autour de son minimum.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Définir l'objectif.** Entraîner un modèle, c'est minimiser sa perte sur les données d'entraînement. La [descente de gradient](/maths/descente-gradient/) le fait pas à pas.
+- **Choisir selon la tâche.** La MSE sert quand on prédit un nombre, comme dans la [régression linéaire](/concepts/regression-lineaire/). Pour prédire une catégorie ou le mot suivant, on utilise l'[entropie croisée](/maths/entropie-croisee/), la perte des LLM.
+- **Suivre l'entraînement.** On trace la perte au fil des étapes : si elle baisse sur les données d'entraînement mais monte sur des données jamais vues, le modèle apprend par cœur au lieu de généraliser.
+
+## Les pièges classiques
+
+**« Une perte de 5 625, c'est une erreur de 5 625 F. »** On y croit parce qu'on lit le nombre comme une erreur. Mais la MSE est une moyenne de carrés, en francs au carré. L'erreur typique est sa racine : environ 75 F pour une perte de 5 625.
+
+**« Le but est d'atteindre une perte nulle. »** Avec des données réelles, c'est rarement possible et souvent pas souhaitable. Ici, aucune règle « prix = $w$ × distance » ne passe par les quatre trajets. Un modèle assez compliqué pourrait coller à tous les points, mais il apprendrait le bruit en même temps que la règle.
+
+**« La perte, c'est la précision. »** La perte sert à guider l'apprentissage : elle doit varier en douceur avec les paramètres. La précision, le pourcentage de bonnes réponses, sert à juger le résultat. On optimise la première et on rapporte souvent la seconde.
+
+## Entraîne-toi
+
+**Exercice 1.** Calcule la perte MSE du tarif $w = 125$ sur les quatre trajets.
+
+<Depliable titre="Corrigé">
+
+Prédictions : 250, 500, 625 et 1 000. Écarts : $-50$, 0, $-75$ et $-100$. Carrés : 2 500, 0, 5 625 et 10 000. Perte : $18\,125 / 4 = 4\,531{,}25$.
+
+</Depliable>
+
+**Exercice 2.** Kofi ajoute un cinquième trajet : 3 km pour 450 F. Calcule le nouveau meilleur tarif avec la formule $w^* = S_{xy} / S_{xx}$.
+
+<Depliable titre="Corrigé">
+
+$S_{xx} = 109 + 9 = 118$ et $S_{xy} = 14\,900 + 1\,350 = 16\,250$. Donc $w^* = 16\,250 / 118 \approx 137{,}7$ F par km. Le nouveau trajet coûte 150 F par km, un peu plus que la moyenne : le tarif optimal monte légèrement.
+
+</Depliable>
+
+**Exercice 3.** On remplace les carrés par des valeurs absolues : $\frac{1}{n} \sum |\hat{y}_i - y_i|$. Calcule cette perte pour $w = 100$ et $w = 150$. Quel tarif gagne ? Qu'est-ce qui change par rapport à la MSE ?
+
+<Depliable titre="Corrigé">
+
+Pour $w = 100$ : $(100 + 100 + 200 + 300) / 4 = 175$. Pour $w = 150$ : $(0 + 100 + 50 + 100) / 4 = 62{,}5$. Le tarif à 150 gagne encore. Cette perte, l'erreur absolue moyenne, s'exprime en francs et pénalise moins les grosses erreurs : l'écart de 300 compte trois fois un écart de 100, contre neuf fois avec les carrés.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "fonction de perte", en: "loss function", definition: "Fonction des paramètres qui mesure à quel point le modèle se trompe sur les exemples." },
+  { fr: "erreur quadratique moyenne", en: "mean squared error (MSE)", definition: "Moyenne des carrés des écarts entre prédictions et vraies valeurs." },
+  { fr: "prédiction", en: "prediction", definition: "Valeur ŷ produite par le modèle pour un exemple." },
+  { fr: "paramètres", en: "parameters", definition: "Nombres réglables du modèle, notés θ, que l'apprentissage ajuste." }
+]} />
