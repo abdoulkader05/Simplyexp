@@ -1,0 +1,163 @@
+---
+id: esperance-variance
+type: maths
+titre: "Espérance et variance : la moyenne et le désordre"
+sous_titre: "Définitions, propriétés et interprétation"
+domaine: probabilites
+niveau: 2
+prerequis: [variables-aleatoires]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), statistiques résumées : espérance, variance, covariance"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.8 (espérance, variance et covariance)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Une [variable aléatoire](/maths/variables-aleatoires/) a une loi entière, avec une probabilité pour chaque valeur. On a souvent besoin de la résumer en deux nombres : où se trouve-t-elle en moyenne, et à quel point s'écarte-t-elle de cette moyenne ? Ce sont l'espérance et la variance. On les retrouve partout : dans le [compromis biais-variance](/concepts/biais-variance/), dans la [normalisation](/concepts/normalisation-couches/) des couches, dans la [loi des grands nombres](/maths/loi-grands-nombres/) et dans l'[entropie](/maths/entropie/).
+
+## L'intuition
+
+Deux vendeuses du même marché gagnent en moyenne 10 000 F par jour. La première vend presque toujours entre 9 000 et 11 000 F. La seconde fait parfois 2 000 F, parfois 18 000 F. En moyenne, c'est pareil ; pour payer un loyer chaque semaine, ce n'est pas pareil du tout. L'espérance mesure le centre, la variance mesure l'étalement autour du centre.
+
+Pose les probabilités comme des poids sur une règle graduée : l'espérance est le point où la règle tient en équilibre. Écarte les valeurs de part et d'autre du centre : l'équilibre ne bouge pas, mais la variance, elle, grandit.
+
+<Simulation
+  rendu="esperance-balance"
+  label="Distribution des ventes du jour, son point d'équilibre et son étalement"
+  parametres={[
+    { nom: "m", label: "Valeur centrale m", min: 5, max: 15, pas: 0.5, valeur: 10, role: "entree", decimales: 1 },
+    { nom: "d", label: "Écart d", min: 0, max: 5, pas: 0.5, valeur: 4, role: "parametre", decimales: 1 }
+  ]}
+  legende="Ventes de m − d, m ou m + d milliers de F, avec les probabilités 0,25 ; 0,5 ; 0,25."
+/>
+
+## La définition
+
+Pour une variable aléatoire discrète $X$, de valeurs $x_k$ et de probabilités $p_k$ :
+
+$$
+\mathbb{E}[X] = \sum_{k} p_k\, x_k \qquad \mathrm{Var}(X) = \mathbb{E}\big[(X - \mathbb{E}[X])^2\big] = \sum_{k} p_k\, (x_k - \mathbb{E}[X])^2
+$$
+
+où :
+- $\mathbb{E}[X]$ est l'espérance (*expectation*), la moyenne pondérée par les probabilités ; on la note souvent $\mu$ ;
+- $\mathrm{Var}(X)$ est la variance (*variance*), la moyenne des carrés des écarts à l'espérance ; on la note souvent $\sigma^2$ ;
+- $\sigma = \sqrt{\mathrm{Var}(X)}$ est l'écart type (*standard deviation*), dans la même unité que $X$.
+
+Pour une variable continue de densité $f$, on remplace la somme par une intégrale : $\mathbb{E}[X] = \int x\, f(x)\, dx$.
+
+Autrement dit : l'espérance est la valeur moyenne qu'on obtiendrait en répétant l'expérience un très grand nombre de fois, et la variance mesure à quel point les valeurs s'en écartent, en moyenne, au carré.
+
+<Depliable titre="Trois propriétés, démontrées">
+
+**Linéarité de l'espérance.** Pour des nombres $a$ et $b$ :
+
+$$
+\mathbb{E}[aX + b] = \sum_k p_k\,(a x_k + b) = a \sum_k p_k x_k + b \sum_k p_k = a\,\mathbb{E}[X] + b
+$$
+
+car $\sum_k p_k = 1$.
+
+**Effet d'un changement d'échelle sur la variance.** Avec $\mu = \mathbb{E}[X]$ :
+
+$$
+\mathrm{Var}(aX + b) = \mathbb{E}\big[(aX + b - a\mu - b)^2\big] = \mathbb{E}\big[a^2 (X - \mu)^2\big] = a^2\,\mathrm{Var}(X)
+$$
+
+Décaler ne change pas l'étalement ; multiplier par $a$ multiplie la variance par $a^2$ et l'écart type par $|a|$.
+
+**Une formule de calcul pratique.**
+
+$$
+\begin{aligned}
+\mathrm{Var}(X) &= \mathbb{E}\big[X^2 - 2\mu X + \mu^2\big] && \text{développement du carré} \\
+&= \mathbb{E}[X^2] - 2\mu\,\mathbb{E}[X] + \mu^2 && \text{linéarité} \\
+&= \mathbb{E}[X^2] - \mu^2 && \mathbb{E}[X] = \mu
+\end{aligned}
+$$
+
+On admet enfin que, pour deux variables [indépendantes](/maths/independance/), $\mathrm{Var}(X + Y) = \mathrm{Var}(X) + \mathrm{Var}(Y)$ : les variances s'additionnent, pas les écarts types.
+
+</Depliable>
+
+## Un exemple à la main
+
+**Les ventes de l'animation**, avec $m = 10$ et $d = 4$ : 6, 10 ou 14 milliers de F, de probabilités 0,25, 0,5 et 0,25.
+
+- Espérance : $0{,}25 \times 6 + 0{,}5 \times 10 + 0{,}25 \times 14 = 1{,}5 + 5 + 3{,}5 = 10$.
+- Écarts à l'espérance : $-4$, 0 et 4 ; carrés : 16, 0 et 16.
+- Variance : $0{,}25 \times 16 + 0{,}5 \times 0 + 0{,}25 \times 16 = 8$.
+- Écart type : $\sqrt{8} \approx 2{,}83$ milliers de F.
+
+**Un dé équilibré.**
+
+- $\mathbb{E}[X] = (1 + 2 + 3 + 4 + 5 + 6)/6 = 3{,}5$ : une valeur qu'aucun lancer ne donne.
+- $\mathbb{E}[X^2] = (1 + 4 + 9 + 16 + 25 + 36)/6 = 91/6$.
+- $\mathrm{Var}(X) = 91/6 - 3{,}5^2 = 35/12 \approx 2{,}92$, soit un écart type d'environ 1,71.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : déplace $m$ sans toucher à $d$. Que deviennent l'espérance et la variance ? Puis double $d$, de 2 à 4 : par combien la variance est-elle multipliée ? Et l'écart type ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+En déplaçant $m$, l'espérance suit exactement ($\mathbb{E}[X] = m$), mais la variance ne change pas : décaler toutes les valeurs ne change pas leur étalement.
+
+En doublant $d$ de 2 à 4, la variance passe de 2 à 8 : elle est multipliée par 4. L'écart type passe de 1,41 à 2,83 : il est multiplié par 2, comme les écarts. La variance vaut ici $d^2/2$ ; c'est la règle $\mathrm{Var}(aX) = a^2\,\mathrm{Var}(X)$ en action.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **La perte comme espérance.** Ce qu'on veut vraiment minimiser est l'espérance de la perte sur toutes les données possibles ; la perte moyenne sur l'entraînement en est une estimation, justifiée par la [loi des grands nombres](/maths/loi-grands-nombres/).
+- **Normaliser.** La [normalisation](/concepts/normalisation-couches/) des couches retire la moyenne des activations et divise par leur écart type.
+- **Analyser l'erreur.** Le [compromis biais-variance](/concepts/biais-variance/) découpe l'erreur d'un modèle en un biais au carré, une variance et un bruit, tous définis par des espérances.
+
+## Les pièges classiques
+
+**« L'espérance est la valeur la plus probable. »** Pour un dé, l'espérance vaut 3,5, une valeur impossible. L'espérance est une moyenne, pas un résultat qu'on s'attend à voir.
+
+**« La variance est dans la même unité que X. »** Elle est en unité au carré : des milliers de F au carré pour les ventes. C'est pour cela qu'on donne souvent l'écart type, qui revient à l'unité de départ.
+
+**« Les écarts types s'additionnent. »** Pour des variables indépendantes, ce sont les variances qui s'additionnent. Deux ventes indépendantes d'écart type 3 donnent une somme d'écart type $\sqrt{9 + 9} \approx 4{,}24$, pas 6.
+
+## Entraîne-toi
+
+**Exercice 1.** Une variable vaut 0 avec la probabilité 0,7 et 10 avec la probabilité 0,3. Calcule son espérance et sa variance.
+
+<Depliable titre="Corrigé">
+
+$\mathbb{E}[X] = 3$. $\mathbb{E}[X^2] = 0{,}3 \times 100 = 30$. $\mathrm{Var}(X) = 30 - 9 = 21$, écart type $\approx 4{,}58$.
+
+</Depliable>
+
+**Exercice 2.** Les ventes $X$ ont une espérance de 10 et une variance de 8 (en milliers de F). La vendeuse garde $Y = 0{,}2\,X - 1$ comme bénéfice. Espérance et variance de $Y$ ?
+
+<Depliable titre="Corrigé">
+
+$\mathbb{E}[Y] = 0{,}2 \times 10 - 1 = 1$. $\mathrm{Var}(Y) = 0{,}2^2 \times 8 = 0{,}32$.
+
+</Depliable>
+
+**Exercice 3.** On lance deux dés indépendants. Quelle est l'espérance de la somme ? Sa variance ?
+
+<Depliable titre="Corrigé">
+
+Espérance : $3{,}5 + 3{,}5 = 7$. Variance : $35/12 + 35/12 = 35/6 \approx 5{,}83$, par indépendance.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "espérance", en: "expectation, expected value", definition: "Moyenne des valeurs d'une variable aléatoire, pondérée par leurs probabilités." },
+  { fr: "variance", en: "variance", definition: "Espérance du carré de l'écart à l'espérance." },
+  { fr: "écart type", en: "standard deviation", definition: "Racine carrée de la variance, dans l'unité de la variable." },
+  { fr: "linéarité de l'espérance", en: "linearity of expectation", definition: "E[aX + b] = a E[X] + b, et l'espérance d'une somme est la somme des espérances." }
+]} />
