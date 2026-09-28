@@ -1,0 +1,154 @@
+---
+id: loi-grands-nombres
+type: maths
+titre: "La loi des grands nombres : pourquoi la moyenne finit toujours par avoir raison"
+sous_titre: "Convergence de la moyenne empirique, justification du mini-batch"
+domaine: probabilites
+niveau: 3
+prerequis: [esperance-variance, independance]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), sommes de variables indépendantes et moyenne empirique"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.4 (estimateurs, biais et variance de la moyenne empirique) ; chapitre 8, section 8.1.3 (erreur standard en σ/√n)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Ce qu'on voudrait minimiser, c'est l'erreur moyenne d'un modèle sur **toutes** les données possibles, une [espérance](/maths/esperance-variance/). Ce qu'on sait calculer, c'est l'erreur moyenne sur un échantillon. La loi des grands nombres garantit que la seconde se rapproche de la première quand l'échantillon grandit. C'est ce qui justifie d'entraîner sur des données finies, et d'estimer le gradient sur un [mini-lot](/maths/sgd-minibatch/).
+
+## L'intuition
+
+Lance un dé une fois : tu obtiens peut-être 6, loin de la moyenne théorique, 3,5. Lance-le dix fois et fais la moyenne : elle sera sans doute entre 2,5 et 4,5. Lance-le mille fois : la moyenne sera très proche de 3,5. Les résultats extrêmes se compensent : un 6 est tôt ou tard équilibré par un 1.
+
+Dans l'animation, la courbe bleue suit la moyenne des lancers au fil du temps, avec une échelle logarithmique en bas. Elle zigzague beaucoup au début, puis se resserre autour de 3,5. La bande dorée montre la zone où la moyenne tombe environ 95 fois sur 100 : elle rétrécit comme $1/\sqrt{n}$.
+
+<Simulation
+  rendu="grands-nombres"
+  label="Moyenne des lancers d'un dé en fonction du nombre de lancers"
+  parametres={[
+    { nom: "n", label: "Nombre de lancers n", min: 1, max: 2000, pas: 1, valeur: 10, role: "entree" }
+  ]}
+  legende="Une seule suite de lancers, toujours la même. La bande dorée rétrécit comme 1/√n."
+/>
+
+## La définition
+
+Soient $X_1, X_2, \dots, X_n$ des variables aléatoires [indépendantes](/maths/independance/), de même loi, d'espérance $\mu$ et de variance $\sigma^2$. Leur moyenne empirique (*sample mean*) est :
+
+$$
+\bar{X}_n = \frac{1}{n} \sum_{i=1}^{n} X_i
+$$
+
+La loi (faible) des grands nombres (*law of large numbers*) dit que, pour tout écart $\varepsilon > 0$ :
+
+$$
+P\big(|\bar{X}_n - \mu| \ge \varepsilon\big) \longrightarrow 0 \quad \text{quand } n \to \infty
+$$
+
+où :
+- $\bar{X}_n$ est la moyenne des $n$ premières observations ;
+- $\mu$ est l'espérance commune, la vraie moyenne ;
+- $\varepsilon$ est une tolérance aussi petite qu'on veut.
+
+Autrement dit : avec assez d'observations indépendantes, la moyenne observée est presque sûrement proche de la vraie moyenne, et son écart typique à celle-ci diminue comme $\sigma / \sqrt{n}$.
+
+<Depliable titre="La démonstration pas à pas">
+
+**Étape 1 : l'espérance de la moyenne.** Par linéarité, $\mathbb{E}[\bar{X}_n] = \frac{1}{n}\sum_i \mathbb{E}[X_i] = \frac{1}{n} \times n\mu = \mu$.
+
+**Étape 2 : sa variance.** Les $X_i$ étant indépendants, les variances s'additionnent :
+
+$$
+\begin{aligned}
+\mathrm{Var}(\bar{X}_n) &= \frac{1}{n^2}\,\mathrm{Var}\Big(\sum_i X_i\Big) && \mathrm{Var}(aY) = a^2\,\mathrm{Var}(Y) \\
+&= \frac{1}{n^2} \sum_i \mathrm{Var}(X_i) = \frac{n \sigma^2}{n^2} = \frac{\sigma^2}{n} && \text{indépendance}
+\end{aligned}
+$$
+
+L'écart type de la moyenne vaut donc $\sigma / \sqrt{n}$.
+
+**Étape 3 : l'inégalité de Bienaymé-Tchebychev.** Pour une variable $Y$ d'espérance $m$ et de variance $v$, et tout $\varepsilon > 0$ : $P(|Y - m| \ge \varepsilon) \le v / \varepsilon^2$. En effet, $v = \mathbb{E}[(Y - m)^2]$ est au moins égal à $\varepsilon^2$ fois la probabilité que $(Y - m)^2$ dépasse $\varepsilon^2$, puisque cette partie contribue au moins autant à l'espérance.
+
+**Conclusion.** Appliquée à $\bar{X}_n$ :
+
+$$
+P\big(|\bar{X}_n - \mu| \ge \varepsilon\big) \le \frac{\sigma^2}{n\,\varepsilon^2} \longrightarrow 0
+$$
+
+</Depliable>
+
+## Un exemple à la main
+
+Un dé : $\mu = 3{,}5$ et $\sigma^2 = 35/12 \approx 2{,}92$, soit $\sigma \approx 1{,}71$.
+
+- Après 100 lancers, l'écart type de la moyenne vaut $1{,}71 / \sqrt{100} = 0{,}171$.
+- Après 10 000 lancers, $1{,}71 / 100 = 0{,}017$ : il faut 100 fois plus de lancers pour être 10 fois plus précis.
+- Borne de Bienaymé-Tchebychev avec $n = 1\,000$ et $\varepsilon = 0{,}2$ : $P(|\bar{X} - 3{,}5| \ge 0{,}2) \le 2{,}92 / (1\,000 \times 0{,}04) \approx 0{,}073$. La vraie probabilité est bien plus petite, environ 0,000 2 ; la borne est grossière mais sûre.
+
+Un exemple de terrain : pour estimer la part de clients qui paient par mobile money, une boutique note le mode de paiement de 400 clients et en trouve 260, soit 65 %. Avec $p$ proche de 0,65, l'écart type d'une variable de Bernoulli vaut $\sqrt{0{,}65 \times 0{,}35} \approx 0{,}48$, et celui de la proportion observée $0{,}48 / \sqrt{400} = 0{,}024$. La vraie proportion est donc probablement entre 60 % et 70 % environ.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : note la moyenne après 10, 100 et 1 000 lancers. Est-elle toujours dans la bande dorée ? La courbe s'approche-t-elle de 3,5 à chaque lancer ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+La moyenne se rapproche de 3,5 en tendance, mais pas à chaque lancer : elle peut s'en éloigner un moment, par exemple après une série de 6. La loi des grands nombres ne dit pas que chaque lancer « corrige » les précédents ; les lancers n'ont aucune mémoire. Elle dit que les écarts pèsent de moins en moins quand ils sont divisés par un $n$ de plus en plus grand.
+
+La moyenne reste la plupart du temps dans la bande dorée, qui se resserre : d'environ $\pm 1{,}08$ après 10 lancers à $\pm 0{,}11$ après 1 000.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Apprendre sur un échantillon.** La perte moyenne sur les données d'entraînement estime l'espérance de la perte sur toutes les données possibles ; la loi des grands nombres dit que l'estimation s'améliore avec la taille du jeu de données.
+- **Les mini-lots.** Le gradient calculé sur un [mini-lot](/maths/sgd-minibatch/) est une moyenne empirique : son écart type décroît comme $1/\sqrt{m}$, d'où le rendement décroissant des très grands lots.
+- **Évaluer un modèle.** Un taux de réussite mesuré sur 100 exemples de test a une incertitude d'environ 5 points ; sur 10 000, d'environ 0,5 point. Comparer deux modèles demande assez d'exemples de test.
+
+## Les pièges classiques
+
+**« Après cinq piles, face est plus probable. »** C'est l'erreur du joueur. Les lancers sont indépendants : la pièce n'a pas de mémoire. La moyenne se rapproche de 0,5 parce que les cinq piles deviennent négligeables parmi des milliers de lancers, pas parce qu'ils sont compensés.
+
+**« Doubler les données double la précision. »** L'écart type diminue comme $1/\sqrt{n}$ : doubler $n$ ne le divise que par environ 1,41. Pour diviser l'erreur par 2, il faut 4 fois plus de données.
+
+**« La loi marche pour n'importe quelles données. »** Elle suppose des observations indépendantes et de même loi. Des données très liées entre elles, ou dont la loi change avec le temps, peuvent tromper la moyenne longtemps.
+
+## Entraîne-toi
+
+**Exercice 1.** Une variable a un écart type de 20. Combien d'observations faut-il pour que l'écart type de la moyenne soit de 1 ?
+
+<Depliable titre="Corrigé">
+
+$20 / \sqrt{n} = 1$, donc $\sqrt{n} = 20$ et $n = 400$.
+
+</Depliable>
+
+**Exercice 2.** Un modèle réussit 180 exemples de test sur 200. Donne sa précision et l'écart type approximatif de cette estimation.
+
+<Depliable titre="Corrigé">
+
+Précision : 0,9. Écart type : $\sqrt{0{,}9 \times 0{,}1 / 200} = \sqrt{0{,}000\,45} \approx 0{,}021$, soit environ 2 points.
+
+</Depliable>
+
+**Exercice 3.** Avec la borne de Bienaymé-Tchebychev, combien de lancers de dé faut-il pour garantir $P(|\bar{X} - 3{,}5| \ge 0{,}1) \le 0{,}05$ ?
+
+<Depliable titre="Corrigé">
+
+Il faut $2{,}92 / (n \times 0{,}01) \le 0{,}05$, soit $n \ge 2{,}92 / 0{,}000\,5 \approx 5\,840$. La borne est prudente : en pratique, environ 1 100 lancers suffisent.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "moyenne empirique", en: "sample mean", definition: "Moyenne des valeurs observées dans un échantillon." },
+  { fr: "loi des grands nombres", en: "law of large numbers", definition: "La moyenne empirique d'observations indépendantes se rapproche de l'espérance quand leur nombre grandit." },
+  { fr: "erreur standard", en: "standard error", definition: "Écart type de la moyenne empirique, σ / √n." },
+  { fr: "inégalité de Bienaymé-Tchebychev", en: "Chebyshev's inequality", definition: "P(|Y − m| ≥ ε) ≤ Var(Y) / ε²." }
+]} />
