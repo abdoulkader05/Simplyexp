@@ -1,0 +1,252 @@
+---
+id: lstm
+type: concept
+titre: "LSTM : donner une mémoire aux réseaux de neurones"
+sous_titre: "Long Short-Term Memory, portes et mémoire longue"
+domaine: langage
+niveau: 4
+prerequis: [rnn, gradient-evanescent]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 14
+sources:
+  - "Hochreiter, Schmidhuber, « Long Short-Term Memory », Neural Computation 9(8), p. 1735–1780, 1997"
+  - "Gers, Schmidhuber, Cummins, « Learning to Forget: Continual Prediction with LSTM », 1999 (ajout de la porte d'oubli)"
+  - "Sutskever, Vinyals, Le, « Sequence to Sequence Learning with Neural Networks », 2014 — https://arxiv.org/abs/1409.3215 — résumé (LSTM multicouche pour la traduction)"
+  - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre « RNNs and LSTMs » (équations des portes d'oubli, d'entrée et de sortie, cellule mémoire)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un [RNN](/concepts/rnn/) simple réécrit toute sa mémoire à chaque token : l'état caché passe à chaque pas par une multiplication et une $\tanh$. Résultat, le souvenir d'un mot s'efface en quelques pas, et le gradient qui devrait relier la fin de la phrase à son début fond en route : c'est le [gradient évanescent](/concepts/gradient-evanescent/). Or le langage est plein de dépendances longues : un sujet au début de la phrase, son verbe dix mots plus loin. En 1997, Hochreiter et Schmidhuber proposent une cellule dont la mémoire n'est **pas** réécrite à chaque pas, mais seulement modifiée quand c'est utile : la LSTM, pour *Long Short-Term Memory*.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Une LSTM ajoute au réseau récurrent une cellule mémoire qui se transmet d'un pas à l'autre presque intacte, et trois portes apprises qui décident à chaque token ce qu'on efface, ce qu'on écrit et ce qu'on montre.
+</PhraseCle>
+
+## En image
+
+Imagine un tableau blanc dans une salle de réunion.
+
+- Au début d'un sujet, quelqu'un écrit l'information importante au tableau : c'est **écrire**.
+- Pendant toute la discussion, le tableau garde ce qui y est écrit, même si on parle d'autre chose : la mémoire **se conserve** sans effort.
+- Quand on change de sujet, on efface la partie devenue inutile : c'est **oublier**.
+- À chaque moment, on ne lit à voix haute que la partie du tableau utile à la question en cours : c'est **montrer**.
+
+Là où l'image s'arrête : une LSTM n'efface ni n'écrit jamais tout ou rien, ses portes prennent des valeurs entre 0 et 1, et elles ne sont pas décidées par une personne, elles sont calculées par des petits réseaux appris.
+
+## Comment ça marche
+
+Une LSTM garde deux vecteurs d'un pas au suivant : l'état caché $\mathbf{h}_t$, comme un RNN, et une **cellule mémoire** (*cell state*) $\mathbf{c}_t$. À chaque pas, trois portes (*gates*) sont calculées à partir de $\mathbf{h}_{t-1}$ et de l'entrée $\mathbf{x}_t$, chacune avec ses propres poids et une sigmoïde $\sigma$, qui donne des nombres entre 0 et 1 :
+
+- la porte d'oubli (*forget gate*) $\mathbf{f}_t$ : quelle part de l'ancienne mémoire garder ;
+- la porte d'entrée (*input gate*) $\mathbf{i}_t$ : quelle part de la nouveauté écrire ;
+- la porte de sortie (*output gate*) $\mathbf{o}_t$ : quelle part de la mémoire montrer dans $\mathbf{h}_t$.
+
+Une quatrième couche, avec $\tanh$, propose un contenu candidat $\tilde{\mathbf{c}}_t$. La mise à jour centrale est :
+
+$$
+\mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t
+\qquad\qquad
+\mathbf{h}_t = \mathbf{o}_t \odot \tanh(\mathbf{c}_t)
+$$
+
+où :
+- $\mathbf{c}_{t-1}$ et $\mathbf{c}_t$ sont l'ancienne et la nouvelle cellule mémoire ;
+- $\mathbf{f}_t$, $\mathbf{i}_t$, $\mathbf{o}_t$ sont les portes, à composantes entre 0 et 1 ;
+- $\tilde{\mathbf{c}}_t$ est le contenu candidat, à composantes entre −1 et 1 ;
+- $\odot$ est le produit composante par composante.
+
+Exemple avec des nombres : si $c_{t-1} = 0{,}8$, $f_t = 0{,}5$, $i_t = 1$ et $\tilde{c}_t = 0{,}3$, alors $c_t = 0{,}5 \times 0{,}8 + 1 \times 0{,}3 = 0{,}7$.
+
+<Schema rendu="lstm-schema" legende="Une cellule LSTM. En haut, la ligne de mémoire c traverse la cellule en ne subissant qu'une multiplication par la porte d'oubli et une addition. En bas, les portes sont calculées à partir de l'état caché précédent et de l'entrée." />
+
+La porte d'oubli ne figurait pas dans la version de 1997 : elle a été ajoutée par Gers, Schmidhuber et Cummins en 1999, pour que la cellule puisse se vider quand une information n'est plus utile. Voyons une cellule réduite à un seul nombre, qui retient si le sujet de la phrase est au pluriel ; les valeurs des portes sont choisies pour l'illustration. Fais défiler.
+
+<PasAPas rendu="lstm-memoire" label="Une cellule mémoire LSTM à un nombre qui garde puis efface une information">
+  <Etape etat="initial">
+    La cellule part de $c_0 = 0$. Une valeur positive voudra dire « sujet au pluriel », une valeur négative « au singulier ».
+  </Etape>
+  <Etape etat="t1">
+    **« enfants ».** La porte d'entrée s'ouvre ($i = 1$) et le candidat vaut $0{,}9$ : $c_1 = 0{,}9$.
+  </Etape>
+  <Etape etat="t2">
+    **« du ».** Rien d'important : la porte d'oubli reste presque ouverte ($f = 0{,}95$), la porte d'entrée presque fermée. $c_2 = 0{,}95 \times 0{,}9 = 0{,}855$.
+  </Etape>
+  <Etape etat="t3">
+    **« quartier ».** Même chose : $c_3 \approx 0{,}812$.
+  </Etape>
+  <Etape etat="t4">
+    **« hier ».** $c_4 \approx 0{,}772$. Après quatre pas, la cellule garde 86 % de l'information, là où le RNN simple de la fiche précédente était tombé à 0,09.
+  </Etape>
+  <Etape etat="t5">
+    **« chien », nouveau sujet.** La porte d'oubli se ferme ($f = 0{,}1$), la porte d'entrée s'ouvre sur $-0{,}8$ : $c_5 = 0{,}1 \times 0{,}772 - 0{,}8 \approx -0{,}723$. La cellule dit maintenant « singulier ».
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le gradient traverse la cellule mémoire sans fondre">
+
+Regardons comment la cellule d'un pas dépend de celle du pas précédent, en ne suivant que le chemin direct (le terme en $\mathbf{c}_{t-1}$), composante par composante :
+
+$$
+\begin{aligned}
+c_t &= f_t\, c_{t-1} + i_t\, \tilde{c}_t && \text{mise à jour d'une composante} \\
+\frac{\partial c_t}{\partial c_{t-1}} &= f_t && \text{chemin direct : seule } f_t \text{ multiplie } c_{t-1} \\
+\frac{\partial c_T}{\partial c_1} &= f_T \times f_{T-1} \times \dots \times f_2 && \text{dérivation en chaîne sur } T - 1 \text{ pas}
+\end{aligned}
+$$
+
+Dans un RNN simple, le facteur à chaque pas mélangeait un poids fixe et la dérivée de $\tanh$, et il fallait une chance extraordinaire pour qu'il reste proche de 1. Ici, le facteur est la porte d'oubli elle-même : quand le réseau a appris à garder une information, $f_t$ est proche de 1 et le gradient traverse des dizaines de pas presque intact. C'est le réseau qui choisit, token par token, ce qui doit durer.
+
+(Les portes dépendent aussi de $\mathbf{h}_{t-1}$, donc il existe d'autres chemins ; mais le chemin direct suffit à faire passer le gradient.)
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Une mise à jour à la main" niveau="facile" reponse={0.35} tolerance={0.005}>
+
+La cellule vaut $c_{t-1} = 0{,}6$. La porte d'oubli vaut $0{,}25$, la porte d'entrée $0{,}5$ et le candidat $0{,}4$. Calcule $c_t$.
+
+<div slot="solution">
+
+$c_t = 0{,}25 \times 0{,}6 + 0{,}5 \times 0{,}4 = 0{,}15 + 0{,}2 = 0{,}35$. On a gardé un quart de l'ancienne mémoire et écrit la moitié du candidat.
+
+</div>
+</Exercice>
+
+<Exercice titre="Tenir cinquante mots" niveau="moyen" reponse={0.364} tolerance={0.01}>
+
+Un traducteur lit un long paragraphe. Pendant 50 tokens, la porte d'oubli d'une composante vaut 0,98 et sa porte d'entrée vaut 0. Quelle fraction de l'information de départ reste-t-il ? Compare avec un RNN linéaire de poids 0,5 sur les mêmes 50 pas.
+
+<div slot="solution">
+
+$0{,}98^{50} \approx 0{,}364$ : plus d'un tiers de l'information est encore là. Pour le RNN : $0{,}5^{50} \approx 8{,}9 \times 10^{-16}$, autrement dit rien. C'est tout l'intérêt de la cellule mémoire.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix de la mémoire" niveau="defi" reponse={98816} tolerance={0.0001}>
+
+Un clavier de téléphone remplace son RNN (embeddings de taille 64, état caché de taille 128) par une LSTM de mêmes tailles. Chacune des quatre couches internes (trois portes et le candidat) a une matrice de poids qui lit $\mathbf{h}_{t-1}$ et $\mathbf{x}_t$ mis bout à bout, plus un biais. Combien de paramètres a la LSTM ? Combien de fois plus que le RNN, qui en avait 24 704 ?
+
+<div slot="indice">
+
+$\mathbf{h}_{t-1}$ et $\mathbf{x}_t$ mis bout à bout forment un vecteur de taille $128 + 64 = 192$.
+
+</div>
+
+<div slot="solution">
+
+Une couche : $128 \times 192 + 128 = 24\,704$ paramètres, exactement la taille du RNN. Quatre couches : $4 \times 24\,704 = 98\,816$. La LSTM est quatre fois plus lourde, et quatre fois plus coûteuse à chaque pas : c'est le prix de la mémoire longue.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une cellule LSTM à un nombre, avec les portes imposées de l'animation, puis une vraie cellule vectorielle.
+
+```python
+import numpy as np
+
+def sigmoide(z):
+    return 1 / (1 + np.exp(-z))
+
+# 1. La cellule de l'animation : portes imposées
+c = 0.0
+for mot, f, i, candidat in [("enfants", 0, 1, 0.9), ("du", 0.95, 0.05, 0), ("quartier", 0.95, 0.05, 0),
+                            ("hier", 0.95, 0.05, 0), ("chien", 0.1, 1, -0.8)]:
+    c = f * c + i * candidat
+    print(f"{mot:9s} c = {c:.3f}")
+
+# 2. Une vraie cellule : les portes sont calculées à partir de h et x
+rng = np.random.default_rng(0)
+d_x, d_h = 3, 4
+W = {nom: rng.normal(0, 0.5, (d_h, d_h + d_x)) for nom in "fioc"}
+b = {nom: np.zeros(d_h) for nom in "fioc"}
+
+def pas_lstm(h, c, x):
+    z = np.concatenate([h, x])
+    f = sigmoide(W["f"] @ z + b["f"])
+    i = sigmoide(W["i"] @ z + b["i"])
+    o = sigmoide(W["o"] @ z + b["o"])
+    candidat = np.tanh(W["c"] @ z + b["c"])
+    c = f * c + i * candidat
+    return o * np.tanh(c), c
+
+h, c = np.zeros(d_h), np.zeros(d_h)
+for x in rng.normal(size=(5, d_x)):
+    h, c = pas_lstm(h, c, x)
+print("h final :", h.round(3))
+```
+
+En vrai, avec PyTorch :
+
+```python
+# no-run
+import torch
+lstm = torch.nn.LSTM(input_size=64, hidden_size=128, batch_first=True)
+x = torch.randn(1, 20, 64)
+sorties, (h, c) = lstm(x)
+print(sum(p.numel() for p in lstm.parameters()))
+```
+
+## Les pièges classiques
+
+**« La LSTM supprime le gradient évanescent. »** Elle le repousse beaucoup plus loin, mais sur des centaines de pas l'information finit quand même par s'éroder, et la lecture reste séquentielle, donc lente.
+
+**« Une porte vaut 0 ou 1. »** Les portes sont des sigmoïdes : elles dosent. Une porte d'oubli à 0,98 garde presque tout, sans tout garder.
+
+**« h et c, c'est la même chose. »** $\mathbf{c}$ est la mémoire de fond, qui dure ; $\mathbf{h}$ est ce que la cellule montre au pas courant, filtré par la porte de sortie, et c'est lui qu'on utilise pour prédire.
+
+## Dans la vraie vie
+
+Pendant des années, les LSTM ont été l'architecture de référence pour le langage : traduction automatique, reconnaissance de la parole, prédiction du mot suivant. Les premiers systèmes de traduction neuronale de type [encodeur-décodeur](/concepts/encoder-decoder/) empilaient plusieurs couches de LSTM. Elles restent utilisées pour des séries temporelles, comme la prévision d'une consommation d'électricité heure par heure, ou sur de petits appareils où un transformer serait trop lourd.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quel est le rôle de la porte d'oubli ?",
+    choix: ["Choisir le token suivant", "Doser la part de l'ancienne mémoire qu'on garde", "Supprimer les mots rares", "Normaliser l'état caché"],
+    bonne: 1,
+    explication: "Elle multiplie l'ancienne cellule : proche de 1, on garde ; proche de 0, on efface."
+  },
+  {
+    question: "c vaut 0,5, f = 1, i = 0. Que vaut la nouvelle cellule ?",
+    choix: ["0", "0,5", "1", "1,5"],
+    bonne: 1,
+    explication: "c = 1 × 0,5 + 0 × candidat = 0,5 : la mémoire est conservée telle quelle."
+  },
+  {
+    question: "Pourquoi le gradient traverse-t-il mieux une LSTM qu'un RNN simple ?",
+    choix: ["Parce qu'elle a moins de paramètres", "Parce que, sur le chemin de la cellule, le facteur à chaque pas est la porte d'oubli, qui peut rester proche de 1", "Parce qu'elle n'utilise pas de rétropropagation", "Parce qu'elle lit la phrase à l'envers"],
+    bonne: 1,
+    explication: "∂c_t / ∂c_(t−1) = f_t sur le chemin direct : si le réseau garde l'information, le gradient passe."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : décris une cellule LSTM et explique ce qu'apporte chaque porte.">
+
+Une cellule LSTM maintient un état caché $\mathbf{h}_t$ et une cellule mémoire $\mathbf{c}_t$. À partir de $\mathbf{h}_{t-1}$ et $\mathbf{x}_t$, elle calcule trois portes sigmoïdes et un candidat $\tanh$. La porte d'oubli pondère l'ancienne mémoire, la porte d'entrée pondère le candidat, et leur somme donne la nouvelle cellule ; la porte de sortie filtre $\tanh(\mathbf{c}_t)$ pour produire $\mathbf{h}_t$. L'intérêt est que la cellule évolue de façon additive : sur son chemin direct, la dérivée d'un pas au suivant est la porte d'oubli, que le réseau peut maintenir proche de 1, ce qui atténue fortement le gradient évanescent. Le coût est quatre fois plus de paramètres qu'un RNN simple de même taille et une lecture toujours séquentielle.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "LSTM", en: "Long Short-Term Memory", definition: "Réseau récurrent doté d'une cellule mémoire et de portes qui contrôlent ce qu'on oublie, écrit et montre." },
+  { fr: "cellule mémoire", en: "cell state", definition: "Vecteur transmis d'un pas à l'autre par multiplication et addition seulement, qui porte l'information longue." },
+  { fr: "porte", en: "gate", definition: "Vecteur de nombres entre 0 et 1, calculé par une sigmoïde, qui dose un flux d'information." },
+  { fr: "porte d'oubli", en: "forget gate", definition: "Porte qui décide quelle part de l'ancienne mémoire conserver ; ajoutée en 1999." }
+]} />
