@@ -41,7 +41,7 @@ Là où l'image s'arrête : la « méthode de prise de notes » d'un RNN n'est p
 À chaque pas $t$, le réseau reçoit l'[embedding](/concepts/embeddings/) $\mathbf{x}_t$ du token courant et calcule un nouvel état caché (*hidden state*) :
 
 $$
-\mathbf{h}_t = \tanh\!\big(W_h\, \mathbf{h}_{t-1} + W_x\, \mathbf{x}_t + \mathbf{b}\big)
+\mathbf{h}_t = \tanh\big(W_h\, \mathbf{h}_{t-1} + W_x\, \mathbf{x}_t + \mathbf{b}\big)
 $$
 
 où :
