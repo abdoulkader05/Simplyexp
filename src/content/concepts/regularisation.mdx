@@ -178,7 +178,7 @@ optimiseur = torch.optim.SGD(modele.parameters(), lr=0.01, weight_decay=1e-4)
 
 ## Dans la vraie vie
 
-Dans les bibliothèques d'apprentissage profond, le *weight decay* est un simple argument de l'optimiseur, comme weight_decay dans le code PyTorch ci-dessus. La régularisation L1 sert quand on veut un modèle qui n'utilise qu'un petit nombre de variables, par exemple pour savoir lesquelles comptent vraiment. Pour les réseaux, on la complète souvent par le [dropout](/concepts/dropout/), une autre façon d'empêcher l'apprentissage par cœur.
+Dans les bibliothèques d'apprentissage profond, le *weight decay* est un simple argument de l'optimiseur, comme `weight_decay` dans le code PyTorch ci-dessus. La régularisation L1 sert quand on veut un modèle qui n'utilise qu'un petit nombre de variables, par exemple pour savoir lesquelles comptent vraiment. Pour les réseaux, on la complète souvent par le [dropout](/concepts/dropout/), une autre façon d'empêcher l'apprentissage par cœur.
 
 Le principe se transpose à tout modèle construit sur peu de données. Estimer la demande d'une boutique de quartier à partir de quelques mois de ventes et de dizaines de variables (jour, météo, fêtes, jour de paie) mène vite à un modèle qui explique parfaitement le passé ; une pénalité L1 garde seulement les quelques variables qui ont un vrai effet.
 
