@@ -1,0 +1,47 @@
+---
+interface Props { titre: string }
+const { titre } = Astro.props;
+const uid = `depl-${Math.random().toString(36).slice(2, 9)}`;
+---
+<div class="depliable" data-depliable>
+  <h3 class="depliable-titre">
+    <button type="button" aria-expanded="false" aria-controls={uid}>
+      <span>{titre}</span>
+      <svg class="chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+    </button>
+  </h3>
+  <div class="depliable-corps" id={uid}>
+    <div class="depliable-interieur"><slot /></div>
+  </div>
+</div>
+
+<script>
+  // Délégation : un seul écouteur pour tous les dépliables de la page.
+  document.addEventListener('click', (ev) => {
+    const bouton = (ev.target as Element).closest<HTMLButtonElement>('[data-depliable] > h3 > button');
+    if (!bouton) return;
+    const ouvert = bouton.getAttribute('aria-expanded') === 'true';
+    bouton.setAttribute('aria-expanded', String(!ouvert));
+    bouton.closest('[data-depliable]')!.classList.toggle('ouvert', !ouvert);
+  });
+</script>
+
+<style>
+  .depliable { border-top: 1px solid var(--trait); border-bottom: 1px solid var(--trait); margin: 1.5rem 0; }
+  .depliable-titre { margin: 0; font-size: var(--t-s); }
+  .depliable-titre button {
+    all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 44px;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-family: var(--police-titre); font-weight: 600; padding: .6rem 0; color: var(--encre);
+  }
+  .depliable-titre button:focus-visible { outline: 2px solid var(--or); outline-offset: 3px; }
+  .chevron { flex: none; transition: transform var(--duree-courte) var(--courbe); }
+  .ouvert .chevron { transform: rotate(180deg); }
+  /* Seule animation de hauteur autorisée : grid-template-rows. Sans JS, tout reste ouvert. */
+  .depliable-corps { display: grid; grid-template-rows: 1fr; }
+  :global(html.js) .depliable-corps { grid-template-rows: 0fr; transition: grid-template-rows var(--duree) var(--courbe); }
+  :global(html.js) .ouvert .depliable-corps { grid-template-rows: 1fr; }
+  .depliable-interieur { overflow: hidden; min-height: 0; }
+  :global(html.js) .depliable:not(.ouvert) .depliable-interieur { visibility: hidden; transition: visibility 0s var(--duree); }
+  .depliable-interieur > :global(:last-child) { margin-bottom: 1rem; }
+</style>

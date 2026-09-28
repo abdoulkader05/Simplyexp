@@ -1,0 +1,59 @@
+/* Styles globaux. Couleurs et échelle : uniquement les tokens du design system. */
+:root {
+  /* Fontsource publie les familles avec le suffixe « Variable » */
+  --police-titre: "Bricolage Grotesque Variable", "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --police-texte: "Literata Variable", "Literata", Georgia, "Times New Roman", serif;
+  --police-code: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --largeur-page: calc(var(--colonne) + 2 * var(--espace));
+  --largeur-large: 1180px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-size: var(--t-s); -webkit-font-smoothing: antialiased; overflow-wrap: break-word; }
+img, svg { max-width: 100%; }
+
+h1, h2, h3 { font-family: var(--police-titre); line-height: 1.15; color: var(--encre); text-wrap: balance; }
+h1 { font-size: var(--t-2xl); font-weight: 700; font-stretch: 88%; margin: 0 0 .5rem; letter-spacing: -0.01em; }
+h2 { font-size: var(--t-xl); font-weight: 600; font-stretch: 100%; margin: 3rem 0 1rem; }
+h3 { font-size: var(--t-m); font-weight: 600; margin: 2rem 0 .75rem; }
+@media (max-width: 500px) { h1 { font-size: var(--t-xl); } h2 { font-size: var(--t-l); } }
+
+a { color: var(--indigo); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+
+p, ul, ol { margin: 0 0 1.1rem; }
+li + li { margin-top: .35rem; }
+strong { font-weight: 650; }
+
+pre, code { font-family: var(--police-code); font-size: .82rem; }
+:not(pre) > code { background: var(--papier-2); padding: .1em .3em; border-radius: 3px; }
+pre {
+  background: var(--papier-2); color: var(--encre); border-radius: var(--rayon);
+  padding: 1rem 1.1rem; overflow-x: auto; line-height: 1.55; margin: 0 0 1.5rem;
+}
+
+/* KaTeX */
+.katex { font-size: 1.05em; }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: .4rem 0; margin: 1.2rem 0; }
+.katex-display > .katex { font-size: 1.1em; }
+
+table { border-collapse: collapse; width: 100%; margin: 0 0 1.5rem; font-size: .92rem; }
+th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--trait); vertical-align: top; }
+th { font-family: var(--police-titre); font-weight: 600; }
+
+.visuellement-cache {
+  position: absolute !important; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.lien-evitement { position: absolute; left: -999px; }
+.lien-evitement:focus { left: 1rem; top: 1rem; background: var(--papier); padding: .5rem 1rem; z-index: 10; }
+
+/* Dessins SVG des rendus : couleurs par rôle, jamais en dur */
+.svg-texte { fill: var(--encre); font-family: var(--police-texte); }
+.svg-doux { fill: var(--encre-douce); font-family: var(--police-titre); }
+.svg-entree { fill: var(--indigo); } .svg-trait-entree { stroke: var(--indigo); }
+.svg-parametre { fill: var(--lagune); } .svg-trait-parametre { stroke: var(--lagune); }
+.svg-sortie { fill: var(--or); } .svg-trait-sortie { stroke: var(--or); }
+.svg-fond-sortie { fill: var(--or-doux); }
+.svg-perte { fill: var(--laterite); }
+.svg-trait { stroke: var(--trait); }
+.svg-encre { fill: var(--encre); } .svg-trait-encre { stroke: var(--encre); }

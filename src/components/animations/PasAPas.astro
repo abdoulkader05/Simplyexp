@@ -1,0 +1,102 @@
+---
+// Scrollytelling : le texte défile, la scène reste fixe et passe d'un état au suivant.
+interface Props { rendu: string; label?: string }
+const { rendu, label = 'Animation pas à pas de l’exemple' } = Astro.props;
+---
+<div class="pas-a-pas" data-pas-a-pas data-rendu={rendu}>
+  <div class="pap-cadre">
+    <div class="scene pap-scene" role="img" aria-label={label} aria-live="polite"></div>
+  </div>
+  <div class="pap-etapes"><slot /></div>
+</div>
+
+<script>
+  import { chargerRendu, quandVisible } from './client';
+  import type { Etat } from './types';
+
+  document.querySelectorAll<HTMLElement>('[data-pas-a-pas]').forEach((racine) =>
+    quandVisible(racine, async () => {
+      const [{ gsap }, { ScrollTrigger }, rendu] = await Promise.all([
+        import('gsap'),
+        import('gsap/ScrollTrigger'),
+        chargerRendu(racine.dataset.rendu!),
+      ]);
+      gsap.registerPlugin(ScrollTrigger);
+      const etats = rendu.etats!;
+      const scene = racine.querySelector<HTMLElement>('.pap-scene')!;
+      const etapes = [...racine.querySelectorAll<HTMLElement>('[data-etat]')];
+      const courant: Etat = { ...etats[etapes[0]?.dataset.etat ?? 'initial'] };
+      rendu.dessiner(scene, courant);
+
+      const mm = gsap.matchMedia();
+      mm.add(
+        { complet: '(prefers-reduced-motion: no-preference)', reduit: '(prefers-reduced-motion: reduce)' },
+        (ctx) => {
+          const { reduit } = ctx.conditions!;
+          if (reduit) {
+            // Pas de scène fixe : chaque étape porte sa propre image statique.
+            etapes.forEach((etape) => {
+              const fixe = document.createElement('div');
+              fixe.className = 'scene pap-statique';
+              fixe.setAttribute('role', 'img');
+              etape.append(fixe);
+              rendu.dessiner(fixe, { ...etats[etape.dataset.etat!] });
+            });
+            return () => racine.querySelectorAll('.pap-statique').forEach((n) => n.remove());
+          }
+          etapes.forEach((etape) => {
+            const aller = () =>
+              gsap.to(courant, {
+                ...etats[etape.dataset.etat!],
+                duration: 0.55,
+                ease: 'power3.out',
+                overwrite: true,
+                onUpdate: () => rendu.dessiner(scene, courant),
+              });
+            ScrollTrigger.create({
+              trigger: etape,
+              start: 'top 55%',
+              end: 'bottom 55%',
+              onEnter: aller,
+              onEnterBack: aller,
+              toggleClass: { targets: etape, className: 'etape-active' },
+            });
+          });
+        },
+      );
+    }),
+  );
+</script>
+
+<style>
+  .pas-a-pas { margin: 2rem 0 2.5rem; }
+  .pap-cadre { display: none; }
+  .pap-etapes :global(.etape) { padding: .25rem 0 .25rem 1rem; border-left: 3px solid transparent; }
+  .pap-etapes :global(.etape > :last-child) { margin-bottom: 0; }
+  .pap-etapes :global(.etape + .etape) { margin-top: 1.5rem; }
+  .pap-etapes :global(.pap-statique) { aspect-ratio: 340 / 262; max-width: 420px; margin-top: 1rem; background: var(--papier-2); border-radius: var(--rayon); padding: .5rem; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html.js) .pap-cadre {
+      display: block; position: sticky; top: 0; z-index: 2; height: 45vh;
+      background: var(--papier); padding: .5rem 0; border-bottom: 1px solid var(--trait);
+    }
+    .pap-scene { height: 100%; background: var(--papier-2); border-radius: var(--rayon); padding: .5rem; }
+    :global(html.js) .pap-etapes :global(.etape) { opacity: .55; transition: opacity var(--duree-courte) var(--courbe), border-color var(--duree-courte); }
+    :global(html.js) .pap-etapes :global(.etape.etape-active) { opacity: 1; border-left-color: var(--or); }
+    :global(html.js) .pap-etapes :global(.etape) { min-height: 38vh; padding-top: 1.5rem; }
+    :global(html.js) .pap-etapes :global(.etape + .etape) { margin-top: 0; }
+    :global(html.js) .pap-etapes { padding-bottom: 12vh; }
+
+    @media (min-width: 1100px) {
+      :global(html.js) .pas-a-pas {
+        width: min(calc(var(--largeur-large) - 2 * var(--espace)), calc(100vw - 2 * var(--espace) - 20px));
+        display: grid; grid-template-columns: minmax(0, var(--colonne)) minmax(0, 1fr); gap: 3rem; align-items: start;
+      }
+      :global(html.js) .pap-cadre { order: 2; top: 12vh; height: auto; border: 0; padding: 0; }
+      :global(html.js) .pap-scene { height: auto; aspect-ratio: 340 / 262; max-width: 520px; padding: .75rem; }
+      :global(html.js) .pap-etapes { order: 1; padding-bottom: 20vh; }
+      :global(html.js) .pap-etapes :global(.etape) { min-height: 55vh; }
+    }
+  }
+</style>

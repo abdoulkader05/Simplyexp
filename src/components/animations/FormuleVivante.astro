@@ -1,0 +1,87 @@
+---
+// Une formule dont chaque terme est relié à son explication et aux <Terme> du texte.
+// Chaque terme se marque dans `tex` avec \htmlClass{t-<clé>}{...}.
+import katex from 'katex';
+
+type Role = 'entree' | 'parametre' | 'sortie' | 'perte';
+interface Props { tex: string; termes: Record<string, { role: Role; texte: string; symbole?: string }>; label?: string }
+const { tex, termes, label } = Astro.props;
+const opts = { trust: true, strict: false as const, throwOnError: true };
+
+/** Extrait le contenu entre accolades qui suit \htmlClass{t-cle}. */
+function symboleDe(cle: string): string {
+  const debut = tex.indexOf(`\\htmlClass{t-${cle}}{`);
+  if (debut < 0) throw new Error(`FormuleVivante : terme « ${cle} » absent de tex`);
+  let i = debut + `\\htmlClass{t-${cle}}{`.length, niveau = 1;
+  const d = i;
+  for (; i < tex.length && niveau > 0; i++) niveau += tex[i] === '{' ? 1 : tex[i] === '}' ? -1 : 0;
+  return tex.slice(d, i - 1);
+}
+
+let html = katex.renderToString(tex, { ...opts, displayMode: true });
+for (const [cle, t] of Object.entries(termes)) {
+  html = html.replaceAll(`class="enclosing t-${cle}"`, `class="enclosing t-${cle} role-${t.role}" data-cle="${cle}"`);
+}
+const liste = Object.entries(termes).map(([cle, t]) => ({
+  cle, ...t,
+  symboleHtml: katex.renderToString(t.symbole ?? symboleDe(cle), { ...opts, displayMode: false }),
+}));
+---
+<figure class="formule-vivante" data-formule aria-label={label}>
+  <div class="fv-formule" set:html={html} />
+  <ul class="fv-termes" role="list">
+    {liste.map((t) => (
+      <li>
+        <button type="button" data-cle={t.cle} aria-pressed="false">
+          <span class={`fv-symbole role-${t.role}`} set:html={t.symboleHtml} />
+          <span class="fv-texte">{t.texte}</span>
+        </button>
+      </li>
+    ))}
+  </ul>
+</figure>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-formule]').forEach((racine) => {
+    let fixe: string | null = null;
+    const activer = (cle: string | null) => {
+      racine.querySelectorAll('.terme-actif').forEach((n) => n.classList.remove('terme-actif'));
+      document.querySelectorAll('[data-terme].terme-actif').forEach((n) => n.classList.remove('terme-actif'));
+      racine.querySelectorAll('button[data-cle]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-cle') === cle)));
+      if (!cle) return;
+      racine.querySelectorAll(`.fv-formule [data-cle="${cle}"]`).forEach((n) => n.classList.add('terme-actif'));
+      document.querySelectorAll(`[data-terme="${cle}"]`).forEach((n) => n.classList.add('terme-actif'));
+    };
+    racine.addEventListener('pointerover', (ev) => {
+      if ((ev as PointerEvent).pointerType === 'touch') return;
+      const cible = (ev.target as Element).closest<HTMLElement>('[data-cle]');
+      if (cible) activer(cible.dataset.cle!);
+    });
+    racine.addEventListener('pointerleave', (ev) => {
+      if ((ev as PointerEvent).pointerType !== 'touch') activer(fixe);
+    });
+    racine.addEventListener('click', (ev) => {
+      const cible = (ev.target as Element).closest<HTMLElement>('[data-cle]');
+      if (!cible) return;
+      fixe = fixe === cible.dataset.cle ? null : cible.dataset.cle!;
+      activer(fixe);
+    });
+  });
+</script>
+
+<style>
+  .formule-vivante { margin: 1.5rem 0 2rem; }
+  .fv-formule :global(.katex-display) { margin: 0 0 1rem; }
+  .fv-formule :global([data-cle]) { cursor: pointer; border-radius: 3px; }
+  .fv-termes { list-style: none; padding: 0; margin: 0; display: grid; gap: .35rem; }
+  .fv-termes li + li { margin: 0; }
+  .fv-termes button {
+    all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 44px;
+    display: grid; grid-template-columns: 2.6rem 1fr; align-items: center; gap: .5rem;
+    padding: .3rem .5rem; border-radius: var(--rayon); color: var(--encre); line-height: 1.4;
+  }
+  .fv-termes button:hover, .fv-termes button[aria-pressed="true"] { background: var(--papier-2); }
+  .fv-termes button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  .fv-symbole { justify-self: center; }
+  .fv-texte { font-size: .95rem; }
+</style>

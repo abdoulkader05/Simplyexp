@@ -1,0 +1,28 @@
+---
+// Fiche d'identité d'un paper, lue dans graph.json.
+import { papers, concepts, urlConcept } from '../../lib/graphe';
+interface Props { id: string }
+const p = papers.get(Astro.props.id);
+if (!p) throw new Error(`FicheIdentite : paper « ${Astro.props.id} » absent du graphe`);
+const introduit = ((p as { introduit?: string[] }).introduit ?? [])
+  .map((i) => concepts.get(i))
+  .filter((c) => c !== undefined);
+---
+<dl class="identite">
+  <dt>Titre original</dt><dd lang="en"><em>{p.titre_original}</em></dd>
+  <dt>Auteurs</dt><dd>{p.auteurs}</dd>
+  <dt>Année</dt><dd>{p.annee}</dd>
+  {p.arxiv && <Fragment><dt>arXiv</dt><dd><a href={`https://arxiv.org/abs/${p.arxiv}`}>{p.arxiv}</a></dd></Fragment>}
+  {introduit.length > 0 && (
+    <Fragment>
+      <dt>Introduit</dt>
+      <dd>{introduit.map((c, i) => <Fragment>{i > 0 && ', '}<a href={urlConcept(c)}>{c.titre}</a></Fragment>)}</dd>
+    </Fragment>
+  )}
+</dl>
+<style>
+  .identite { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1.2rem; margin: 0 0 2rem; }
+  dt { font-family: var(--police-titre); font-weight: 600; }
+  dd { margin: 0; }
+  @media (max-width: 420px) { .identite { grid-template-columns: 1fr; } dd { margin-bottom: .5rem; } }
+</style>

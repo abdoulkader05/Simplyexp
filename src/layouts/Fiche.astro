@@ -1,0 +1,64 @@
+---
+// Layout d'une fiche : en-tête, prérequis et suite lus dans graph.json.
+import Base from './Base.astro';
+import BlocPrerequis from '../components/navigation/BlocPrerequis.astro';
+import BlocSuite from '../components/navigation/BlocSuite.astro';
+import Scene from '../components/animations/Scene.astro';
+import { concepts } from '../lib/graphe';
+import { corriger } from '../lib/rehype-typo-fr.mjs';
+import { renduSignature } from '../components/animations/registre';
+
+interface Props {
+  fiche: { id: string; titre: string; sous_titre?: string; temps_lecture: number; sources: string[]; mis_a_jour: Date; statut: string };
+}
+const { fiche } = Astro.props;
+const noeud = concepts.get(fiche.id);
+const signature = renduSignature(fiche.id);
+const date = fiche.mis_a_jour.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+<Base titre={fiche.titre} description={fiche.sous_titre}>
+  <main id="contenu" class="fiche">
+    <header class={`fiche-tete ${signature ? 'avec-signature' : ''}`}>
+      <div class="fiche-titres">
+        <h1>{corriger(fiche.titre)}</h1>
+        {fiche.sous_titre && <p class="sous-titre">{corriger(fiche.sous_titre)}</p>}
+        <p class="meta">Environ {fiche.temps_lecture} minutes de lecture.{fiche.statut !== 'publie' && ` Fiche en statut « ${fiche.statut} ».`}</p>
+        {noeud && <BlocPrerequis ids={noeud.prerequis} />}
+      </div>
+      {signature && (
+        <div class="fiche-signature">
+          <Scene rendu={signature} etat="initial" />
+        </div>
+      )}
+    </header>
+    <article class="prose">
+      <slot />
+    </article>
+    <footer class="fiche-pied">
+      {noeud && <BlocSuite id={noeud.id} ids={noeud.suite} />}
+      <section class="sources" aria-labelledby="titre-sources">
+        <h2 id="titre-sources">Sources</h2>
+        <ul>{fiche.sources.map((s) => <li>{s}</li>)}</ul>
+        <p class="meta">Mis à jour le {date}.</p>
+      </section>
+    </footer>
+  </main>
+</Base>
+
+<style>
+  .fiche { max-width: var(--largeur-large); margin: 0 auto; padding: 2rem var(--espace) 4rem; }
+  .fiche-tete { margin-bottom: 2.5rem; }
+  .fiche-titres { max-width: var(--colonne); }
+  .sous-titre { font-size: var(--t-m); color: var(--encre-douce); margin: 0 0 .75rem; line-height: 1.4; }
+  .meta { font-size: var(--t-xs); color: var(--encre-douce); }
+  .fiche-signature { margin-top: 1.5rem; }
+  @media (min-width: 1100px) {
+    .avec-signature { display: grid; grid-template-columns: minmax(0, var(--colonne)) minmax(0, 1fr); gap: 3rem; align-items: start; }
+    .fiche-signature { margin-top: 0; }
+  }
+  .prose { max-width: var(--colonne); }
+  .prose :global(> h2:first-child) { margin-top: 0; }
+  .fiche-pied { max-width: var(--colonne); margin-top: 4rem; border-top: 1px solid var(--trait); }
+  .sources ul { font-size: var(--t-xs); color: var(--encre-douce); padding-left: 1.1rem; }
+  .sources h2 { font-size: var(--t-m); }
+</style>

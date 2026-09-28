@@ -1,0 +1,14 @@
+---
+import { getCollection, render } from 'astro:content';
+import Fiche from '../../layouts/Fiche.astro';
+
+export async function getStaticPaths() {
+  const fiches = await getCollection('papers');
+  return fiches.map((f) => ({ params: { id: f.id }, props: { f } }));
+}
+const { f } = Astro.props;
+const { Content } = await render(f);
+---
+<Fiche fiche={f.data}>
+  <Content />
+</Fiche>

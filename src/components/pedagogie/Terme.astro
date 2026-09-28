@@ -1,0 +1,5 @@
+---
+// Mot du texte relié à un terme d'une FormuleVivante (même id).
+interface Props { id: string }
+---
+<span class="terme" data-terme={Astro.props.id}><slot /></span>

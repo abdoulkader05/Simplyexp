@@ -1,0 +1,17 @@
+---
+import { concepts } from '../../lib/graphe';
+import LienConcept from './LienConcept.astro';
+interface Props { ids: string[] }
+const liste = Astro.props.ids.map((id) => concepts.get(id)).filter((c) => c !== undefined);
+---
+{liste.length > 0 && (
+  <nav class="prerequis" aria-label="Prérequis">
+    <p><strong>Avant de lire</strong>, tu dois être à l'aise avec :</p>
+    <ul>{liste.map((c) => <li><LienConcept concept={c} /></li>)}</ul>
+  </nav>
+)}
+<style>
+  .prerequis { font-size: var(--t-xs); border-left: 2px solid var(--indigo); padding-left: .9rem; margin-top: 1rem; }
+  .prerequis p { margin: 0 0 .25rem; }
+  .prerequis ul { margin: 0; padding-left: 1.1rem; }
+</style>

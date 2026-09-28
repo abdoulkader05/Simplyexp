@@ -1,17 +1,30 @@
 ---
+// Accueil provisoire : le nom du site et la page d'accueil restent à définir.
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import { parcours, concepts } from '../lib/graphe';
 
+const ecrites = [...(await getCollection('concepts')), ...(await getCollection('maths'))];
 ---
+<Base titre="Accueil" description="Apprendre l’IA en français, des maths jusqu’aux LLM.">
+  <main id="contenu" class="accueil">
+    <h1>Des maths jusqu’aux LLM, pas à pas</h1>
+    <p>Chaque fiche explique un concept, démontre ses formules et renvoie à ce qu’il faut savoir avant.</p>
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+    <h2>Fiches disponibles</h2>
+    <ul>
+      {ecrites.map((f) => <li><a href={`/${f.collection}/${f.id}/`}>{f.data.titre}</a></li>)}
+    </ul>
+
+    <h2>Les parcours</h2>
+    <ul>
+      {parcours.map((p) => (
+        <li>{p.titre} ({p.etapes.length} fiches, jusqu’à {p.cibles.map((c) => concepts.get(c)?.titre.split(' :')[0]).join(', ')})</li>
+      ))}
+    </ul>
+  </main>
+</Base>
+
+<style>
+  .accueil { max-width: var(--largeur-page); margin: 0 auto; padding: 2rem var(--espace) 4rem; }
+</style>

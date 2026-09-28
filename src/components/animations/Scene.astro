@@ -1,0 +1,20 @@
+---
+// Un rendu figé dans un état (utilisé en haut de fiche pour l'animation signature).
+interface Props { rendu: string; etat?: string; label?: string }
+const { rendu, etat = 'initial', label = 'Illustration de l’exemple de la fiche' } = Astro.props;
+---
+<div class="scene scene-fixe" data-scene data-rendu={rendu} data-etat={etat} role="img" aria-label={label}></div>
+
+<script>
+  import { chargerRendu, quandVisible } from './client';
+  document.querySelectorAll<HTMLElement>('[data-scene]').forEach((scene) =>
+    quandVisible(scene, async () => {
+      const r = await chargerRendu(scene.dataset.rendu!);
+      r.dessiner(scene, { ...r.etats![scene.dataset.etat!] });
+    }),
+  );
+</script>
+
+<style>
+  .scene-fixe { aspect-ratio: 340 / 262; width: 100%; max-width: 520px; background: var(--papier-2); border-radius: var(--rayon); padding: .75rem; }
+</style>

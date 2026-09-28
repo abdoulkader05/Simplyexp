@@ -1,0 +1,43 @@
+---
+// Layout global : tokens, polices auto-hébergées, KaTeX.
+import '../../.claude/skills/design-system/references/tokens.css';
+import '@fontsource-variable/bricolage-grotesque/standard.css';
+import '@fontsource-variable/literata/wght.css';
+import '@fontsource-variable/literata/wght-italic.css';
+import '@fontsource-variable/jetbrains-mono/wght.css';
+import 'katex/dist/katex.min.css';
+import '../styles/global.css';
+
+interface Props { titre: string; description?: string }
+const { titre, description } = Astro.props;
+export const NOM_SITE = 'Simplyexp';
+---
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{titre} | {NOM_SITE}</title>
+    {description && <meta name="description" content={description} />}
+    <script is:inline>document.documentElement.classList.add('js');</script>
+  </head>
+  <body>
+    <a class="lien-evitement" href="#contenu">Aller au contenu</a>
+    <header class="entete-site">
+      <a href="/" class="nom-site">{NOM_SITE}</a>
+    </header>
+    <slot />
+  </body>
+</html>
+
+<style>
+  .entete-site {
+    max-width: var(--largeur-large); margin: 0 auto; padding: 1rem var(--espace);
+    border-bottom: 1px solid var(--trait);
+  }
+  .nom-site {
+    font-family: var(--police-titre); font-weight: 700; font-size: var(--t-m);
+    color: var(--encre); text-decoration: none; display: inline-block; min-height: 44px; line-height: 44px;
+  }
+</style>

@@ -1,0 +1,78 @@
+---
+// Un ou deux curseurs qui pilotent un rendu, sans transition.
+type Role = 'entree' | 'parametre' | 'sortie' | 'perte';
+interface Parametre { nom: string; label: string; min: number; max: number; pas: number; valeur: number; role?: Role; unite?: string; decimales?: number }
+interface Props { rendu: string; parametres: Parametre[]; legende?: string; label?: string }
+const { rendu, parametres, legende, label = 'Simulation interactive' } = Astro.props;
+if (parametres.length > 2) throw new Error('Simulation : deux curseurs au plus');
+const uid = `sim-${Math.random().toString(36).slice(2, 9)}`;
+const affiche = (p: Parametre, v: number) =>
+  `${v.toLocaleString('fr-FR', { minimumFractionDigits: p.decimales ?? 0, maximumFractionDigits: p.decimales ?? 0 })}${p.unite ?? ''}`;
+---
+<figure class="simulation" data-simulation data-rendu={rendu}>
+  <div class="scene sim-scene" role="img" aria-label={label}></div>
+  <div class="sim-controles">
+    {parametres.map((p) => (
+      <div class={`sim-param role-${p.role ?? 'parametre'}-curseur`}>
+        <label for={`${uid}-${p.nom}`}>{p.label}</label>
+        <output for={`${uid}-${p.nom}`} data-sortie={p.nom}>{affiche(p, p.valeur)}</output>
+        <input
+          type="range" id={`${uid}-${p.nom}`} name={p.nom}
+          min={p.min} max={p.max} step={p.pas} value={p.valeur}
+          data-defaut={p.valeur} data-decimales={p.decimales ?? 0} data-unite={p.unite ?? ''}
+        />
+      </div>
+    ))}
+    <button type="button" class="sim-reinit" data-reinit>Réinitialiser</button>
+  </div>
+  {legende && <figcaption>{legende}</figcaption>}
+</figure>
+
+<script>
+  import { chargerRendu, quandVisible } from './client';
+
+  document.querySelectorAll<HTMLElement>('[data-simulation]').forEach((racine) =>
+    quandVisible(racine, async () => {
+      const rendu = await chargerRendu(racine.dataset.rendu!);
+      const scene = racine.querySelector<HTMLElement>('.sim-scene')!;
+      const curseurs = [...racine.querySelectorAll<HTMLInputElement>('input[type=range]')];
+      const maj = () => {
+        const valeurs: Record<string, number> = {};
+        curseurs.forEach((c) => {
+          const v = Number(c.value);
+          valeurs[c.name] = v;
+          const d = Number(c.dataset.decimales);
+          racine.querySelector(`[data-sortie="${c.name}"]`)!.textContent =
+            v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d }) + (c.dataset.unite ?? '');
+        });
+        rendu.dessiner(scene, valeurs);
+      };
+      curseurs.forEach((c) => c.addEventListener('input', maj));
+      racine.querySelector('[data-reinit]')!.addEventListener('click', () => {
+        curseurs.forEach((c) => (c.value = c.dataset.defaut!));
+        maj();
+      });
+      maj();
+    }),
+  );
+</script>
+
+<style>
+  .simulation { margin: 1.5rem 0 2rem; padding: 0; }
+  .sim-scene { aspect-ratio: 340 / 262; width: 100%; max-width: 520px; background: var(--papier-2); border-radius: var(--rayon); padding: .75rem; }
+  .sim-controles { display: grid; gap: .75rem; margin-top: 1rem; max-width: 520px; }
+  .sim-param { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 1rem; }
+  .sim-param label { font-family: var(--police-titre); font-weight: 600; font-size: var(--t-xs); }
+  output { font-variant-numeric: tabular-nums; font-size: var(--t-xs); }
+  input[type=range] { grid-column: 1 / -1; width: 100%; height: 44px; margin: 0; accent-color: var(--lagune); cursor: pointer; }
+  .role-entree-curseur input { accent-color: var(--indigo); }
+  .role-sortie-curseur input { accent-color: var(--or); }
+  .role-perte-curseur input { accent-color: var(--laterite); }
+  .sim-reinit {
+    justify-self: start; min-height: 44px; padding: 0 1rem; cursor: pointer;
+    font-family: var(--police-titre); font-weight: 600; font-size: var(--t-xs);
+    background: transparent; color: var(--encre); border: 1px solid var(--trait); border-radius: var(--rayon);
+  }
+  .sim-reinit:hover { border-color: var(--encre-douce); }
+  figcaption { font-size: var(--t-xs); color: var(--encre-douce); margin-top: .75rem; max-width: 520px; }
+</style>

@@ -1,0 +1,29 @@
+---
+import { concepts, papersDe, urlPaper } from '../../lib/graphe';
+import LienConcept from './LienConcept.astro';
+interface Props { id: string; ids: string[] }
+const liste = Astro.props.ids.map((id) => concepts.get(id)).filter((c) => c !== undefined);
+const lies = papersDe(Astro.props.id);
+const REL = { introduit: 'qui l’a introduit', popularise: 'qui l’a popularisé', approfondit: 'qui l’approfondit' } as const;
+---
+<section class="suite" aria-labelledby="titre-suite">
+  <h2 id="titre-suite">Pour la suite</h2>
+  {liste.length > 0 && (
+    <>
+      <p>Cette fiche ouvre la porte à :</p>
+      <ul>{liste.map((c) => <li><LienConcept concept={c} /></li>)}</ul>
+    </>
+  )}
+  {lies.length > 0 && (
+    <>
+      <p>À lire à la source :</p>
+      <ul>{lies.map(({ paper, relation }) => (
+        <li><a href={urlPaper(paper)}>{paper.titre}</a> ({paper.auteurs}, {paper.annee}), {REL[relation]}</li>
+      ))}</ul>
+    </>
+  )}
+</section>
+<style>
+  .suite h2 { font-size: var(--t-m); }
+  .suite ul { padding-left: 1.1rem; }
+</style>

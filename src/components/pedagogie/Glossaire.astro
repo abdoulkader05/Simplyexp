@@ -1,0 +1,19 @@
+---
+interface Props { termes: { fr: string; en: string; definition: string }[] }
+const { termes } = Astro.props;
+---
+<table class="glossaire">
+  <thead><tr><th scope="col">Français</th><th scope="col">Anglais</th></tr></thead>
+  <tbody>
+    {termes.map((t) => (
+      <Fragment>
+        <tr class="paire"><td lang="fr">{t.fr}</td><td lang="en"><em>{t.en}</em></td></tr>
+        <tr class="def"><td colspan="2">{t.definition}</td></tr>
+      </Fragment>
+    ))}
+  </tbody>
+</table>
+<style>
+  .glossaire .paire td { border-bottom: 0; padding-bottom: .1rem; font-weight: 600; font-family: var(--police-titre); }
+  .glossaire .def td { color: var(--encre-douce); padding-top: 0; }
+</style>

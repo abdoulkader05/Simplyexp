@@ -1,0 +1,12 @@
+---
+// Lien vers une fiche du graphe ; texte simple tant que la fiche n'est pas écrite.
+import { getCollection } from 'astro:content';
+import { corriger } from '../../lib/rehype-typo-fr.mjs';
+import { urlConcept, collectionDe, type Concept } from '../../lib/graphe';
+interface Props { concept: Concept }
+const { concept } = Astro.props;
+const existantes = await getCollection(collectionDe(concept));
+const ecrite = existantes.some((f) => f.id === concept.id);
+---
+{ecrite ? <a href={urlConcept(concept)}>{corriger(concept.titre)}</a> : <span>{corriger(concept.titre)} <span class="bientot">(fiche à venir)</span></span>}
+<style>.bientot { color: var(--encre-douce); font-size: .9em; }</style>

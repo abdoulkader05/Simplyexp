@@ -1,0 +1,56 @@
+---
+interface Question { question: string; choix: string[]; bonne: number; explication: string }
+interface Props { questions: Question[] }
+const { questions } = Astro.props;
+---
+<div class="quiz" data-quiz>
+  {questions.map((q) => (
+    <fieldset class="quiz-q" data-bonne={q.bonne}>
+      <legend>{q.question}</legend>
+      <ul role="list">
+        {q.choix.map((c, j) => (
+          <li><button type="button" data-choix={j}>{c}</button></li>
+        ))}
+      </ul>
+      <p class="quiz-retour" aria-live="polite" hidden>
+        <strong class="verdict"></strong> {q.explication}
+      </p>
+    </fieldset>
+  ))}
+</div>
+
+<script>
+  document.addEventListener('click', (ev) => {
+    const bouton = (ev.target as Element).closest<HTMLButtonElement>('[data-quiz] [data-choix]');
+    if (!bouton) return;
+    const q = bouton.closest<HTMLFieldSetElement>('fieldset')!;
+    const juste = bouton.dataset.choix === q.dataset.bonne;
+    q.querySelectorAll('[data-choix]').forEach((b) => b.classList.remove('juste', 'faux'));
+    bouton.classList.add(juste ? 'juste' : 'faux');
+    const retour = q.querySelector<HTMLElement>('.quiz-retour')!;
+    retour.hidden = false;
+    retour.classList.toggle('est-juste', juste);
+    retour.querySelector('.verdict')!.textContent = juste ? 'Juste.' : 'Pas tout à fait.';
+  });
+</script>
+
+<style>
+  .quiz-q { border: 0; padding: 0; margin: 0 0 2rem; min-width: 0; }
+  legend { font-weight: 600; margin-bottom: .6rem; padding: 0; }
+  ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+  li + li { margin: 0; }
+  button {
+    all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 44px;
+    padding: .55rem .9rem; border: 1px solid var(--trait); border-radius: var(--rayon);
+    font-family: var(--police-texte); line-height: 1.4; color: var(--encre);
+  }
+  button:hover { border-color: var(--encre-douce); }
+  button:focus-visible { outline: 2px solid var(--or); outline-offset: 2px; }
+  button.juste { border: 2px solid var(--lagune); }
+  button.faux { border: 2px solid var(--laterite); }
+  .quiz-retour { margin: .75rem 0 0; padding-left: .9rem; border-left: 2px solid var(--laterite); }
+  .quiz-retour.est-juste { border-left-color: var(--lagune); }
+  .verdict { font-family: var(--police-titre); }
+  .quiz-retour:not(.est-juste) .verdict { color: var(--laterite); }
+  .quiz-retour.est-juste .verdict { color: var(--lagune); }
+</style>
