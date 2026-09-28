@@ -76,7 +76,7 @@ Un modèle lit la phrase « je vais au marché » et donne aux vrais mots, chacu
 - Perte moyenne : $8{,}11 / 4 \approx 2{,}03$ nats par mot.
 - Perplexité : $e^{2{,}03} \approx 7{,}6$.
 
-Le modèle hésite, en moyenne, comme entre 7 ou 8 mots équiprobables. Vérification par la moyenne géométrique : le produit des probabilités vaut $0{,}000\,3$, et $0{,}000\,3^{-1/4} \approx 7{,}6$.
+Le modèle hésite, en moyenne, comme entre 7 ou 8 mots équiprobables. Pour mesurer le chemin parcouru, compare avec un modèle qui n'aurait rien appris et choisirait uniformément dans tout le vocabulaire de GPT-2, soit 50 257 éléments (voir la fiche sur la [loi catégorielle](/maths/loi-categorielle/)) : sa perplexité serait exactement 50 257. Vérification par la moyenne géométrique : le produit des probabilités vaut $0{,}000\,3$, et $0{,}000\,3^{-1/4} \approx 7{,}6$.
 
 Si un meilleur modèle donne 0,1, 0,5, 0,6 et 0,4 aux mêmes mots, la somme des $-\ln q$ vaut $2{,}30 + 0{,}69 + 0{,}51 + 0{,}92 = 4{,}42$, la perte moyenne 1,11, et la perplexité $e^{1{,}11} \approx 3{,}0$.
 
