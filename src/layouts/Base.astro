@@ -70,9 +70,8 @@ const actif = (href: string) => chemin.startsWith(href);
 
 <style>
   .entete-site {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--papier) 92%, transparent);
-    backdrop-filter: blur(8px); border-bottom: 1px solid var(--trait);
+    /* Pas collant : les animations au défilement occupent le haut de l'écran. */
+    background: var(--papier); border-bottom: 1px solid var(--trait);
   }
   .entete-dedans {
     max-width: var(--largeur-large); margin: 0 auto; padding: 0 var(--espace);

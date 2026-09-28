@@ -40,7 +40,7 @@ for (const c of cas) {
     await page.screenshot({ path: `${sortie}/${c.nom}-etape-${i + 1}.png` });
   }
   // Composants interactifs capturés seuls.
-  for (const [sel, nom] of [['[data-formule]', 'formule'], ['[data-simulation]', 'simulation'], ['[data-quiz]', 'quiz']]) {
+  for (const [sel, nom] of [['[data-formule]', 'formule'], ['[data-simulation]', 'simulation'], ['[data-quiz]', 'quiz'], ['[data-exercice]', 'exercice']]) {
     const n = await page.locator(sel).count();
     for (let i = 0; i < n; i++) {
       const el = page.locator(sel).nth(i);
