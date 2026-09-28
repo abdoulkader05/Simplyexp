@@ -1,0 +1,261 @@
+---
+id: memoire-agent
+type: concept
+titre: "La mémoire d'un agent : se souvenir au-delà du contexte"
+sous_titre: "Mémoire de travail, mémoire longue et récupération"
+domaine: agents
+niveau: 5
+prerequis: [agent-llm, rag]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 13
+sources:
+  - "Park et al., « Generative Agents: Interactive Simulacra of Human Behavior », UIST 2023 — https://arxiv.org/abs/2304.03442 — section Memory and Retrieval (flux de souvenirs en langage naturel avec horodatages ; récence : décroissance exponentielle de facteur 0,995 par heure de jeu depuis le dernier accès ; importance : note de 1 à 10 donnée par le modèle ; pertinence : cosinus entre embeddings ; score = somme pondérée, composantes normalisées min-max dans [0, 1], tous les α égaux à 1 ; réflexions de plus haut niveau ; résumé : petite ville de vingt-cinq agents inspirée des Sims)"
+  - "Shinn et al., « Reflexion: Language Agents with Verbal Reinforcement Learning », arXiv 2303.11366, 2023 — https://arxiv.org/abs/2303.11366 — réflexions gardées dans une mémoire épisodique"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [agent](/concepts/agent-llm/) ne se souvient que de ce qui est dans son contexte. Ferme la conversation, et il a tout oublié : ton prénom, le projet d'hier, l'allergie que tu lui as signalée la semaine dernière. Et même pendant une longue tâche, le contexte finit par déborder : chaque tour ajoute des tokens, et relire tout l'historique à chaque tour coûte de plus en plus cher. On ne peut pas tout garder, ni tout oublier. Il faut une mémoire hors du contexte, et une règle pour décider quoi en ressortir au bon moment.
+
+## L'idée en une phrase
+
+<PhraseCle>
+L'agent écrit ses souvenirs dans une base externe, puis, à chaque question, n'en rappelle dans son contexte que les quelques-uns qui obtiennent le meilleur score.
+</PhraseCle>
+
+## En image
+
+Pense à une infirmière qui prend son service de nuit.
+
+- Elle ne relit pas le dossier complet de chaque patient depuis son arrivée : ce serait des centaines de pages.
+- Elle a sous les yeux une **fiche de transmission** courte : l'essentiel de la journée. C'est sa mémoire de travail.
+- Le **dossier complet** reste dans l'armoire. Elle y cherche une information précise quand une situation l'exige.
+- Certaines mentions sont écrites en rouge, comme les allergies, parce qu'elles sont **importantes** même si elles datent de dix ans.
+
+Là où l'image s'arrête : l'infirmière sait d'instinct quoi chercher. Un agent doit calculer, pour chaque souvenir, un score qui décide s'il remonte ou non ; si ce score est mal réglé, l'allergie reste dans l'armoire.
+
+## Comment ça marche
+
+On distingue deux étages de mémoire.
+
+- **La mémoire de travail** (*working memory*) : le contexte du modèle, limité et coûteux, qui contient la tâche en cours.
+- **La mémoire longue** (*long-term memory*) : une base externe de souvenirs, sans limite pratique, qui ne coûte rien tant qu'on ne la lit pas.
+
+L'agent fait trois opérations. **Écrire** : après une observation importante, il enregistre un souvenir en langage naturel, avec sa date. **Récupérer** : avant de répondre, il cherche dans la base les souvenirs utiles, comme le [RAG](/concepts/rag/) cherche des passages dans des documents. **Résumer** : il condense de temps en temps plusieurs souvenirs en une idée plus générale, pour que la base reste lisible.
+
+Tout se joue à la récupération. Le paper Generative Agents, de Park et ses coauteurs, propose un score qui combine trois critères pour chaque souvenir $m$ face à une question :
+
+$$
+\text{score}(m) = \alpha_{r}\,\text{récence}(m) + \alpha_{i}\,\text{importance}(m) + \alpha_{p}\,\text{pertinence}(m)
+$$
+
+où :
+- $\text{récence}(m) = 0{,}995^{\,h}$, avec $h$ le nombre d'heures depuis le dernier accès au souvenir ;
+- $\text{importance}(m)$ est une note de 1 (banal, comme se brosser les dents) à 10 (marquant), demandée au modèle au moment où le souvenir est écrit ;
+- $\text{pertinence}(m)$ est la [similarité cosinus](/maths/similarite-cosinus/) entre l'embedding du souvenir et celui de la question ;
+- chaque composante est ramenée entre 0 et 1 sur l'ensemble des souvenirs (normalisation min-max), et les poids $\alpha$ valent tous 1 dans le paper.
+
+Exemple pour un seul critère : un souvenir consulté pour la dernière fois il y a 300 heures a une récence brute de $0{,}995^{300} \approx 0{,}22$. Fais défiler pour voir les trois critères se combiner.
+
+<PasAPas rendu="memoire-score" label="Score de récupération de cinq souvenirs">
+  <Etape etat="initial">
+    **Cinq souvenirs** dans la base d'un assistant personnel, et une question : « Quel plat préparer pour Léa samedi ? ». Les valeurs de l'exemple sont inventées.
+  </Etape>
+  <Etape etat="recence">
+    **La récence** favorise ce qui vient d'arriver : la pluie de ce matin obtient le maximum, l'allergie signalée il y a longtemps le minimum.
+  </Etape>
+  <Etape etat="importance">
+    **L'importance** corrige ce biais : l'allergie obtient le maximum, la pluie le minimum.
+  </Etape>
+  <Etape etat="pertinence">
+    **La pertinence** mesure le lien avec la question : le goût de Léa pour l'attiéké et son allergie arrivent en tête.
+  </Etape>
+  <Etape etat="score">
+    **Le score total** classe les souvenirs : attiéké 2,11, four en panne 2,02, allergie 1,90. Avec les trois meilleurs, l'assistant sait tout ce qu'il faut. Avec les deux meilleurs seulement, il oublierait l'allergie.
+  </Etape>
+</PasAPas>
+
+La dernière étape montre le vrai enjeu : le nombre $k$ de souvenirs rappelés et les poids $\alpha$ décident de ce que l'agent « sait » au moment d'agir. Un souvenir vital mais ancien peut être battu par un détail récent. En pratique, on protège les informations critiques en leur donnant une importance maximale, ou en les gardant toujours dans la mémoire de travail.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi une puissance de 0,995, et pourquoi normaliser">
+
+**La récence.** On veut qu'un souvenir perde la même **proportion** de son poids à chaque heure, sans jamais tomber à zéro. Chaque heure multiplie la récence par $0{,}995$, donc après $h$ heures :
+
+$$
+\text{récence}(h) = \underbrace{0{,}995 \times 0{,}995 \times \dots \times 0{,}995}_{h \text{ fois}} = 0{,}995^{\,h}
+$$
+
+C'est une décroissance exponentielle, comme celle de l'[exponentielle](/maths/exp-log/) : $0{,}995^{\,h} = e^{h \ln 0{,}995}$. Sa demi-vie, le temps pour perdre la moitié du poids, vérifie $0{,}995^{\,h} = 0{,}5$, soit $h = \ln 0{,}5 / \ln 0{,}995 \approx 138$ heures, un peu moins de six jours.
+
+**La normalisation.** Les trois critères n'ont pas la même échelle : l'importance va de 1 à 10, la récence de 0 à 1, le cosinus de −1 à 1. Additionnés tels quels, l'importance écraserait tout. On ramène donc chaque critère $x$ entre 0 et 1 sur l'ensemble des souvenirs candidats :
+
+$$
+x' = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
+$$
+
+Exemple : les importances des cinq souvenirs vont de 1 à 9 ; celle du four vaut 6, d'où $x' = (6 - 1)/(9 - 1) \approx 0{,}62$. Après normalisation, chaque critère pèse autant que les autres, et les poids $\alpha$ servent à en favoriser un volontairement.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Quoi retenir, et où ?" niveau="facile">
+
+Un assistant de voyage vient d'échanger avec toi. Pour chaque information, dirais-tu qu'elle doit aller en mémoire longue (à garder pour les prochaines conversations), rester en mémoire de travail (utile pour la tâche en cours seulement), ou ne pas être retenue ?
+
+1. « Je suis végétarienne. »
+2. « Le vol de 9 h 40 est complet. »
+3. « Euh, attends, je cherche mon passeport. »
+4. « Mon numéro de passeport expire en mars. »
+
+<div slot="solution">
+
+1. **Mémoire longue**, avec une importance élevée : c'est une préférence durable qui servira à chaque réservation de repas.
+2. **Mémoire de travail** : utile pour choisir un vol aujourd'hui, inutile dans un mois.
+3. **Ne pas retenir** : c'est du bruit.
+4. **Mémoire longue**, mais avec prudence : c'est une donnée personnelle sensible. L'utilisateur doit savoir qu'elle est gardée, et pouvoir la faire effacer.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un jour plus tard" niveau="moyen" reponse={0.887} tolerance={0.003}>
+
+Un souvenir n'a pas été consulté depuis 24 heures. Quelle est sa récence brute, avec le facteur 0,995 par heure ?
+
+<div slot="solution">
+
+$0{,}995^{24} \approx 0{,}887$. En un jour, le souvenir perd environ 11 % de son poids de récence. Il faudrait environ 138 heures pour qu'il en perde la moitié.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le rappel et la facture" niveau="defi" reponse={0.75} tolerance={0.001}>
+
+On mesure la qualité d'une récupération par le **rappel à $k$** : parmi les souvenirs réellement utiles pour la question, la proportion qui se trouve dans les $k$ souvenirs rappelés.
+
+$$
+\text{rappel@}k = \frac{\text{nombre de souvenirs utiles parmi les } k \text{ rappelés}}{\text{nombre total de souvenirs utiles}}
+$$
+
+Une base contient 50 souvenirs de 80 tokens chacun, dont 4 sont utiles pour une question. L'agent en rappelle $k = 5$, parmi lesquels 3 sont utiles. Calcule le rappel@5. Puis compare le nombre de tokens ajoutés au contexte avec celui qu'il faudrait pour mettre toute la base dans le contexte.
+
+<div slot="solution">
+
+$\text{rappel@}5 = 3/4 = 0{,}75$ : un souvenir utile sur quatre manque.
+
+Coût : $5 \times 80 = 400$ tokens rappelés, contre $50 \times 80 = 4\,000$ tokens pour toute la base, soit dix fois moins. C'est le compromis central de la mémoire d'un agent : augmenter $k$ améliore le rappel mais coûte des tokens, et noie les souvenirs utiles parmi des souvenirs inutiles. Pour ne pas rater le quatrième souvenir, on peut augmenter $k$, mieux régler les poids du score, ou reformuler la question avant de chercher.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un flux de souvenirs, des embeddings jouets (des sacs de mots) et le score récence + importance + pertinence avec normalisation min-max. Les valeurs obtenues diffèrent de l'animation, dont les similarités étaient inventées.
+
+```python
+import numpy as np
+
+souvenirs = [  # (texte, heures depuis le dernier accès, importance de 1 à 10)
+    ("Léa adore l'attiéké au poisson", 48, 4),
+    ("Réunion d'équipe déplacée à 15 h", 3, 3),
+    ("Léa est allergique aux arachides dans les plats", 300, 9),
+    ("Le four de la cuisine est en panne", 20, 6),
+    ("Il a plu ce matin", 1, 1),
+]
+question = "Quel plat préparer pour Léa samedi ?"
+
+vocab = sorted({m.strip("?,'").lower() for t, *_ in souvenirs for m in t.split()} | {m.strip("?").lower() for m in question.split()})
+def embedding(texte):
+    mots = [m.strip("?,'").lower() for m in texte.split()]
+    return np.array([mots.count(v) for v in vocab], dtype=float)
+
+def cosinus(u, v):
+    return u @ v / (np.linalg.norm(u) * np.linalg.norm(v))
+
+def minmax(x):
+    x = np.array(x, dtype=float)
+    return (x - x.min()) / (x.max() - x.min())
+
+q = embedding(question)
+recence = minmax([0.995 ** h for _, h, _ in souvenirs])
+importance = minmax([i for *_, i in souvenirs])
+pertinence = minmax([cosinus(embedding(t), q) for t, *_ in souvenirs])
+score = recence + importance + pertinence  # tous les poids valent 1
+
+for rang, i in enumerate(np.argsort(-score), 1):
+    print(rang, f"{score[i]:.2f}", souvenirs[i][0])
+
+k = 3
+print("rappelés dans le contexte :", [souvenirs[i][0] for i in np.argsort(-score)[:k]])
+```
+
+En vrai, la base de souvenirs est une base vectorielle et les embeddings viennent d'un modèle dédié ; l'agent dispose souvent de deux outils, « mémoriser » et « se souvenir », qu'il appelle lui-même.
+
+```python
+# no-run
+outils = [
+    {"name": "memoriser", "description": "Enregistre un fait durable sur l'utilisateur.",
+     "input_schema": {"type": "object", "properties": {"fait": {"type": "string"},
+                      "importance": {"type": "integer", "minimum": 1, "maximum": 10}}, "required": ["fait"]}},
+    {"name": "se_souvenir", "description": "Retrouve les souvenirs utiles pour une question.",
+     "input_schema": {"type": "object", "properties": {"question": {"type": "string"}}, "required": ["question"]}},
+]
+```
+
+## Les pièges classiques
+
+**« Un grand contexte remplace la mémoire. »** Même si tout tient dans le contexte, tout relire à chaque tour coûte cher, et une information noyée dans des milliers de tokens peut être négligée. Rappeler peu, mais bien, reste utile.
+
+**« Le souvenir le plus proche de la question suffit. »** La pertinence seule rate les informations cruciales mais formulées autrement, comme une allergie face à une question sur un menu. C'est tout l'intérêt de combiner plusieurs critères.
+
+**« Tout retenir, c'est mieux. »** Une base remplie de détails inutiles rend la récupération moins précise. Et garder des données personnelles pose des questions de confidentialité : l'utilisateur doit pouvoir voir et effacer ce que l'agent retient.
+
+## Dans la vraie vie
+
+Les assistants conversationnels qui se souviennent de tes préférences d'une conversation à l'autre combinent une mémoire longue et une récupération à chaque échange. Les agents de programmation gardent des fichiers de notes sur le projet, relus au début de chaque session. Dans Generative Agents, vingt-cinq personnages simulés vivent dans une petite ville virtuelle et se souviennent de leurs rencontres grâce au score présenté ici, complété par des **réflexions** : des idées générales tirées de plusieurs souvenirs. Dans Reflexion, la mémoire sert à autre chose : garder la leçon d'un échec pour réussir la tentative suivante, comme vu dans la fiche sur la [planification](/concepts/planification-agent/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quelle est la différence entre mémoire de travail et mémoire longue ?",
+    choix: ["Aucune", "La mémoire de travail est le contexte ; la mémoire longue est une base externe qu'on consulte", "La mémoire longue est dans les poids du modèle", "La mémoire de travail est sur le disque"],
+    bonne: 1,
+    explication: "Le contexte est limité et coûteux ; la base externe est vaste et ne coûte que lorsqu'on la lit."
+  },
+  {
+    question: "Pourquoi normaliser récence, importance et pertinence avant de les additionner ?",
+    choix: ["Pour aller plus vite", "Parce qu'elles n'ont pas la même échelle", "Pour les rendre négatives", "Ce n'est pas nécessaire"],
+    bonne: 1,
+    explication: "L'importance va de 1 à 10, la récence de 0 à 1 : sans normalisation, un critère écraserait les autres."
+  },
+  {
+    question: "4 souvenirs sont utiles ; parmi les 5 rappelés, 2 le sont. Que vaut le rappel@5 ?",
+    choix: ["0,4", "0,5", "0,8", "2"],
+    bonne: 1,
+    explication: "rappel@5 = 2/4 = 0,5."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment concevriez-vous la mémoire d'un assistant personnel qui dure des mois ?">
+
+Deux étages : un contexte court avec la tâche en cours et un résumé de la conversation, et une base externe de souvenirs datés, avec leurs embeddings et une note d'importance. À l'écriture, on filtre le bruit et on marque les informations critiques (santé, sécurité) pour qu'elles soient toujours rappelées. À la lecture, on combine pertinence, récence et importance, on rappelle un petit nombre $k$ de souvenirs, et l'on mesure le rappel sur des questions de test. Périodiquement, on résume les souvenirs anciens en réflexions plus générales. Enfin, la confidentialité : l'utilisateur voit ce qui est retenu, peut le corriger ou l'effacer, et les données sensibles sont limitées au strict nécessaire.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "mémoire de travail", en: "working memory", definition: "Le contexte du modèle : ce qu'il voit pendant la tâche en cours." },
+  { fr: "mémoire longue", en: "long-term memory", definition: "Base externe de souvenirs, consultée à la demande." },
+  { fr: "flux de souvenirs", en: "memory stream", definition: "Liste datée des observations d'un agent, écrites en langage naturel." },
+  { fr: "rappel à k", en: "recall@k", definition: "Proportion des éléments utiles retrouvés parmi les k premiers résultats." }
+]} />
