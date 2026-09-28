@@ -45,7 +45,7 @@ export function dessiner(scene: HTMLElement, e: Etat) {
   attrs(q(svg, '[data-lv]'), { x: R.x(v[0] * 1.25) - 5, y: R.y(v[1] * 1.25) + 5 });
   attrs(q(svg, '[data-lav]'), { x: R.x(w[0]) + (w[0] >= 0 ? 6 : -24), y: R.y(w[1]) + (w[1] >= 0 ? -6 : 16) });
   const angle = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
-  texte(svg, '[data-t1]', `v = (${fr(v[0])} ; ${fr(v[1])})   Av = (${fr(w[0])} ; ${fr(w[1])})`);
+  texte(svg, '[data-t1]', `v = (${fr(v[0])} ; ${fr(v[1])}) ; Av = (${fr(w[0])} ; ${fr(w[1])})`);
   texte(svg, '[data-t2]', aligne ? `vecteur propre : Av = ${fr(nw * Math.sign(cos), 0)} v` : `angle entre v et Av : ${fr(angle, 0)}°`);
   scene.setAttribute('aria-label', aligne
     ? `v à ${Math.round(e.theta)} degrés est un vecteur propre : Av = ${fr(nw * Math.sign(cos), 0)} v.`

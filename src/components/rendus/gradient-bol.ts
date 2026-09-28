@@ -38,7 +38,7 @@ export function dessiner(scene: HTMLElement, e: Etat) {
   // Tangente à la ligne de niveau : perpendiculaire au gradient.
   const t = ng > 1e-9 ? [-g[1] / ng, g[0] / ng] : [0, 0];
   attrs(q(svg, '[data-tangente]'), { x1: R.x(p[0] - t[0]), y1: R.y(p[1] - t[1]), x2: R.x(p[0] + t[0]), y2: R.y(p[1] + t[1]) });
-  texte(svg, '[data-tp]', `point (${fr(p[0], 1)} ; ${fr(p[1], 1)})   f = ${fr(f)}`);
-  texte(svg, '[data-tg]', `∇f = (${fr(g[0], 1)} ; ${fr(g[1], 1)})   longueur ${fr(ng)}`);
+  texte(svg, '[data-tp]', `point (${fr(p[0], 1)} ; ${fr(p[1], 1)}) ; f = ${fr(f)}`);
+  texte(svg, '[data-tg]', `∇f = (${fr(g[0], 1)} ; ${fr(g[1], 1)}) ; longueur ${fr(ng)}`);
   scene.setAttribute('aria-label', `Au point (${fr(p[0], 1)} ; ${fr(p[1], 1)}), f vaut ${fr(f)} et le gradient vaut (${fr(g[0], 1)} ; ${fr(g[1], 1)}), perpendiculaire à la ligne de niveau.`);
 }

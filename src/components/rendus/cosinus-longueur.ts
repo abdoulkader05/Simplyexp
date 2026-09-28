@@ -43,7 +43,7 @@ export function dessiner(scene: HTMLElement, e: Etat) {
   attrs(q(svg, '[data-arc]'), { d: `M${pt(ta)} A30,30 0 0 ${d > 0 ? 0 : 1} ${pt(ta + d)}` });
   const angle = Math.abs((d * 180) / Math.PI);
   texte(svg, '[data-tb]', `b = (${fr(b[0], 1)} ; ${fr(b[1], 1)})`);
-  texte(svg, '[data-tn]', `‖a‖ = 5   ‖b‖ = ${fr(nb, 1)}   angle ${fr(angle, 0)}°`);
+  texte(svg, '[data-tn]', `‖a‖ = 5 ; ‖b‖ = ${fr(nb, 1)} ; angle ${fr(angle, 0)}°`);
   texte(svg, '[data-tp]', `a · b = ${fr(p, 1)}`);
   texte(svg, '[data-tc]', `cos(a, b) = ${fr(cos)}`);
   scene.setAttribute('aria-label', `b = (${fr(b[0], 1)} ; ${fr(b[1], 1)}), angle ${fr(angle, 0)} degrés. Produit scalaire ${fr(p, 1)}, similarité cosinus ${fr(cos)}.`);
