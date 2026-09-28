@@ -46,7 +46,7 @@ export function dessiner(scene: HTMLElement, e: Etat) {
   if (k >= 1) {
     const n = norme(...REQUETE);
     fleche(gq, O[0], O[1], O[0] + (REQUETE[0] / n) * U, O[1] - (REQUETE[1] / n) * U, 'sortie', 3);
-    lettres += `<text x="${O[0] + 50}" y="${O[1] + 14}" class="svg-texte" font-size="11" font-weight="700">requête</text>`;
+    lettres += `<text x="${O[0] - 6}" y="${O[1] + 16}" class="svg-texte" font-size="11" font-weight="700">requête</text>`;
   } else gq.innerHTML = '';
   q(svg, '[data-lettres]').innerHTML = lettres;
   q(svg, '[data-liste]').innerHTML = ordre.map((i, r) => {

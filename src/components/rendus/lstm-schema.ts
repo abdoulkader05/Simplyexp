@@ -10,6 +10,7 @@ const op = (x: number, y: number, s: string) => `
 const boite = (x: number, y: number, s: string, nom: string, c = 'parametre') => `
   <rect x="${x - 20}" y="${y - 13}" width="40" height="26" rx="4" class="svg-${c}" opacity=".9" />
   <text x="${x}" y="${y + 5}" text-anchor="middle" class="svg-texte" font-size="12" font-weight="700" fill-opacity="1" style="fill: var(--papier)">${s}</text>
+  <rect x="${x - 25}" y="${y + 19}" width="50" height="12" style="fill: var(--papier-2)" />
   <text x="${x}" y="${y + 28}" text-anchor="middle" class="svg-doux" font-size="9">${nom}</text>`;
 const trait = (d: string, c = 'encre', w = 1.8) => `<path d="${d}" fill="none" class="svg-trait-${c} svg-ligne" stroke-width="${w}" />`;
 
