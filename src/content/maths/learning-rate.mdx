@@ -1,0 +1,164 @@
+---
+id: learning-rate
+type: maths
+titre: "Le learning rate : trop grand on saute, trop petit on s'endort"
+sous_titre: "Choisir et planifier le taux d'apprentissage"
+domaine: optimisation
+niveau: 3
+prerequis: [descente-gradient]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 10
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.3.1 (choix et décroissance du pas d'apprentissage)"
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 5.3 (formule du pas avec échauffement, warmup_steps = 4000) et section 3 (d_model = 512)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Dans la [descente de gradient](/maths/descente-gradient/), un seul nombre décide de la taille des pas : le *learning rate* $\eta$. Trop petit, l'entraînement coûte des jours de calcul pour rien. Trop grand, la perte explose et le modèle n'apprend rien du tout. C'est souvent le premier réglage qu'on essaie de changer quand un entraînement se passe mal, et il prépare le terrain d'[Adam](/maths/adam/), qui adapte le pas à chaque paramètre.
+
+## L'intuition
+
+Tu descends dans une cuvette les yeux bandés, en faisant des pas proportionnels à la pente. Avec des pas de fourmi, tu arrives au fond, mais au bout d'une éternité. Avec des pas moyens, tu descends vite et proprement. Avec de grands pas, tu dépasses le fond et tu te retrouves sur l'autre versant. Avec des pas de géant, tu atterris plus haut qu'au départ, et chaque pas t'envoie encore plus loin.
+
+Sur la fonction la plus simple, $f(w) = w^2$, règle $\eta$ et regarde les 12 premiers pas.
+
+<Simulation
+  rendu="pas-apprentissage"
+  label="Douze pas de descente de gradient sur une parabole, pour un pas d'apprentissage réglable"
+  parametres={[
+    { nom: "eta", label: "Learning rate η", min: 0.05, max: 1.1, pas: 0.05, valeur: 0.1, role: "parametre", decimales: 2 }
+  ]}
+  legende="Chaque point est une position ; les points s'assombrissent au fil des pas."
+/>
+
+## La définition
+
+Le *learning rate* (pas d'apprentissage) est le nombre $\eta > 0$ de la mise à jour
+
+$$
+\theta_{t+1} = \theta_t - \eta\, \nabla_\theta \mathcal{L}(\theta_t)
+$$
+
+où :
+- $\eta$ fixe la longueur du pas, proportionnelle à la pente ;
+- $\theta_t$ et $\nabla_\theta \mathcal{L}(\theta_t)$ sont les paramètres et le gradient au pas $t$, comme dans la [descente de gradient](/maths/descente-gradient/).
+
+Pour une perte en forme de parabole, $\mathcal{L}(w) = \frac{c}{2}\,(w - w^*)^2$ avec une courbure $c > 0$, on sait tout :
+
+$$
+w_{t+1} - w^* = (1 - \eta\, c)\,(w_t - w^*)
+$$
+
+où :
+- $c$ est la courbure, la dérivée seconde de la perte ;
+- $1 - \eta\, c$ est le facteur qui multiplie l'écart au minimum à chaque pas.
+
+La descente converge si et seulement si $|1 - \eta\,c| < 1$, c'est-à-dire $0 < \eta < 2 / c$. Pour $f(w) = w^2$, $c = 2$ et la limite est $\eta < 1$.
+
+Un planning (*learning rate schedule*) fait varier $\eta$ au cours de l'entraînement : on le fait souvent monter doucement au début, puis décroître.
+
+Autrement dit : le *learning rate* est le réglage de la longueur des pas. Il doit rester sous une limite fixée par la courbure de la perte, et on le fait souvent évoluer pendant l'entraînement.
+
+<Depliable titre="Les quatre régimes, démontrés">
+
+Avec $\mathcal{L}'(w) = c\,(w - w^*)$ :
+
+$$
+\begin{aligned}
+w_{t+1} - w^* &= w_t - \eta\, c\,(w_t - w^*) - w^* && \text{mise à jour} \\
+&= (1 - \eta\, c)\,(w_t - w^*) && \text{factorisation} \\
+\text{donc } w_t - w^* &= (1 - \eta\, c)^t\,(w_0 - w^*) && \text{on répète } t \text{ fois}
+\end{aligned}
+$$
+
+Tout dépend du facteur $k = 1 - \eta\,c$ :
+
+- $0 \le k < 1$, soit $0 < \eta \le 1/c$ : l'écart diminue sans changer de signe, on descend d'un seul côté ;
+- $-1 < k < 0$, soit $1/c < \eta < 2/c$ : l'écart change de signe à chaque pas mais diminue, on zigzague vers le fond ;
+- $k = -1$, soit $\eta = 2/c$ : l'écart garde sa taille, on saute d'un versant à l'autre pour toujours ;
+- $k < -1$, soit $\eta > 2/c$ : l'écart grandit, la descente diverge.
+
+La convergence la plus rapide est pour $k = 0$, soit $\eta = 1/c$ : un seul pas suffit. Pour un vrai réseau, la courbure change selon l'endroit et la direction, et c'est la plus forte courbure qui impose la limite.
+
+</Depliable>
+
+## Un exemple à la main
+
+$f(w) = w^2$, départ $w_0 = 1{,}5$. La mise à jour est $w_{t+1} = w_t - \eta \times 2 w_t = (1 - 2\eta)\,w_t$.
+
+- $\eta = 0{,}1$ : facteur 0,8. $w_1 = 1{,}2$, $w_2 = 0{,}96$, $w_3 = 0{,}768$. Lent mais sûr.
+- $\eta = 0{,}5$ : facteur 0. $w_1 = 0$ : le fond en un pas.
+- $\eta = 0{,}75$ : facteur $-0{,}5$. $w_1 = -0{,}75$, $w_2 = 0{,}375$, $w_3 = -0{,}187\,5$. On zigzague, mais on arrive.
+- $\eta = 1{,}25$ : facteur $-1{,}5$. $w_1 = -2{,}25$, $w_2 = 3{,}375$, $w_3 = -5{,}062\,5$. Chaque pas éloigne du fond : la perte explose.
+
+Pour le tarif du gbaka, la courbure valait 54,5 : la limite était $\eta < 2 / 54{,}5 \approx 0{,}037$. Le même algorithme, avec $\eta = 0{,}1$, aurait convergé sur $w^2$ et divergé sur le gbaka.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve la valeur de $\eta$ qui arrive au fond le plus vite. Puis trouve à partir de quelle valeur les points zigzaguent, et à partir de quelle valeur ils s'échappent.
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec $\eta = 0{,}5$, le premier pas tombe pile au fond : $w_1 = 0$. Entre 0,05 et 0,45, les points descendent d'un seul côté, de plus en plus vite quand $\eta$ grandit.
+
+À partir de 0,55, les points sautent d'un versant à l'autre, mais se rapprochent du fond. À $\eta = 1$, ils rebondissent entre $1{,}5$ et $-1{,}5$ sans fin. Au-delà, à 1,05 ou 1,1, ils s'échappent : après 12 pas, $w$ vaut environ 4,7 pour $\eta = 1{,}05$ et 13,4 pour $\eta = 1{,}1$.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Le premier réglage.** Quand la perte explose ou devient « NaN » (un nombre invalide), la cause la plus fréquente est un *learning rate* trop grand. Quand elle stagne, il est peut-être trop petit.
+- **Les plannings.** Le Transformer d'origine (Vaswani et ses coauteurs, 2017) fait monter $\eta$ linéairement pendant 4 000 pas d'échauffement (*warmup*), puis le fait décroître comme l'inverse de la racine carrée du numéro du pas. Beaucoup de [pré-entraînements](/concepts/pretraining/) de LLM utilisent des plannings de ce genre.
+- **Les pas adaptatifs.** Plutôt qu'un seul $\eta$ pour tous les paramètres, [Adam](/maths/adam/) divise le pas de chaque paramètre par une estimation de la taille de ses gradients récents.
+
+## Les pièges classiques
+
+**« Plus le learning rate est grand, plus on apprend vite. »** Vrai seulement jusqu'à la limite $2/c$. Au-delà, l'entraînement ne ralentit pas : il échoue. Et le plus rapide n'est pas le plus grand pas possible, mais $1/c$.
+
+**« Un seul learning rate pour tout l'entraînement. »** On y croit parce que la formule ne contient qu'un $\eta$. En pratique, les pas utiles au début, loin du but, sont trop grands à la fin, près du fond : on les fait décroître.
+
+**« Le bon learning rate se transfère d'un problème à l'autre. »** $\eta = 0{,}1$ marche pour $w^2$ et fait diverger le gbaka. La limite dépend de la courbure de chaque perte, donc des données, du modèle et même de la taille des lots.
+
+## Entraîne-toi
+
+**Exercice 1.** Pour $f(w) = 3w^2$ (courbure $c = 6$), quelles valeurs de $\eta$ font converger la descente ? Quelle valeur arrive au fond en un pas ?
+
+<Depliable titre="Corrigé">
+
+Il faut $0 < \eta < 2/6 \approx 0{,}333$. En un pas : $\eta = 1/6 \approx 0{,}167$, car alors $1 - 6\eta = 0$.
+
+</Depliable>
+
+**Exercice 2.** Avec $f(w) = w^2$, $w_0 = 1{,}5$ et $\eta = 0{,}9$, calcule $w_1$ et $w_2$, puis le nombre de pas pour que $|w_t| < 0{,}01$.
+
+<Depliable titre="Corrigé">
+
+Facteur $1 - 1{,}8 = -0{,}8$. $w_1 = -1{,}2$ et $w_2 = 0{,}96$. Il faut $1{,}5 \times 0{,}8^t < 0{,}01$, soit $0{,}8^t < 1/150$, donc $t > \ln 150 / \ln 1{,}25 \approx 22{,}5$ : 23 pas. C'est aussi lent qu'avec $\eta = 0{,}1$, dont le facteur 0,8 a la même valeur absolue.
+
+</Depliable>
+
+**Exercice 3.** La formule du Transformer est $\eta = d^{-0{,}5} \min\big(s^{-0{,}5},\ s \cdot 4000^{-1{,}5}\big)$, où $s$ est le numéro du pas et $d = 512$ la dimension du modèle de base. Calcule $\eta$ pour $s = 1\,000$, $s = 4\,000$ et $s = 16\,000$.
+
+<Depliable titre="Corrigé">
+
+$512^{-0{,}5} \approx 0{,}044\,19$ et $4000^{-1{,}5} \approx 3{,}953 \times 10^{-6}$.
+
+- $s = 1\,000$ : $\min(0{,}031\,6\,;\,0{,}003\,95) = 0{,}003\,95$, donc $\eta \approx 1{,}75 \times 10^{-4}$ (phase de montée).
+- $s = 4\,000$ : les deux termes valent $0{,}015\,8$, donc $\eta \approx 6{,}99 \times 10^{-4}$, le maximum.
+- $s = 16\,000$ : $\min(0{,}007\,91\,;\,0{,}063\,2) = 0{,}007\,91$, donc $\eta \approx 3{,}49 \times 10^{-4}$, la moitié du pic.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "pas d'apprentissage", en: "learning rate", definition: "Le nombre η qui fixe la longueur des pas de la descente de gradient." },
+  { fr: "planning du pas", en: "learning rate schedule", definition: "Règle qui fait varier η au cours de l'entraînement." },
+  { fr: "échauffement", en: "warmup", definition: "Début d'entraînement où η monte progressivement depuis une petite valeur." },
+  { fr: "courbure", en: "curvature", definition: "Dérivée seconde de la perte ; elle fixe la limite 2/c au-delà de laquelle la descente diverge." }
+]} />
