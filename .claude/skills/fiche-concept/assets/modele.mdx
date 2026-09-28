@@ -1,0 +1,108 @@
+---
+id: identifiant-du-graphe
+type: concept
+titre: "Titre exact du graphe"
+sous_titre: "Sous-titre exact du graphe"
+domaine: domaine-du-graphe
+niveau: 4
+prerequis: [copie-exacte, du-graphe]
+statut: brouillon
+mis_a_jour: AAAA-MM-JJ
+temps_lecture: 10
+sources:
+  - "Auteur, Titre, année — URL — section consultée"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+{/* L'animateur ajoute ici les imports des composants d'animation. */}
+
+## Le problème de départ
+
+...
+
+## L'idée en une phrase
+
+<PhraseCle>
+Une seule phrase.
+</PhraseCle>
+
+## En image
+
+...
+
+Là où l'image s'arrête : ...
+
+## Comment ça marche
+
+...
+
+$$
+formule
+$$
+
+où :
+- $symbole$ est ...
+
+{/* ANIMATION: PasAPas — ce que l'animation doit faire comprendre */}
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La démonstration pas à pas">
+
+...
+
+</Depliable>
+
+## Essaie toi-même
+
+{/* ANIMATION: Simulation — paramètres manipulables et consigne */}
+
+Consigne : ...
+
+<Depliable titre="Ce que tu devrais observer">
+...
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy :
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+```
+
+En vrai :
+
+```python
+# no-run
+```
+
+## Les pièges classiques
+
+**Idée fausse.** Pourquoi on y croit… Pourquoi c'est faux…
+
+## Dans la vraie vie
+
+...
+
+## Vérifie que tu as compris
+
+<Quiz questions={[
+  {
+    question: "...",
+    choix: ["...", "...", "...", "..."],
+    bonne: 0,
+    explication: "..."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : ...">
+Réponse modèle...
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "...", en: "...", definition: "..." }
+]} />

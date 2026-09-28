@@ -1,0 +1,2170 @@
+{
+  "domaines": [
+    {
+      "id": "analyse",
+      "titre": "Analyse : le langage du changement"
+    },
+    {
+      "id": "algebre-lineaire",
+      "titre": "Algèbre linéaire : l'IA en tableaux de nombres"
+    },
+    {
+      "id": "probabilites",
+      "titre": "Probabilités : dompter le hasard"
+    },
+    {
+      "id": "statistiques",
+      "titre": "Statistiques : apprendre à partir des données"
+    },
+    {
+      "id": "theorie-information",
+      "titre": "Théorie de l'information : mesurer la surprise"
+    },
+    {
+      "id": "optimisation",
+      "titre": "Optimisation : l'art de s'améliorer pas à pas"
+    },
+    {
+      "id": "machine-learning",
+      "titre": "Machine Learning : les premiers modèles"
+    },
+    {
+      "id": "deep-learning",
+      "titre": "Deep Learning : empiler pour comprendre"
+    },
+    {
+      "id": "langage",
+      "titre": "Le langage : des mots aux vecteurs"
+    },
+    {
+      "id": "transformers",
+      "titre": "Transformers : l'architecture qui a tout changé"
+    },
+    {
+      "id": "llm",
+      "titre": "LLM : dans la tête de ChatGPT"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "fonctions",
+      "titre": "Les fonctions : la machine à transformer des nombres",
+      "sous_titre": "Définition, graphe et rôle d'une fonction en IA",
+      "domaine": "analyse",
+      "niveau": 1,
+      "prerequis": [],
+      "suite": [
+        "derivee",
+        "exp-log",
+        "fonction-perte",
+        "variables-aleatoires"
+      ],
+      "papers": []
+    },
+    {
+      "id": "exp-log",
+      "titre": "Exp et log : les deux fonctions que l'IA utilise partout",
+      "sous_titre": "Exponentielle, logarithme et leurs propriétés en machine learning",
+      "domaine": "analyse",
+      "niveau": 1,
+      "prerequis": [
+        "fonctions"
+      ],
+      "suite": [
+        "entropie",
+        "loi-normale",
+        "maximum-vraisemblance"
+      ],
+      "papers": []
+    },
+    {
+      "id": "derivee",
+      "titre": "La dérivée : mesurer la pente pour savoir où aller",
+      "sous_titre": "Définition, interprétation et calcul de la dérivée",
+      "domaine": "analyse",
+      "niveau": 1,
+      "prerequis": [
+        "fonctions"
+      ],
+      "suite": [
+        "derivees-partielles",
+        "maximum-vraisemblance",
+        "regle-chaine"
+      ],
+      "papers": []
+    },
+    {
+      "id": "regle-chaine",
+      "titre": "La règle de la chaîne : le secret caché derrière tout apprentissage",
+      "sous_titre": "Dériver des fonctions composées, base de la rétropropagation",
+      "domaine": "analyse",
+      "niveau": 2,
+      "prerequis": [
+        "derivee"
+      ],
+      "suite": [
+        "backpropagation"
+      ],
+      "papers": []
+    },
+    {
+      "id": "derivees-partielles",
+      "titre": "Dérivées partielles : bouger un bouton à la fois",
+      "sous_titre": "Dériver une fonction de plusieurs variables",
+      "domaine": "analyse",
+      "niveau": 2,
+      "prerequis": [
+        "derivee"
+      ],
+      "suite": [
+        "gradient"
+      ],
+      "papers": []
+    },
+    {
+      "id": "gradient",
+      "titre": "Le gradient : la boussole qui pointe vers la montée",
+      "sous_titre": "Vecteur gradient, direction de plus forte pente",
+      "domaine": "analyse",
+      "niveau": 2,
+      "prerequis": [
+        "derivees-partielles",
+        "vecteurs"
+      ],
+      "suite": [
+        "descente-gradient"
+      ],
+      "papers": []
+    },
+    {
+      "id": "vecteurs",
+      "titre": "Les vecteurs : comment l'IA transforme tout en listes de nombres",
+      "sous_titre": "Vecteurs, dimensions et représentation des données",
+      "domaine": "algebre-lineaire",
+      "niveau": 1,
+      "prerequis": [],
+      "suite": [
+        "gradient",
+        "matrices",
+        "produit-scalaire"
+      ],
+      "papers": []
+    },
+    {
+      "id": "produit-scalaire",
+      "titre": "Le produit scalaire : l'opération qui fait tourner toute l'IA",
+      "sous_titre": "Définition, interprétation géométrique et usages en IA",
+      "domaine": "algebre-lineaire",
+      "niveau": 1,
+      "prerequis": [
+        "vecteurs"
+      ],
+      "suite": [
+        "normes-distances",
+        "produit-matriciel"
+      ],
+      "papers": []
+    },
+    {
+      "id": "normes-distances",
+      "titre": "Normes et distances : à quelle distance sont deux mots ?",
+      "sous_titre": "Norme L1, L2 et distance euclidienne",
+      "domaine": "algebre-lineaire",
+      "niveau": 2,
+      "prerequis": [
+        "produit-scalaire"
+      ],
+      "suite": [
+        "regularisation",
+        "similarite-cosinus"
+      ],
+      "papers": []
+    },
+    {
+      "id": "similarite-cosinus",
+      "titre": "La similarité cosinus : mesurer l'angle entre deux idées",
+      "sous_titre": "Cosine similarity pour comparer embeddings et documents",
+      "domaine": "algebre-lineaire",
+      "niveau": 2,
+      "prerequis": [
+        "normes-distances"
+      ],
+      "suite": [
+        "embeddings"
+      ],
+      "papers": []
+    },
+    {
+      "id": "matrices",
+      "titre": "Les matrices : le tableur qui fait tourner les réseaux de neurones",
+      "sous_titre": "Matrices, dimensions et opérations de base",
+      "domaine": "algebre-lineaire",
+      "niveau": 1,
+      "prerequis": [
+        "vecteurs"
+      ],
+      "suite": [
+        "produit-matriciel"
+      ],
+      "papers": []
+    },
+    {
+      "id": "produit-matriciel",
+      "titre": "Le produit matriciel : 90 % du calcul d'un LLM",
+      "sous_titre": "Multiplication de matrices et transformations linéaires",
+      "domaine": "algebre-lineaire",
+      "niveau": 2,
+      "prerequis": [
+        "matrices",
+        "produit-scalaire"
+      ],
+      "suite": [
+        "rang-matrice",
+        "regression-lineaire",
+        "valeurs-propres"
+      ],
+      "papers": []
+    },
+    {
+      "id": "rang-matrice",
+      "titre": "Le rang : combien d'information une matrice contient vraiment",
+      "sous_titre": "Rang d'une matrice et approximation de rang faible",
+      "domaine": "algebre-lineaire",
+      "niveau": 3,
+      "prerequis": [
+        "produit-matriciel"
+      ],
+      "suite": [
+        "lora",
+        "svd"
+      ],
+      "papers": []
+    },
+    {
+      "id": "valeurs-propres",
+      "titre": "Valeurs propres : les directions qu'une matrice préfère",
+      "sous_titre": "Vecteurs et valeurs propres, intuition géométrique",
+      "domaine": "algebre-lineaire",
+      "niveau": 3,
+      "prerequis": [
+        "produit-matriciel"
+      ],
+      "suite": [
+        "svd"
+      ],
+      "papers": []
+    },
+    {
+      "id": "svd",
+      "titre": "La SVD : compresser une matrice sans perdre l'essentiel",
+      "sous_titre": "Décomposition en valeurs singulières et réduction de dimension",
+      "domaine": "algebre-lineaire",
+      "niveau": 3,
+      "prerequis": [
+        "valeurs-propres",
+        "rang-matrice"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "probabilites-bases",
+      "titre": "Les probabilités : quantifier l'incertitude",
+      "sous_titre": "Événements, univers et règles de calcul de base",
+      "domaine": "probabilites",
+      "niveau": 1,
+      "prerequis": [],
+      "suite": [
+        "probabilite-conditionnelle",
+        "variables-aleatoires"
+      ],
+      "papers": []
+    },
+    {
+      "id": "probabilite-conditionnelle",
+      "titre": "Probabilité conditionnelle : tout change quand on sait quelque chose",
+      "sous_titre": "P(A|B), définition et exemples",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "probabilites-bases"
+      ],
+      "suite": [
+        "bayes",
+        "independance",
+        "regle-produit"
+      ],
+      "papers": []
+    },
+    {
+      "id": "independance",
+      "titre": "L'indépendance : quand deux événements s'ignorent",
+      "sous_titre": "Indépendance de variables et hypothèse i.i.d. en ML",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "probabilite-conditionnelle"
+      ],
+      "suite": [
+        "loi-grands-nombres",
+        "maximum-vraisemblance"
+      ],
+      "papers": []
+    },
+    {
+      "id": "bayes",
+      "titre": "Le théorème de Bayes : mettre à jour ses croyances",
+      "sous_titre": "Formule de Bayes, a priori, vraisemblance et a posteriori",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "probabilite-conditionnelle"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "regle-produit",
+      "titre": "La règle du produit : écrire une phrase comme une chaîne de probabilités",
+      "sous_titre": "Factorisation d'une probabilité jointe, base des modèles autorégressifs",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "probabilite-conditionnelle"
+      ],
+      "suite": [
+        "modele-langage"
+      ],
+      "papers": []
+    },
+    {
+      "id": "variables-aleatoires",
+      "titre": "Variables aléatoires : quand le hasard devient un nombre",
+      "sous_titre": "Variables discrètes et continues, distributions",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "probabilites-bases",
+        "fonctions"
+      ],
+      "suite": [
+        "esperance-variance",
+        "loi-categorielle",
+        "maximum-vraisemblance"
+      ],
+      "papers": []
+    },
+    {
+      "id": "esperance-variance",
+      "titre": "Espérance et variance : la moyenne et le désordre",
+      "sous_titre": "Définitions, propriétés et interprétation",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "variables-aleatoires"
+      ],
+      "suite": [
+        "apprentissage-renforcement",
+        "biais-variance",
+        "entropie",
+        "loi-grands-nombres",
+        "loi-normale",
+        "normalisation-couches"
+      ],
+      "papers": []
+    },
+    {
+      "id": "loi-categorielle",
+      "titre": "La loi catégorielle : le dé à 100 000 faces d'un LLM",
+      "sous_titre": "Lois de Bernoulli et catégorielle, choix parmi K classes",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "variables-aleatoires"
+      ],
+      "suite": [
+        "entropie-croisee",
+        "modele-langage",
+        "regression-logistique"
+      ],
+      "papers": []
+    },
+    {
+      "id": "loi-normale",
+      "titre": "La loi normale : pourquoi la courbe en cloche est partout",
+      "sous_titre": "Distribution gaussienne, moyenne et écart-type",
+      "domaine": "probabilites",
+      "niveau": 2,
+      "prerequis": [
+        "esperance-variance",
+        "exp-log"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "loi-grands-nombres",
+      "titre": "La loi des grands nombres : pourquoi la moyenne finit toujours par avoir raison",
+      "sous_titre": "Convergence de la moyenne empirique, justification du mini-batch",
+      "domaine": "probabilites",
+      "niveau": 3,
+      "prerequis": [
+        "esperance-variance",
+        "independance"
+      ],
+      "suite": [
+        "sgd-minibatch"
+      ],
+      "papers": []
+    },
+    {
+      "id": "maximum-vraisemblance",
+      "titre": "Le maximum de vraisemblance : choisir l'explication la plus probable",
+      "sous_titre": "Estimation par maximum de vraisemblance (MLE) et log-vraisemblance",
+      "domaine": "statistiques",
+      "niveau": 3,
+      "prerequis": [
+        "variables-aleatoires",
+        "independance",
+        "exp-log",
+        "derivee"
+      ],
+      "suite": [
+        "regression-logistique"
+      ],
+      "papers": []
+    },
+    {
+      "id": "entropie",
+      "titre": "L'entropie : mesurer la surprise",
+      "sous_titre": "Entropie de Shannon, information et incertitude",
+      "domaine": "theorie-information",
+      "niveau": 3,
+      "prerequis": [
+        "esperance-variance",
+        "exp-log"
+      ],
+      "suite": [
+        "entropie-croisee"
+      ],
+      "papers": [
+        {
+          "paper": "shannon-1948",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "entropie-croisee",
+      "titre": "L'entropie croisée : la fonction de perte de ChatGPT",
+      "sous_titre": "Cross-entropy loss pour la classification et les LLM",
+      "domaine": "theorie-information",
+      "niveau": 3,
+      "prerequis": [
+        "entropie",
+        "loi-categorielle"
+      ],
+      "suite": [
+        "divergence-kl",
+        "perplexite",
+        "pretraining"
+      ],
+      "papers": []
+    },
+    {
+      "id": "divergence-kl",
+      "titre": "La divergence KL : l'écart entre deux façons de voir le monde",
+      "sous_titre": "Divergence de Kullback-Leibler, définition et usages",
+      "domaine": "theorie-information",
+      "niveau": 3,
+      "prerequis": [
+        "entropie-croisee"
+      ],
+      "suite": [
+        "rlhf"
+      ],
+      "papers": []
+    },
+    {
+      "id": "perplexite",
+      "titre": "La perplexité : à quel point un modèle est-il perdu ?",
+      "sous_titre": "Mesurer la qualité d'un modèle de langage",
+      "domaine": "theorie-information",
+      "niveau": 3,
+      "prerequis": [
+        "entropie-croisee"
+      ],
+      "suite": [
+        "lois-echelle"
+      ],
+      "papers": []
+    },
+    {
+      "id": "fonction-perte",
+      "titre": "La fonction de perte : noter ses erreurs pour mieux les corriger",
+      "sous_titre": "Loss function, MSE et rôle dans l'apprentissage",
+      "domaine": "optimisation",
+      "niveau": 2,
+      "prerequis": [
+        "fonctions"
+      ],
+      "suite": [
+        "descente-gradient"
+      ],
+      "papers": []
+    },
+    {
+      "id": "descente-gradient",
+      "titre": "La descente de gradient : descendre la montagne les yeux bandés",
+      "sous_titre": "Algorithme de descente de gradient et pas d'apprentissage",
+      "domaine": "optimisation",
+      "niveau": 2,
+      "prerequis": [
+        "gradient",
+        "fonction-perte"
+      ],
+      "suite": [
+        "convexite",
+        "learning-rate",
+        "regression-lineaire",
+        "sgd-minibatch"
+      ],
+      "papers": []
+    },
+    {
+      "id": "convexite",
+      "titre": "La convexité : quand il n'y a qu'une seule vallée",
+      "sous_titre": "Fonctions convexes, minimum global et garanties de convergence",
+      "domaine": "optimisation",
+      "niveau": 3,
+      "prerequis": [
+        "descente-gradient"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "learning-rate",
+      "titre": "Le learning rate : trop grand on saute, trop petit on s'endort",
+      "sous_titre": "Choisir et planifier le taux d'apprentissage",
+      "domaine": "optimisation",
+      "niveau": 3,
+      "prerequis": [
+        "descente-gradient"
+      ],
+      "suite": [
+        "adam"
+      ],
+      "papers": []
+    },
+    {
+      "id": "sgd-minibatch",
+      "titre": "SGD et mini-batch : apprendre sans tout relire",
+      "sous_titre": "Descente de gradient stochastique et par mini-lots",
+      "domaine": "optimisation",
+      "niveau": 3,
+      "prerequis": [
+        "descente-gradient",
+        "loi-grands-nombres"
+      ],
+      "suite": [
+        "momentum"
+      ],
+      "papers": []
+    },
+    {
+      "id": "momentum",
+      "titre": "Le momentum : prendre de l'élan pour arrêter de zigzaguer",
+      "sous_titre": "Momentum et moyenne mobile exponentielle des gradients",
+      "domaine": "optimisation",
+      "niveau": 3,
+      "prerequis": [
+        "sgd-minibatch"
+      ],
+      "suite": [
+        "adam"
+      ],
+      "papers": []
+    },
+    {
+      "id": "adam",
+      "titre": "Adam : l'optimiseur que tout le monde utilise (et pourquoi)",
+      "sous_titre": "Algorithme Adam, moments d'ordre 1 et 2",
+      "domaine": "optimisation",
+      "niveau": 3,
+      "prerequis": [
+        "momentum",
+        "learning-rate"
+      ],
+      "suite": [
+        "pretraining"
+      ],
+      "papers": [
+        {
+          "paper": "kingma-2014",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "regression-lineaire",
+      "titre": "La régression linéaire : le premier modèle de toute l'IA",
+      "sous_titre": "Modèle linéaire, moindres carrés et descente de gradient",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "produit-matriciel",
+        "descente-gradient"
+      ],
+      "suite": [
+        "regression-logistique",
+        "train-val-test"
+      ],
+      "papers": []
+    },
+    {
+      "id": "train-val-test",
+      "titre": "Train, validation, test : ne jamais noter l'élève avec l'examen qu'il a déjà vu",
+      "sous_titre": "Découpage des données et évaluation honnête d'un modèle",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "regression-lineaire"
+      ],
+      "suite": [
+        "surapprentissage"
+      ],
+      "papers": []
+    },
+    {
+      "id": "surapprentissage",
+      "titre": "Le surapprentissage : quand le modèle apprend par cœur",
+      "sous_titre": "Overfitting, underfitting et généralisation",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "train-val-test"
+      ],
+      "suite": [
+        "biais-variance",
+        "regularisation"
+      ],
+      "papers": []
+    },
+    {
+      "id": "biais-variance",
+      "titre": "Le compromis biais-variance : trop simple ou trop compliqué ?",
+      "sous_titre": "Décomposition de l'erreur de généralisation",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "surapprentissage",
+        "esperance-variance"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "regularisation",
+      "titre": "La régularisation : punir la complexité",
+      "sous_titre": "Régularisation L1, L2 et weight decay",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "surapprentissage",
+        "normes-distances"
+      ],
+      "suite": [
+        "dropout"
+      ],
+      "papers": []
+    },
+    {
+      "id": "regression-logistique",
+      "titre": "La régression logistique : transformer un score en probabilité",
+      "sous_titre": "Sigmoïde, classification binaire et log-loss",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "regression-lineaire",
+        "maximum-vraisemblance",
+        "loi-categorielle"
+      ],
+      "suite": [
+        "neurone-artificiel",
+        "softmax"
+      ],
+      "papers": []
+    },
+    {
+      "id": "softmax",
+      "titre": "Softmax : transformer des scores en votes",
+      "sous_titre": "Fonction softmax, classification multiclasse et température",
+      "domaine": "machine-learning",
+      "niveau": 3,
+      "prerequis": [
+        "regression-logistique"
+      ],
+      "suite": [
+        "attention"
+      ],
+      "papers": []
+    },
+    {
+      "id": "neurone-artificiel",
+      "titre": "Le neurone artificiel : une décision pondérée",
+      "sous_titre": "Perceptron, poids, biais et activation",
+      "domaine": "deep-learning",
+      "niveau": 3,
+      "prerequis": [
+        "regression-logistique"
+      ],
+      "suite": [
+        "fonctions-activation"
+      ],
+      "papers": []
+    },
+    {
+      "id": "fonctions-activation",
+      "titre": "Les fonctions d'activation : la dose de non-linéarité qui change tout",
+      "sous_titre": "ReLU, sigmoïde, tanh, GELU",
+      "domaine": "deep-learning",
+      "niveau": 3,
+      "prerequis": [
+        "neurone-artificiel"
+      ],
+      "suite": [
+        "mlp"
+      ],
+      "papers": []
+    },
+    {
+      "id": "mlp",
+      "titre": "Le perceptron multicouche : empiler des neurones pour tout approximer",
+      "sous_titre": "Réseau de neurones à couches cachées (MLP)",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "fonctions-activation"
+      ],
+      "suite": [
+        "backpropagation",
+        "dropout",
+        "normalisation-couches"
+      ],
+      "papers": []
+    },
+    {
+      "id": "backpropagation",
+      "titre": "La rétropropagation : remonter la chaîne des responsabilités",
+      "sous_titre": "Backpropagation et calcul des gradients dans un réseau",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "mlp",
+        "regle-chaine"
+      ],
+      "suite": [
+        "gradient-evanescent",
+        "rnn"
+      ],
+      "papers": [
+        {
+          "paper": "rumelhart-1986",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "gradient-evanescent",
+      "titre": "Le gradient qui disparaît : pourquoi les réseaux profonds refusaient d'apprendre",
+      "sous_titre": "Vanishing et exploding gradients",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "backpropagation"
+      ],
+      "suite": [
+        "connexions-residuelles",
+        "lstm"
+      ],
+      "papers": []
+    },
+    {
+      "id": "connexions-residuelles",
+      "titre": "Les connexions résiduelles : l'autoroute qui permet d'empiler 100 couches",
+      "sous_titre": "Skip connections et réseaux résiduels",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "gradient-evanescent"
+      ],
+      "suite": [
+        "bloc-transformer"
+      ],
+      "papers": [
+        {
+          "paper": "he-2015",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "normalisation-couches",
+      "titre": "La normalisation : garder les signaux sous contrôle",
+      "sous_titre": "BatchNorm, LayerNorm et RMSNorm",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "mlp",
+        "esperance-variance"
+      ],
+      "suite": [
+        "bloc-transformer"
+      ],
+      "papers": [
+        {
+          "paper": "ba-2016",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "dropout",
+      "titre": "Dropout : éteindre des neurones au hasard pour mieux apprendre",
+      "sous_titre": "Régularisation par dropout dans les réseaux de neurones",
+      "domaine": "deep-learning",
+      "niveau": 4,
+      "prerequis": [
+        "mlp",
+        "regularisation"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "srivastava-2014",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "tokenisation",
+      "titre": "La tokenisation : comment un LLM découpe vos phrases",
+      "sous_titre": "Tokens, vocabulaire et découpage du texte",
+      "domaine": "langage",
+      "niveau": 2,
+      "prerequis": [],
+      "suite": [
+        "bpe",
+        "embeddings",
+        "modele-langage"
+      ],
+      "papers": []
+    },
+    {
+      "id": "bpe",
+      "titre": "BPE : l'algorithme qui a inventé l'alphabet des LLM",
+      "sous_titre": "Byte Pair Encoding et tokenisation en sous-mots",
+      "domaine": "langage",
+      "niveau": 3,
+      "prerequis": [
+        "tokenisation"
+      ],
+      "suite": [
+        "pretraining"
+      ],
+      "papers": [
+        {
+          "paper": "sennrich-2015",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "modele-langage",
+      "titre": "Prédire le mot suivant : l'idée derrière tous les LLM",
+      "sous_titre": "Modèle de langage probabiliste et génération autorégressive",
+      "domaine": "langage",
+      "niveau": 3,
+      "prerequis": [
+        "regle-produit",
+        "loi-categorielle",
+        "tokenisation"
+      ],
+      "suite": [
+        "ngrammes"
+      ],
+      "papers": []
+    },
+    {
+      "id": "ngrammes",
+      "titre": "Les n-grammes : les ancêtres oubliés de ChatGPT",
+      "sous_titre": "Modèles de langage n-grammes et leurs limites",
+      "domaine": "langage",
+      "niveau": 3,
+      "prerequis": [
+        "modele-langage"
+      ],
+      "suite": [
+        "rnn"
+      ],
+      "papers": []
+    },
+    {
+      "id": "embeddings",
+      "titre": "Les embeddings : quand les mots deviennent des coordonnées",
+      "sous_titre": "Représentations vectorielles des mots et des tokens",
+      "domaine": "langage",
+      "niveau": 3,
+      "prerequis": [
+        "tokenisation",
+        "similarite-cosinus"
+      ],
+      "suite": [
+        "recherche-semantique",
+        "rnn"
+      ],
+      "papers": [
+        {
+          "paper": "mikolov-2013",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "recherche-semantique",
+      "titre": "La recherche sémantique : trouver par le sens, pas par les mots",
+      "sous_titre": "Recherche par embeddings et bases vectorielles",
+      "domaine": "langage",
+      "niveau": 4,
+      "prerequis": [
+        "embeddings"
+      ],
+      "suite": [
+        "rag"
+      ],
+      "papers": []
+    },
+    {
+      "id": "rnn",
+      "titre": "Les RNN : lire une phrase mot après mot",
+      "sous_titre": "Réseaux de neurones récurrents et état caché",
+      "domaine": "langage",
+      "niveau": 4,
+      "prerequis": [
+        "backpropagation",
+        "embeddings",
+        "ngrammes"
+      ],
+      "suite": [
+        "lstm"
+      ],
+      "papers": []
+    },
+    {
+      "id": "lstm",
+      "titre": "LSTM : donner une mémoire aux réseaux de neurones",
+      "sous_titre": "Long Short-Term Memory, portes et mémoire longue",
+      "domaine": "langage",
+      "niveau": 4,
+      "prerequis": [
+        "rnn",
+        "gradient-evanescent"
+      ],
+      "suite": [
+        "encoder-decoder"
+      ],
+      "papers": [
+        {
+          "paper": "hochreiter-1997",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "encoder-decoder",
+      "titre": "Encoder–Decoder : tout lire, puis tout réécrire",
+      "sous_titre": "Architecture seq2seq pour la traduction automatique",
+      "domaine": "langage",
+      "niveau": 4,
+      "prerequis": [
+        "lstm"
+      ],
+      "suite": [
+        "goulot-contexte"
+      ],
+      "papers": [
+        {
+          "paper": "sutskever-2014",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "goulot-contexte",
+      "titre": "Le goulot d'étranglement : quand toute une phrase doit tenir dans un seul vecteur",
+      "sous_titre": "Limite du vecteur de contexte fixe dans les modèles seq2seq",
+      "domaine": "langage",
+      "niveau": 4,
+      "prerequis": [
+        "encoder-decoder"
+      ],
+      "suite": [
+        "attention"
+      ],
+      "papers": []
+    },
+    {
+      "id": "attention",
+      "titre": "L'attention : apprendre à regarder au bon endroit",
+      "sous_titre": "Mécanisme d'attention, scores, poids et somme pondérée",
+      "domaine": "transformers",
+      "niveau": 4,
+      "prerequis": [
+        "goulot-contexte",
+        "softmax"
+      ],
+      "suite": [
+        "qkv"
+      ],
+      "papers": [
+        {
+          "paper": "bahdanau-2014",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "qkv",
+      "titre": "Query, Key, Value : l'attention comme un moteur de recherche",
+      "sous_titre": "Les trois projections de l'attention et le facteur √d_k",
+      "domaine": "transformers",
+      "niveau": 4,
+      "prerequis": [
+        "attention"
+      ],
+      "suite": [
+        "self-attention"
+      ],
+      "papers": [
+        {
+          "paper": "vaswani-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "self-attention",
+      "titre": "Self-attention : chaque mot interroge tous les autres",
+      "sous_titre": "Auto-attention et représentation contextuelle",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "qkv"
+      ],
+      "suite": [
+        "cout-quadratique",
+        "encodage-positionnel",
+        "masque-causal",
+        "multi-head"
+      ],
+      "papers": [
+        {
+          "paper": "vaswani-2017",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "multi-head",
+      "titre": "Multi-head attention : plusieurs regards sur la même phrase",
+      "sous_titre": "Attention multi-têtes et sous-espaces de représentation",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "self-attention"
+      ],
+      "suite": [
+        "bloc-transformer"
+      ],
+      "papers": [
+        {
+          "paper": "vaswani-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "encodage-positionnel",
+      "titre": "L'encodage positionnel : dire au modèle dans quel ordre sont les mots",
+      "sous_titre": "Positional encoding sinusoïdal et appris",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "self-attention"
+      ],
+      "suite": [
+        "bloc-transformer",
+        "rope"
+      ],
+      "papers": [
+        {
+          "paper": "vaswani-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "rope",
+      "titre": "RoPE : encoder la position en faisant tourner les vecteurs",
+      "sous_titre": "Rotary Position Embedding dans les LLM modernes",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "encodage-positionnel"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "su-2021",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "masque-causal",
+      "titre": "Le masque causal : interdire au modèle de lire la réponse",
+      "sous_titre": "Causal masking et attention autorégressive",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "self-attention"
+      ],
+      "suite": [
+        "bert-vs-gpt",
+        "decodage-sampling",
+        "kv-cache"
+      ],
+      "papers": []
+    },
+    {
+      "id": "bloc-transformer",
+      "titre": "Le bloc Transformer : la brique Lego de tous les LLM",
+      "sous_titre": "Attention, feed-forward, résiduels et normalisation",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "multi-head",
+        "encodage-positionnel",
+        "normalisation-couches",
+        "connexions-residuelles"
+      ],
+      "suite": [
+        "kv-cache",
+        "mixture-of-experts",
+        "modele-masque"
+      ],
+      "papers": [
+        {
+          "paper": "vaswani-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "cout-quadratique",
+      "titre": "Le coût quadratique : pourquoi un long contexte coûte si cher",
+      "sous_titre": "Complexité O(n²) de l'attention en mémoire et en calcul",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "self-attention"
+      ],
+      "suite": [
+        "flash-attention"
+      ],
+      "papers": []
+    },
+    {
+      "id": "flash-attention",
+      "titre": "FlashAttention : accélérer l'attention sans rien approximer",
+      "sous_titre": "Optimisation mémoire de l'attention sur GPU",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "cout-quadratique"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "dao-2022",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "kv-cache",
+      "titre": "Le KV cache : l'astuce qui rend ChatGPT rapide",
+      "sous_titre": "Mise en cache des clés et valeurs pendant la génération",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "masque-causal",
+        "bloc-transformer"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "mixture-of-experts",
+      "titre": "Mixture of Experts : n'appeler que les bons spécialistes",
+      "sous_titre": "Architectures MoE et activation clairsemée",
+      "domaine": "transformers",
+      "niveau": 5,
+      "prerequis": [
+        "bloc-transformer"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "shazeer-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "modele-masque",
+      "titre": "Le texte à trous : comment BERT apprend à lire",
+      "sous_titre": "Masked Language Modeling (MLM)",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "bloc-transformer"
+      ],
+      "suite": [
+        "bert-vs-gpt"
+      ],
+      "papers": [
+        {
+          "paper": "devlin-2018",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "bert-vs-gpt",
+      "titre": "BERT vs GPT : comprendre ou générer ?",
+      "sous_titre": "Modèles encodeur, décodeur et encodeur-décodeur",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "modele-masque",
+        "masque-causal"
+      ],
+      "suite": [
+        "pretraining"
+      ],
+      "papers": []
+    },
+    {
+      "id": "pretraining",
+      "titre": "Le pré-entraînement : lire Internet pour apprendre le monde",
+      "sous_titre": "Pré-entraînement des LLM, données et objectif",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "bert-vs-gpt",
+        "entropie-croisee",
+        "adam",
+        "bpe"
+      ],
+      "suite": [
+        "fine-tuning",
+        "hallucinations",
+        "in-context-learning",
+        "lois-echelle"
+      ],
+      "papers": [
+        {
+          "paper": "radford-2018",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "lois-echelle",
+      "titre": "Les lois d'échelle : plus gros = meilleur… mais jusqu'où ?",
+      "sous_titre": "Scaling laws : paramètres, données et calcul",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "pretraining",
+        "perplexite"
+      ],
+      "suite": [
+        "quantification"
+      ],
+      "papers": [
+        {
+          "paper": "kaplan-2020",
+          "relation": "introduit"
+        },
+        {
+          "paper": "hoffmann-2022",
+          "relation": "approfondit"
+        }
+      ]
+    },
+    {
+      "id": "quantification",
+      "titre": "La quantification : faire tenir un LLM dans un ordinateur portable",
+      "sous_titre": "Réduire la précision des poids : INT8, 4 bits",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "lois-echelle"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "decodage-sampling",
+      "titre": "Température, top-k, top-p : comment un LLM choisit ses mots",
+      "sous_titre": "Stratégies de décodage et d'échantillonnage",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "masque-causal"
+      ],
+      "suite": [
+        "hallucinations"
+      ],
+      "papers": []
+    },
+    {
+      "id": "in-context-learning",
+      "titre": "Apprendre sans changer un seul poids : le pouvoir du prompt",
+      "sous_titre": "In-context learning, zero-shot et few-shot",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "pretraining"
+      ],
+      "suite": [
+        "chain-of-thought",
+        "rag"
+      ],
+      "papers": [
+        {
+          "paper": "brown-2020",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "chain-of-thought",
+      "titre": "Chain-of-thought : faire réfléchir un modèle à voix haute",
+      "sous_titre": "Raisonnement étape par étape dans les LLM",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "in-context-learning"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "wei-2022",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "fine-tuning",
+      "titre": "Le fine-tuning : spécialiser un modèle généraliste",
+      "sous_titre": "Ajuster un modèle pré-entraîné à une tâche",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "pretraining"
+      ],
+      "suite": [
+        "instruction-tuning",
+        "lora"
+      ],
+      "papers": []
+    },
+    {
+      "id": "instruction-tuning",
+      "titre": "L'instruction tuning : transformer un perroquet en assistant",
+      "sous_titre": "Entraîner un LLM à suivre des consignes",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "fine-tuning"
+      ],
+      "suite": [
+        "rlhf"
+      ],
+      "papers": [
+        {
+          "paper": "wei-2021",
+          "relation": "introduit"
+        },
+        {
+          "paper": "ouyang-2022",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "lora",
+      "titre": "LoRA : adapter un géant en touchant à presque rien",
+      "sous_titre": "Low-Rank Adaptation et fine-tuning efficace",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "fine-tuning",
+        "rang-matrice"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "hu-2021",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "apprentissage-renforcement",
+      "titre": "L'apprentissage par renforcement : apprendre à coups de récompenses",
+      "sous_titre": "Agent, action, récompense et politique",
+      "domaine": "llm",
+      "niveau": 4,
+      "prerequis": [
+        "esperance-variance"
+      ],
+      "suite": [
+        "rlhf"
+      ],
+      "papers": []
+    },
+    {
+      "id": "rlhf",
+      "titre": "Le RLHF : apprendre de ce que les humains préfèrent",
+      "sous_titre": "Reinforcement Learning from Human Feedback et modèle de récompense",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "instruction-tuning",
+        "apprentissage-renforcement",
+        "divergence-kl"
+      ],
+      "suite": [
+        "dpo"
+      ],
+      "papers": [
+        {
+          "paper": "christiano-2017",
+          "relation": "introduit"
+        },
+        {
+          "paper": "ouyang-2022",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "dpo",
+      "titre": "DPO : aligner un modèle sans renforcement",
+      "sous_titre": "Direct Preference Optimization",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "rlhf"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "rafailov-2023",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "hallucinations",
+      "titre": "Les hallucinations : pourquoi un LLM invente avec aplomb",
+      "sous_titre": "Origines et limites des hallucinations des LLM",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "decodage-sampling",
+        "pretraining"
+      ],
+      "suite": [
+        "rag"
+      ],
+      "papers": []
+    },
+    {
+      "id": "rag",
+      "titre": "Le RAG : donner une bibliothèque à un LLM",
+      "sous_titre": "Retrieval-Augmented Generation",
+      "domaine": "llm",
+      "niveau": 5,
+      "prerequis": [
+        "hallucinations",
+        "recherche-semantique",
+        "in-context-learning"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "lewis-2020",
+          "relation": "introduit"
+        }
+      ]
+    }
+  ],
+  "papers": [
+    {
+      "id": "shannon-1948",
+      "titre": "Le texte qui a inventé l'information",
+      "titre_original": "A Mathematical Theory of Communication",
+      "auteurs": "Shannon",
+      "annee": 1948,
+      "arxiv": null,
+      "requiert": [
+        "probabilites-bases",
+        "exp-log"
+      ],
+      "introduit": [
+        "entropie"
+      ]
+    },
+    {
+      "id": "rumelhart-1986",
+      "titre": "L'article qui a appris aux réseaux à apprendre",
+      "titre_original": "Learning representations by back-propagating errors",
+      "auteurs": "Rumelhart, Hinton, Williams",
+      "annee": 1986,
+      "arxiv": null,
+      "requiert": [
+        "mlp",
+        "regle-chaine"
+      ],
+      "popularise": [
+        "backpropagation"
+      ]
+    },
+    {
+      "id": "hochreiter-1997",
+      "titre": "LSTM : la mémoire qui a dominé le langage pendant 20 ans",
+      "titre_original": "Long Short-Term Memory",
+      "auteurs": "Hochreiter, Schmidhuber",
+      "annee": 1997,
+      "arxiv": null,
+      "requiert": [
+        "rnn",
+        "gradient-evanescent"
+      ],
+      "introduit": [
+        "lstm"
+      ]
+    },
+    {
+      "id": "mikolov-2013",
+      "titre": "Roi − Homme + Femme ≈ Reine : la magie de word2vec",
+      "titre_original": "Efficient Estimation of Word Representations in Vector Space",
+      "auteurs": "Mikolov et al.",
+      "annee": 2013,
+      "arxiv": "1301.3781",
+      "requiert": [
+        "tokenisation",
+        "similarite-cosinus",
+        "mlp"
+      ],
+      "popularise": [
+        "embeddings"
+      ]
+    },
+    {
+      "id": "srivastava-2014",
+      "titre": "Éteindre des neurones au hasard… et ça marche",
+      "titre_original": "Dropout: A Simple Way to Prevent Neural Networks from Overfitting",
+      "auteurs": "Srivastava et al.",
+      "annee": 2014,
+      "arxiv": null,
+      "requiert": [
+        "mlp",
+        "regularisation"
+      ],
+      "introduit": [
+        "dropout"
+      ]
+    },
+    {
+      "id": "sutskever-2014",
+      "titre": "Traduire avec deux réseaux qui se passent le relais",
+      "titre_original": "Sequence to Sequence Learning with Neural Networks",
+      "auteurs": "Sutskever, Vinyals, Le",
+      "annee": 2014,
+      "arxiv": "1409.3215",
+      "requiert": [
+        "lstm"
+      ],
+      "introduit": [
+        "encoder-decoder"
+      ]
+    },
+    {
+      "id": "bahdanau-2014",
+      "titre": "Le jour où les réseaux ont appris à regarder",
+      "titre_original": "Neural Machine Translation by Jointly Learning to Align and Translate",
+      "auteurs": "Bahdanau, Cho, Bengio",
+      "annee": 2014,
+      "arxiv": "1409.0473",
+      "requiert": [
+        "goulot-contexte",
+        "softmax"
+      ],
+      "introduit": [
+        "attention"
+      ]
+    },
+    {
+      "id": "kingma-2014",
+      "titre": "Adam : l'optimiseur qui a conquis le deep learning",
+      "titre_original": "Adam: A Method for Stochastic Optimization",
+      "auteurs": "Kingma, Ba",
+      "annee": 2014,
+      "arxiv": "1412.6980",
+      "requiert": [
+        "momentum",
+        "learning-rate"
+      ],
+      "introduit": [
+        "adam"
+      ]
+    },
+    {
+      "id": "sennrich-2015",
+      "titre": "Comment traduire des mots qu'on n'a jamais vus",
+      "titre_original": "Neural Machine Translation of Rare Words with Subword Units",
+      "auteurs": "Sennrich, Haddow, Birch",
+      "annee": 2015,
+      "arxiv": "1508.07909",
+      "requiert": [
+        "tokenisation",
+        "encoder-decoder"
+      ],
+      "popularise": [
+        "bpe"
+      ]
+    },
+    {
+      "id": "he-2015",
+      "titre": "Empiler 152 couches sans tout casser : ResNet",
+      "titre_original": "Deep Residual Learning for Image Recognition",
+      "auteurs": "He et al.",
+      "annee": 2015,
+      "arxiv": "1512.03385",
+      "requiert": [
+        "gradient-evanescent"
+      ],
+      "introduit": [
+        "connexions-residuelles"
+      ]
+    },
+    {
+      "id": "ba-2016",
+      "titre": "LayerNorm : la stabilité sans dépendre du batch",
+      "titre_original": "Layer Normalization",
+      "auteurs": "Ba, Kiros, Hinton",
+      "annee": 2016,
+      "arxiv": "1607.06450",
+      "requiert": [
+        "mlp",
+        "esperance-variance"
+      ],
+      "introduit": [
+        "normalisation-couches"
+      ]
+    },
+    {
+      "id": "shazeer-2017",
+      "titre": "Un réseau géant qui n'utilise qu'une fraction de lui-même",
+      "titre_original": "Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer",
+      "auteurs": "Shazeer et al.",
+      "annee": 2017,
+      "arxiv": "1701.06538",
+      "requiert": [
+        "mlp",
+        "softmax"
+      ],
+      "introduit": [
+        "mixture-of-experts"
+      ]
+    },
+    {
+      "id": "christiano-2017",
+      "titre": "Apprendre à une IA ce que les humains préfèrent",
+      "titre_original": "Deep Reinforcement Learning from Human Preferences",
+      "auteurs": "Christiano et al.",
+      "annee": 2017,
+      "arxiv": "1706.03741",
+      "requiert": [
+        "apprentissage-renforcement"
+      ],
+      "introduit": [
+        "rlhf"
+      ]
+    },
+    {
+      "id": "vaswani-2017",
+      "titre": "Attention Is All You Need : le papier qui a tout changé",
+      "titre_original": "Attention Is All You Need",
+      "auteurs": "Vaswani et al.",
+      "annee": 2017,
+      "arxiv": "1706.03762",
+      "requiert": [
+        "attention",
+        "encoder-decoder",
+        "normalisation-couches",
+        "connexions-residuelles"
+      ],
+      "introduit": [
+        "qkv",
+        "multi-head",
+        "encodage-positionnel",
+        "bloc-transformer"
+      ],
+      "popularise": [
+        "self-attention"
+      ]
+    },
+    {
+      "id": "radford-2018",
+      "titre": "GPT-1 : pré-entraîner d'abord, spécialiser ensuite",
+      "titre_original": "Improving Language Understanding by Generative Pre-Training",
+      "auteurs": "Radford et al.",
+      "annee": 2018,
+      "arxiv": null,
+      "requiert": [
+        "bloc-transformer",
+        "masque-causal"
+      ],
+      "popularise": [
+        "pretraining"
+      ]
+    },
+    {
+      "id": "devlin-2018",
+      "titre": "BERT : lire une phrase dans les deux sens",
+      "titre_original": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "auteurs": "Devlin et al.",
+      "annee": 2018,
+      "arxiv": "1810.04805",
+      "requiert": [
+        "bloc-transformer"
+      ],
+      "introduit": [
+        "modele-masque"
+      ]
+    },
+    {
+      "id": "kaplan-2020",
+      "titre": "Les lois qui ont lancé la course aux modèles géants",
+      "titre_original": "Scaling Laws for Neural Language Models",
+      "auteurs": "Kaplan et al.",
+      "annee": 2020,
+      "arxiv": "2001.08361",
+      "requiert": [
+        "pretraining",
+        "perplexite"
+      ],
+      "introduit": [
+        "lois-echelle"
+      ]
+    },
+    {
+      "id": "brown-2020",
+      "titre": "GPT-3 : le modèle qui apprenait dans le prompt",
+      "titre_original": "Language Models are Few-Shot Learners",
+      "auteurs": "Brown et al.",
+      "annee": 2020,
+      "arxiv": "2005.14165",
+      "requiert": [
+        "pretraining",
+        "lois-echelle"
+      ],
+      "introduit": [
+        "in-context-learning"
+      ]
+    },
+    {
+      "id": "lewis-2020",
+      "titre": "Donner une bibliothèque à un modèle de langage",
+      "titre_original": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "auteurs": "Lewis et al.",
+      "annee": 2020,
+      "arxiv": "2005.11401",
+      "requiert": [
+        "recherche-semantique",
+        "pretraining"
+      ],
+      "introduit": [
+        "rag"
+      ]
+    },
+    {
+      "id": "su-2021",
+      "titre": "Faire tourner les vecteurs pour encoder l'ordre des mots",
+      "titre_original": "RoFormer: Enhanced Transformer with Rotary Position Embedding",
+      "auteurs": "Su et al.",
+      "annee": 2021,
+      "arxiv": "2104.09864",
+      "requiert": [
+        "encodage-positionnel"
+      ],
+      "introduit": [
+        "rope"
+      ]
+    },
+    {
+      "id": "hu-2021",
+      "titre": "LoRA : adapter un géant en touchant à presque rien",
+      "titre_original": "LoRA: Low-Rank Adaptation of Large Language Models",
+      "auteurs": "Hu et al.",
+      "annee": 2021,
+      "arxiv": "2106.09685",
+      "requiert": [
+        "fine-tuning",
+        "rang-matrice"
+      ],
+      "introduit": [
+        "lora"
+      ]
+    },
+    {
+      "id": "wei-2021",
+      "titre": "Apprendre à suivre des consignes pour réussir des tâches jamais vues",
+      "titre_original": "Finetuned Language Models Are Zero-Shot Learners",
+      "auteurs": "Wei et al.",
+      "annee": 2021,
+      "arxiv": "2109.01652",
+      "requiert": [
+        "fine-tuning",
+        "in-context-learning"
+      ],
+      "introduit": [
+        "instruction-tuning"
+      ]
+    },
+    {
+      "id": "wei-2022",
+      "titre": "Montrer son raisonnement : quand les exemples font réfléchir le modèle",
+      "titre_original": "Chain-of-Thought Prompting Elicits Reasoning in Large Language Models",
+      "auteurs": "Wei et al.",
+      "annee": 2022,
+      "arxiv": "2201.11903",
+      "requiert": [
+        "in-context-learning"
+      ],
+      "introduit": [
+        "chain-of-thought"
+      ]
+    },
+    {
+      "id": "ouyang-2022",
+      "titre": "Comment on a transformé GPT-3 en assistant",
+      "titre_original": "Training language models to follow instructions with human feedback",
+      "auteurs": "Ouyang et al.",
+      "annee": 2022,
+      "arxiv": "2203.02155",
+      "requiert": [
+        "pretraining",
+        "fine-tuning",
+        "apprentissage-renforcement"
+      ],
+      "popularise": [
+        "rlhf",
+        "instruction-tuning"
+      ]
+    },
+    {
+      "id": "hoffmann-2022",
+      "titre": "Chinchilla : on entraînait les LLM avec trop peu de données",
+      "titre_original": "Training Compute-Optimal Large Language Models",
+      "auteurs": "Hoffmann et al.",
+      "annee": 2022,
+      "arxiv": "2203.15556",
+      "requiert": [
+        "pretraining"
+      ],
+      "approfondit": [
+        "lois-echelle"
+      ]
+    },
+    {
+      "id": "dao-2022",
+      "titre": "FlashAttention : même résultat, beaucoup plus vite",
+      "titre_original": "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness",
+      "auteurs": "Dao et al.",
+      "annee": 2022,
+      "arxiv": "2205.14135",
+      "requiert": [
+        "cout-quadratique"
+      ],
+      "introduit": [
+        "flash-attention"
+      ]
+    },
+    {
+      "id": "rafailov-2023",
+      "titre": "DPO : aligner un modèle sans passer par le renforcement",
+      "titre_original": "Direct Preference Optimization: Your Language Model is Secretly a Reward Model",
+      "auteurs": "Rafailov et al.",
+      "annee": 2023,
+      "arxiv": "2305.18290",
+      "requiert": [
+        "rlhf"
+      ],
+      "introduit": [
+        "dpo"
+      ]
+    }
+  ],
+  "parcours": [
+    {
+      "id": "probas-pour-l-ia",
+      "titre": "Les probabilités dont l'IA a vraiment besoin",
+      "cibles": [
+        "bayes",
+        "loi-normale",
+        "maximum-vraisemblance",
+        "entropie-croisee"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "probabilites-bases",
+        "probabilite-conditionnelle",
+        "bayes",
+        "independance",
+        "variables-aleatoires",
+        "esperance-variance",
+        "loi-categorielle",
+        "loi-normale",
+        "maximum-vraisemblance",
+        "entropie",
+        "entropie-croisee"
+      ]
+    },
+    {
+      "id": "des-maths-a-l-attention",
+      "titre": "Des maths à l'attention : le chemin complet",
+      "cibles": [
+        "attention"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "vecteurs",
+        "matrices",
+        "produit-scalaire",
+        "probabilites-bases",
+        "derivees-partielles",
+        "gradient",
+        "regle-chaine",
+        "normes-distances",
+        "produit-matriciel",
+        "similarite-cosinus",
+        "probabilite-conditionnelle",
+        "independance",
+        "regle-produit",
+        "variables-aleatoires",
+        "loi-categorielle",
+        "fonction-perte",
+        "descente-gradient",
+        "tokenisation",
+        "maximum-vraisemblance",
+        "regression-lineaire",
+        "regression-logistique",
+        "softmax",
+        "neurone-artificiel",
+        "fonctions-activation",
+        "embeddings",
+        "modele-langage",
+        "ngrammes",
+        "mlp",
+        "backpropagation",
+        "gradient-evanescent",
+        "rnn",
+        "lstm",
+        "encoder-decoder",
+        "goulot-contexte",
+        "attention"
+      ]
+    },
+    {
+      "id": "comment-marche-chatgpt",
+      "titre": "Comment marche ChatGPT, en partant de zéro",
+      "cibles": [
+        "rlhf",
+        "decodage-sampling",
+        "kv-cache"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "vecteurs",
+        "matrices",
+        "produit-scalaire",
+        "probabilites-bases",
+        "derivees-partielles",
+        "gradient",
+        "regle-chaine",
+        "normes-distances",
+        "produit-matriciel",
+        "similarite-cosinus",
+        "probabilite-conditionnelle",
+        "independance",
+        "regle-produit",
+        "variables-aleatoires",
+        "esperance-variance",
+        "loi-categorielle",
+        "fonction-perte",
+        "descente-gradient",
+        "tokenisation",
+        "loi-grands-nombres",
+        "maximum-vraisemblance",
+        "entropie",
+        "entropie-croisee",
+        "divergence-kl",
+        "learning-rate",
+        "sgd-minibatch",
+        "momentum",
+        "adam",
+        "regression-lineaire",
+        "regression-logistique",
+        "softmax",
+        "neurone-artificiel",
+        "fonctions-activation",
+        "bpe",
+        "embeddings",
+        "modele-langage",
+        "ngrammes",
+        "mlp",
+        "backpropagation",
+        "gradient-evanescent",
+        "connexions-residuelles",
+        "normalisation-couches",
+        "rnn",
+        "lstm",
+        "encoder-decoder",
+        "goulot-contexte",
+        "attention",
+        "qkv",
+        "apprentissage-renforcement",
+        "self-attention",
+        "encodage-positionnel",
+        "masque-causal",
+        "multi-head",
+        "bloc-transformer",
+        "kv-cache",
+        "decodage-sampling",
+        "modele-masque",
+        "bert-vs-gpt",
+        "pretraining",
+        "fine-tuning",
+        "instruction-tuning",
+        "rlhf"
+      ]
+    },
+    {
+      "id": "adapter-un-llm",
+      "titre": "Adapter un LLM à ton besoin : fine-tuning, LoRA ou RAG ?",
+      "cibles": [
+        "lora",
+        "rag",
+        "dpo"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "vecteurs",
+        "matrices",
+        "produit-scalaire",
+        "probabilites-bases",
+        "derivees-partielles",
+        "gradient",
+        "regle-chaine",
+        "normes-distances",
+        "produit-matriciel",
+        "similarite-cosinus",
+        "probabilite-conditionnelle",
+        "independance",
+        "regle-produit",
+        "variables-aleatoires",
+        "esperance-variance",
+        "loi-categorielle",
+        "fonction-perte",
+        "descente-gradient",
+        "tokenisation",
+        "rang-matrice",
+        "loi-grands-nombres",
+        "maximum-vraisemblance",
+        "entropie",
+        "entropie-croisee",
+        "divergence-kl",
+        "learning-rate",
+        "sgd-minibatch",
+        "momentum",
+        "adam",
+        "regression-lineaire",
+        "regression-logistique",
+        "softmax",
+        "neurone-artificiel",
+        "fonctions-activation",
+        "bpe",
+        "embeddings",
+        "modele-langage",
+        "ngrammes",
+        "mlp",
+        "backpropagation",
+        "gradient-evanescent",
+        "connexions-residuelles",
+        "normalisation-couches",
+        "recherche-semantique",
+        "rnn",
+        "lstm",
+        "encoder-decoder",
+        "goulot-contexte",
+        "attention",
+        "qkv",
+        "apprentissage-renforcement",
+        "self-attention",
+        "encodage-positionnel",
+        "masque-causal",
+        "multi-head",
+        "bloc-transformer",
+        "decodage-sampling",
+        "modele-masque",
+        "bert-vs-gpt",
+        "pretraining",
+        "fine-tuning",
+        "hallucinations",
+        "in-context-learning",
+        "instruction-tuning",
+        "lora",
+        "rag",
+        "rlhf",
+        "dpo"
+      ]
+    }
+  ]
+}

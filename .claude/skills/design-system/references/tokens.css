@@ -1,0 +1,64 @@
+/* Design system « Indigo » — tokens. À importer dans le layout global. */
+:root {
+  --papier: #F4F6FB;
+  --papier-2: #E9ECF6;       /* fonds de blocs de code, scène */
+  --encre: #1C1F4A;
+  --encre-douce: #4A4E7A;    /* texte secondaire */
+  --indigo: #3446B4;
+  --lagune: #0E7671;
+  --or: #E7A614;
+  --or-doux: #FBE7B0;        /* fond de surlignage */
+  --laterite: #B8322D;
+  --trait: #D5D9EA;
+
+  --police-titre: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --police-texte: "Literata", Georgia, "Times New Roman", serif;
+  --police-code: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --t-xs: 0.8rem;   /* 14,4 */
+  --t-s: 1rem;      /* 18 */
+  --t-m: 1.25rem;   /* 22,5 */
+  --t-l: 1.5625rem; /* 28 */
+  --t-xl: 1.953rem; /* 35 */
+  --t-2xl: 2.441rem;/* 44 */
+  --t-3xl: 3.052rem;/* 55 */
+
+  --colonne: 64ch;
+  --espace: 1.5rem;
+  --rayon: 6px;
+  --duree-courte: 180ms;
+  --duree: 420ms;
+  --courbe: cubic-bezier(0.22, 1, 0.36, 1);
+
+  color-scheme: light dark;
+}
+html { font-size: 18px; }
+@media (min-width: 1100px) { html { font-size: 19px; } }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papier: #12143A; --papier-2: #1B1E4D; --encre: #E8EAF6; --encre-douce: #AEB3D9;
+    --indigo: #8E9BFF; --lagune: #4FD1C5; --or: #F2C14E; --or-doux: #4A3F1C;
+    --laterite: #FF7A6E; --trait: #2D3170;
+  }
+}
+:root[data-theme="dark"] {
+  --papier: #12143A; --papier-2: #1B1E4D; --encre: #E8EAF6; --encre-douce: #AEB3D9;
+  --indigo: #8E9BFF; --lagune: #4FD1C5; --or: #F2C14E; --or-doux: #4A3F1C;
+  --laterite: #FF7A6E; --trait: #2D3170;
+}
+
+body { background: var(--papier); color: var(--encre); font-family: var(--police-texte); line-height: 1.65; }
+
+/* Rôles des symboles — identiques partout */
+.role-entree    { color: var(--indigo); }
+.role-parametre { color: var(--lagune); }
+.role-sortie    { color: var(--encre); background: var(--or-doux); border-radius: 3px; padding: 0 .1em; }
+.role-perte     { color: var(--laterite); }
+.terme-actif    { outline: 2px solid var(--or); outline-offset: 2px; border-radius: 3px; }
+
+:focus-visible { outline: 2px solid var(--or); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
