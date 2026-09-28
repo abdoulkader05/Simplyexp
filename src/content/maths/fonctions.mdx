@@ -1,0 +1,155 @@
+---
+id: fonctions
+type: maths
+titre: "Les fonctions : la machine à transformer des nombres"
+sous_titre: "Définition, graphe et rôle d'une fonction en IA"
+domaine: analyse
+niveau: 1
+prerequis: []
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 1 (Introduction), les modèles comme fonctions ; chapitre 5 (Vector Calculus), fonctions et composition"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, introduction (un réseau comme composition de fonctions f(x) = f₃(f₂(f₁(x))))"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Un modèle d'IA, aussi grand soit-il, est une fonction : il reçoit des nombres et en rend d'autres. La [fonction de perte](/maths/fonction-perte/) est une fonction, la [dérivée](/maths/derivee/) étudie les fonctions, et un réseau de neurones est une chaîne de fonctions branchées les unes derrière les autres. Avant tout le reste, il faut savoir ce qu'est une fonction, la dessiner et la composer.
+
+## L'intuition
+
+Pense à la grille tarifaire d'une ligne de gbaka. Tu donnes une distance, elle te rend un prix. Pour une même distance, le prix est toujours le même : il n'y a jamais deux prix possibles pour 3 km. C'est tout ce qu'on demande à une fonction : à chaque entrée, **une seule** sortie.
+
+On peut la voir comme une machine : on met un nombre d'un côté, un nombre sort de l'autre. Et on peut la dessiner : pour chaque entrée $x$, on place un point à la hauteur de la sortie. L'ensemble de ces points forme le graphe de la fonction. Bouge l'entrée et regarde le point se déplacer sur le graphe.
+
+<Simulation
+  rendu="fonction-machine"
+  label="Graphe d'une fonction et point correspondant à l'entrée choisie"
+  parametres={[
+    { nom: "fonction", label: "Fonction (0 gbaka, 1 carré, 2 commission)", min: 0, max: 2, pas: 1, valeur: 0, role: "entree" },
+    { nom: "x", label: "Entrée x", min: 0, max: 30, pas: 0.5, valeur: 3, role: "entree", decimales: 1 }
+  ]}
+  legende="Le pointillé bleu part de l'entrée, le pointillé doré mène à la sortie."
+/>
+
+## La définition
+
+Une fonction $f$ d'un ensemble $A$ vers un ensemble $B$ associe à chaque élément $x$ de $A$ un unique élément $f(x)$ de $B$. On écrit :
+
+$$
+f : A \to B, \qquad x \mapsto f(x)
+$$
+
+où :
+- $A$ est l'ensemble de départ, ou domaine (*domain*) : les entrées permises ;
+- $B$ est l'ensemble d'arrivée ;
+- $x$ est une entrée, aussi appelée variable ;
+- $f(x)$ est l'image de $x$, la sortie ;
+- le graphe de $f$ est l'ensemble des points $(x\,;\,f(x))$.
+
+La composition de deux fonctions consiste à les brancher l'une derrière l'autre : si $g$ sort des nombres que $f$ accepte, $(f \circ g)(x) = f(g(x))$. On applique d'abord $g$, puis $f$.
+
+Autrement dit : une fonction est une règle qui transforme chaque entrée en une seule sortie ; composer, c'est enchaîner deux règles.
+
+<Depliable titre="Deux propriétés de la composition">
+
+**L'ordre compte.** Avec $f(x) = x^2$ et $g(x) = x + 1$ :
+
+$$
+(f \circ g)(x) = (x + 1)^2 = x^2 + 2x + 1 \qquad (g \circ f)(x) = x^2 + 1
+$$
+
+En $x = 2$ : $(f \circ g)(2) = 9$ et $(g \circ f)(2) = 5$. En général, $f \circ g \neq g \circ f$.
+
+**La composée de deux fonctions affines est affine.** Soit $f(x) = a x + b$ et $g(x) = c x + d$ :
+
+$$
+\begin{aligned}
+(f \circ g)(x) &= a\,(c x + d) + b && \text{on remplace } x \text{ par } g(x) \text{ dans } f \\
+&= (a c)\, x + (a d + b) && \text{distributivité}
+\end{aligned}
+$$
+
+C'est encore de la forme « nombre × $x$ + nombre ». Empiler des fonctions affines ne crée donc rien de nouveau : c'est pour cela qu'un réseau de neurones a besoin de [fonctions d'activation](/concepts/fonctions-activation/) non affines entre ses couches.
+
+</Depliable>
+
+## Un exemple à la main
+
+Le prix du gbaka, appris dans la fiche sur la [régression linéaire](/concepts/regression-lineaire/), est la fonction $f(x) = 136\,x + 4$, où $x$ est la distance en km et $f(x)$ le prix en F CFA.
+
+- $f(2) = 136 \times 2 + 4 = 276$ F.
+- $f(5) = 136 \times 5 + 4 = 684$ F.
+- Quelle distance coûte 820 F ? On résout $136\,x + 4 = 820$, soit $x = 816 / 136 = 6$ km.
+
+Une autre fonction : une vendeuse touche une commission égale à ce qu'elle vend au-delà de 10 000 F. En milliers de francs, c'est $c(x) = \max(0\,;\,x - 10)$. Pour 8 000 F de ventes, $c(8) = 0$ ; pour 25 000 F, $c(25) = 15$, soit 15 000 F.
+
+Une composition : si chaque trajet en gbaka rapporte au chauffeur un bonus égal au carré du prix divisé par 1 000, le bonus d'un trajet de 2 km est $b(f(2)) = 276^2 / 1\,000 \approx 76{,}2$ F. On a d'abord appliqué $f$, puis $b$.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : avec la fonction « commission », cherche toutes les entrées qui donnent la sortie 0. Avec la fonction « carré », trouve deux entrées différentes qui donnent la même sortie, si c'est possible sur le graphe affiché. Est-ce interdit pour une fonction ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Pour la commission, toutes les entrées de 0 à 10 donnent 0 : la courbe est plate, puis monte. C'est permis : plusieurs entrées peuvent avoir la même sortie.
+
+Pour le carré, le graphe affiché ne montre que des $x$ positifs, et chaque sortie n'y est atteinte qu'une fois. Mais si l'on autorisait les $x$ négatifs, $(-3)^2 = 3^2 = 9$ : deux entrées, une même sortie. Ce qui est interdit pour une fonction, c'est l'inverse : une même entrée avec deux sorties. Sur un graphe, cela se voit : une droite verticale ne coupe jamais le graphe d'une fonction en plus d'un point.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **Un modèle est une fonction.** Un classifieur est une fonction qui reçoit une image et rend des probabilités ; un LLM, une fonction qui reçoit un texte et rend des scores pour le mot suivant. On la note souvent $f_\theta$, où $\theta$ désigne ses paramètres.
+- **Un réseau est une composition.** Un [perceptron multicouche](/concepts/mlp/) calcule $f_3(f_2(f_1(\mathbf{x})))$ : chaque couche est une fonction, branchée sur la précédente. La [règle de la chaîne](/maths/regle-chaine/) dira comment dériver une telle composition.
+- **L'apprentissage optimise une fonction.** La [fonction de perte](/maths/fonction-perte/) associe à chaque réglage des paramètres un nombre, l'erreur, que l'on cherche à rendre minimal.
+
+## Les pièges classiques
+
+**« $f(x)$, c'est la fonction. »** Au sens strict, $f$ est la règle, et $f(x)$ est un nombre : la sortie pour une entrée donnée. On dit souvent « la fonction $f(x) = x^2$ » par commodité, mais $f(3) = 9$ est un nombre, pas une fonction.
+
+**« Une fonction se donne toujours par une formule. »** La commission $\max(0\,;\,x - 10)$ a une formule, mais une grille tarifaire, un tableau de valeurs ou un réseau de neurones de milliards de paramètres sont aussi des fonctions. Ce qui compte, c'est une seule sortie par entrée.
+
+**« $f \circ g$, c'est $f$ puis $g$. »** La notation se lit de droite à gauche : $(f \circ g)(x) = f(g(x))$ applique d'abord $g$. Inverser l'ordre donne en général un autre résultat, comme dans la démonstration.
+
+## Entraîne-toi
+
+**Exercice 1.** Avec $f(x) = 136\,x + 4$, calcule $f(0)$, $f(1)$ et $f(1) - f(0)$. Que représentent ces nombres pour le gbaka ?
+
+<Depliable titre="Corrigé">
+
+$f(0) = 4$, $f(1) = 140$ et $f(1) - f(0) = 136$. Le prix d'un trajet de 0 km serait 4 F, une sorte de prise en charge, et chaque kilomètre en plus coûte 136 F.
+
+</Depliable>
+
+**Exercice 2.** Avec $f(x) = 2x - 1$ et $g(x) = x^2$, calcule $(f \circ g)(3)$ et $(g \circ f)(3)$.
+
+<Depliable titre="Corrigé">
+
+$(f \circ g)(3) = f(9) = 17$. $(g \circ f)(3) = g(5) = 25$. L'ordre change le résultat.
+
+</Depliable>
+
+**Exercice 3.** Une couche d'un réseau calcule $h = 3x - 2$, la suivante $y = 0{,}5\,h + 1$. Écris $y$ directement en fonction de $x$. Que conclus-tu sur l'intérêt d'empiler ces deux couches ?
+
+<Depliable titre="Corrigé">
+
+$y = 0{,}5\,(3x - 2) + 1 = 1{,}5\,x - 1 + 1 = 1{,}5\,x$. Les deux couches affines équivalent à une seule couche affine. Sans fonction non affine entre elles, les empiler n'apporte rien.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "fonction", en: "function", definition: "Règle qui associe à chaque entrée une unique sortie." },
+  { fr: "domaine", en: "domain", definition: "Ensemble des entrées permises." },
+  { fr: "image", en: "image", definition: "La sortie f(x) associée à une entrée x." },
+  { fr: "graphe", en: "graph", definition: "Ensemble des points (x ; f(x))." },
+  { fr: "composition", en: "composition", definition: "Enchaînement de deux fonctions : (f ∘ g)(x) = f(g(x))." },
+  { fr: "fonction affine", en: "affine function", definition: "Fonction de la forme a x + b." }
+]} />
