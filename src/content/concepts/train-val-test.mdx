@@ -1,0 +1,193 @@
+---
+id: train-val-test
+type: concept
+titre: "Train, validation, test : ne jamais noter l'élève avec l'examen qu'il a déjà vu"
+sous_titre: "Découpage des données et évaluation honnête d'un modèle"
+domaine: machine-learning
+niveau: 3
+prerequis: [regression-lineaire]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 12
+sources:
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.2 (capacité, erreur d'entraînement et erreur de généralisation) et section 5.3 (hyperparamètres et ensembles de validation, validation croisée)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Le problème de départ
+
+La [régression linéaire](/concepts/regression-lineaire/) du gbaka se trompait de 800 F² en moyenne sur les quatre trajets qui ont servi à la régler. Mais ce chiffre ne dit pas ce qui compte : que vaudront ses prédictions demain, sur des trajets qu'elle n'a jamais vus ? Un modèle réglé sur des exemples est toujours un peu trop à l'aise avec ces exemples-là. Plus on essaie de modèles et de réglages, plus ce biais grandit. Il faut donc une méthode pour mesurer honnêtement ce qu'un modèle vaut hors de ses données.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On sépare les données en trois tas : un pour apprendre, un pour choisir entre les modèles, et un dernier, gardé sous clé, pour mesurer une seule fois le résultat final.
+</PhraseCle>
+
+## En image
+
+Pense à une classe de terminale qui prépare le BAC.
+
+- Les exercices du manuel, corrigés en classe, sont les données d'entraînement : l'élève apprend dessus.
+- Les devoirs surveillés de l'année sont les données de validation : ils servent à ajuster la façon de réviser, à décider s'il faut plus de fiches ou plus d'exercices.
+- L'épreuve du BAC est le test : un sujet que personne n'a vu, passé une seule fois, et c'est sa note qui compte.
+
+Si un élève avait eu le sujet du BAC à l'avance et l'avait travaillé, sa note ne dirait plus rien de son niveau. C'est exactement ce qui arrive quand on règle un modèle en regardant ses résultats sur le test.
+
+Là où l'image s'arrête : un élève qui a vu le sujet le sait. Un modèle, lui, n'a pas besoin d'avoir « vu » les réponses du test pour en profiter : il suffit que *nous* ayons choisi le modèle ou ses réglages en regardant le test. Le biais passe par nos décisions.
+
+## Comment ça marche
+
+On découpe les exemples disponibles, avant tout apprentissage, en trois ensembles disjoints :
+
+- l'ensemble d'entraînement (*training set*), sur lequel on règle les paramètres du modèle, par exemple $w$ et $b$ ;
+- l'ensemble de validation (*validation set*), sur lequel on compare des modèles ou des réglages ;
+- l'ensemble de test (*test set*), qu'on n'ouvre qu'une fois, à la fin.
+
+Les réglages qu'on choisit sur la validation s'appellent des hyperparamètres (*hyperparameters*) : ce sont les choix faits *autour* de l'apprentissage, que la descente de gradient ne règle pas elle-même. Le [learning rate](/maths/learning-rate/), la présence d'un biais dans le modèle ou le nombre d'entrées en font partie. Des proportions souvent utilisées sont 70 % pour l'entraînement, 15 % pour la validation et 15 % pour le test, mais elles dépendent de la quantité de données.
+
+Un exemple chiffré. Kofi garde ses quatre trajets pour l'entraînement et note deux nouveaux trajets pour la validation : 3 km pour 450 F et 6 km pour 850 F. Il compare deux modèles appris sur l'entraînement.
+
+- Modèle A, sans biais : prix $= 136{,}7 \times$ distance. Il prédit 410 et 820 F. Écarts $-40$ et $-30$, erreur quadratique moyenne $(1\,600 + 900)/2 = 1\,250$.
+- Modèle B, avec biais : prix $= 136 \times$ distance $+ 4$. Il prédit 412 et 820 F. Écarts $-38$ et $-30$, erreur $(1\,444 + 900)/2 = 1\,172$.
+
+Il choisit B. Puis, une seule fois, il le mesure sur un trajet de test mis de côté depuis le début : 7 km pour 1 000 F. B prédit 956 F, soit un écart de $-44$ et une erreur de 1 936. C'est ce dernier chiffre, et pas l'erreur d'entraînement de 800, qui décrit le mieux ce qu'on peut attendre du modèle sur un trajet inconnu.
+
+Pourquoi ne pas choisir directement sur le test ? Parce que choisir le meilleur parmi plusieurs candidats sur un même ensemble favorise ceux qui ont eu de la chance sur *cet* ensemble. L'animation le montre de façon extrême : chaque « modèle » répond au hasard à 40 questions de validation, pile ou face. Aucun n'a le moindre talent. Pourtant, plus on en essaie, plus le meilleur score de validation monte.
+
+<Simulation
+  rendu="triche-validation"
+  label="Scores de validation de modèles qui répondent au hasard, et score réel du meilleur d'entre eux"
+  parametres={[
+    { nom: "k", label: "Nombre de modèles essayés", min: 1, max: 100, pas: 1, valeur: 20, role: "entree" }
+  ]}
+  legende="Chaque barre est un modèle qui répond au hasard. Le trait doré marque le meilleur score de validation."
+/>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Le calcul du meilleur score par chance">
+
+Un modèle qui répond au hasard à $n = 40$ questions à deux choix a un nombre de bonnes réponses $X$ qui suit une loi binomiale de paramètres $40$ et $\frac{1}{2}$. La probabilité qu'il dépasse 60 % (au moins 24 bonnes réponses) vaut :
+
+$$
+p = P(X \ge 24) = \sum_{j=24}^{40} \binom{40}{j} \left(\tfrac{1}{2}\right)^{40} \approx 0{,}134
+$$
+
+où :
+- $\binom{40}{j}$ est le nombre de façons de choisir les $j$ questions réussies.
+
+Si on essaie $k$ modèles indépendants, la probabilité qu'au moins un dépasse 60 % est :
+
+$$
+\begin{aligned}
+P(\text{au moins un}) &= 1 - P(\text{aucun}) && \text{événement contraire} \\
+&= 1 - (1 - p)^k && \text{indépendance des modèles}
+\end{aligned}
+$$
+
+- $k = 1$ : environ 13 %.
+- $k = 5$ : $1 - 0{,}866^5 \approx 51$ %.
+- $k = 20$ : $1 - 0{,}866^{20} \approx 94$ %.
+
+Avec 20 essais, on est presque sûr d'avoir un modèle « à plus de 60 % » alors qu'aucun ne sait rien. En moyenne, le meilleur des 20 obtient environ 65 % en validation. Sur un nouvel ensemble, ce même modèle retombe vers 50 %, sa vraie valeur. Le score du gagnant sur l'ensemble qui a servi à le choisir est donc biaisé vers le haut, et le biais grandit avec le nombre d'essais : c'est pourquoi le test doit rester hors de toute décision.
+
+</Depliable>
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : passe de 1 à 100 modèles essayés. Note le meilleur score de validation, puis le score du même modèle sur les questions neuves. L'écart grandit-il ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+Avec un seul modèle, les deux scores tournent autour de 50 %. En augmentant le nombre d'essais, le meilleur score de validation grimpe : vers 65 % pour une vingtaine de modèles, autour de 70 % pour une centaine, comme le prévoit le calcul. Le score du gagnant sur 1 000 questions neuves, lui, reste collé à 50 %. L'écart entre les deux est entièrement dû au choix : la validation a été « usée » par la sélection. D'où la règle : on a le droit d'user la validation, jamais le test.
+
+</Depliable>
+
+## En code
+
+Depuis zéro, avec NumPy : le meilleur de 20 modèles au hasard.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+k, n_val, n_test = 20, 40, 1000
+# Chaque modèle répond au hasard : 1 = bonne réponse, avec probabilité 0,5
+val = rng.integers(0, 2, size=(k, n_val)).mean(axis=1)
+test = rng.integers(0, 2, size=(k, n_test)).mean(axis=1)
+
+meilleur = np.argmax(val)
+print("meilleur score de validation :", val[meilleur])
+print("le même sur des données neuves :", round(test[meilleur], 3))
+
+# Répéter l'expérience 2 000 fois pour estimer le biais moyen
+maxis = rng.integers(0, 2, size=(2000, k, n_val)).mean(axis=2).max(axis=1)
+print("en moyenne, le meilleur des 20 fait :", round(maxis.mean(), 3))   # environ 0,65
+```
+
+En vrai, avec scikit-learn, on découpe en deux temps :
+
+```python
+# no-run
+from sklearn.model_selection import train_test_split
+X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.15, random_state=0)
+X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.15 / 0.85, random_state=0)
+```
+
+## Les pièges classiques
+
+**« La validation et le test, c'est pareil. »** On y croit parce que les deux sont des données mises de côté. Mais la validation sert à décider, donc elle finit par être biaisée, comme le montre l'animation. Le test ne sert à rien décider : c'est ce qui garde son score honnête.
+
+**« Regarder le test une fois de temps en temps, ce n'est pas grave. »** Chaque fois qu'un score de test influence un choix, même un petit, le test devient une validation de plus. Si on doit y revenir souvent, il faut un nouvel ensemble de test.
+
+**« Il suffit de mélanger les données au hasard. »** Pas toujours. Si les données ont un ordre dans le temps, comme des prix de trajets sur plusieurs années, on teste sur les dates les plus récentes : sinon le modèle « voit l'avenir » à l'entraînement. Et si un même client apparaît plusieurs fois, il doit être entièrement d'un seul côté du découpage. Ces fuites de données (*data leakage*) donnent des scores trop beaux.
+
+## Dans la vraie vie
+
+Toutes les bibliothèques d'apprentissage automatique proposent ce découpage ; scikit-learn fournit par exemple `train_test_split` et la validation croisée (*cross-validation*), qui fait tourner le rôle de validation entre plusieurs morceaux des données quand elles sont peu nombreuses (chapitre 5 de *Deep Learning*).
+Plus près de nous, la même discipline s'applique à tout modèle construit sur des données locales. Une coopérative qui voudrait prévoir ses récoltes d'après la pluviométrie doit garder les dernières saisons de côté pour juger son modèle, et non l'évaluer sur les années qui ont servi à le construire.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "À quoi sert l'ensemble de validation ?",
+    choix: ["À régler les poids du modèle", "À comparer des modèles ou des hyperparamètres", "À annoncer le score final", "À remplacer les données d'entraînement"],
+    bonne: 1,
+    explication: "Les poids se règlent sur l'entraînement, le score final se mesure sur le test. La validation sert à choisir entre plusieurs possibilités."
+  },
+  {
+    question: "On essaie 50 réglages et on garde celui qui a le meilleur score de validation, 88 %. Que peut-on dire de son score futur ?",
+    choix: ["Il sera d'au moins 88 %", "Il sera probablement un peu inférieur à 88 %", "Il sera exactement de 88 %", "On ne peut rien en dire du tout"],
+    bonne: 1,
+    explication: "Choisir le meilleur de 50 favorise celui qui a eu de la chance sur la validation. Son score sur des données neuves sera en général plus bas ; c'est le test qui le mesurera."
+  },
+  {
+    question: "Des données de ventes couvrent 2021 à 2025. Quel découpage est le plus honnête pour prévoir 2026 ?",
+    choix: ["Tirer au hasard 15 % des jours pour le test", "Garder 2025 pour le test", "Garder 2021 pour le test", "Tout utiliser pour l'entraînement"],
+    bonne: 1,
+    explication: "On veut prévoir l'avenir : on teste sur la période la plus récente, que le modèle n'a pas vue. Un tirage au hasard mélangerait passé et avenir."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi a-t-on besoin d'un ensemble de test en plus de la validation ?">
+
+Parce que la validation sert à prendre des décisions : choix du modèle, des hyperparamètres, de l'arrêt de l'entraînement. Chaque décision favorise ce qui a bien marché sur ces exemples précis, y compris par chance, donc le score de validation du modèle retenu est biaisé vers le haut, d'autant plus qu'on a fait d'essais. Le test, tenu à l'écart de toute décision et utilisé une seule fois, donne une estimation sans biais de la performance sur des données nouvelles. Si on n'a pas assez de données pour trois ensembles, on utilise la validation croisée pour les choix, et on garde tout de même un test.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "ensemble d'entraînement", en: "training set", definition: "Données sur lesquelles on règle les paramètres du modèle." },
+  { fr: "ensemble de validation", en: "validation set", definition: "Données qui servent à comparer des modèles ou des hyperparamètres." },
+  { fr: "ensemble de test", en: "test set", definition: "Données gardées à l'écart, utilisées une seule fois pour mesurer le modèle final." },
+  { fr: "hyperparamètre", en: "hyperparameter", definition: "Réglage choisi autour de l'apprentissage, que la descente de gradient ne modifie pas." },
+  { fr: "fuite de données", en: "data leakage", definition: "Information du test ou de l'avenir qui se glisse dans l'entraînement et gonfle les scores." },
+  { fr: "validation croisée", en: "cross-validation", definition: "Méthode qui fait tourner le rôle de validation entre plusieurs morceaux des données." }
+]} />
