@@ -1,0 +1,147 @@
+---
+id: independance
+type: maths
+titre: "L'indépendance : quand deux événements s'ignorent"
+sous_titre: "Indépendance de variables et hypothèse i.i.d. en ML"
+domaine: probabilites
+niveau: 2
+prerequis: [probabilite-conditionnelle]
+statut: brouillon
+mis_a_jour: 2026-09-28
+temps_lecture: 9
+sources:
+  - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 6 (Probability and Distributions), indépendance statistique et indépendance conditionnelle"
+  - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.7 (indépendance et indépendance conditionnelle) ; chapitre 5, section 5.2 (hypothèses i.i.d.)"
+---
+
+import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Simulation } from '@/components/animations';
+
+## Pourquoi l'IA en a besoin
+
+Presque tout l'apprentissage automatique repose sur une hypothèse rarement dite à voix haute : les exemples d'entraînement sont tirés indépendamment les uns des autres, selon la même loi. C'est elle qui permet d'écrire la probabilité de tout un jeu de données comme un produit, puis la perte comme une moyenne, et qui justifie la [loi des grands nombres](/maths/loi-grands-nombres/) et le [maximum de vraisemblance](/maths/maximum-vraisemblance/). Savoir ce que veut dire « indépendant », et quand ce n'est pas le cas, est donc indispensable.
+
+## L'intuition
+
+Deux événements sont indépendants quand savoir que l'un est arrivé ne change pas la probabilité de l'autre. Le résultat d'un dé lancé à Dakar n'apprend rien sur un dé lancé à Abidjan. En revanche, la pluie du matin et un trajet de plus d'une heure en ville ne sont pas indépendants : quand il pleut, les embouteillages s'allongent.
+
+Dans l'animation, il pleut 30 % des matins, et 40 % des trajets durent plus d'une heure. Règle la probabilité d'un trajet long **sachant** qu'il pleut. Quand elle vaut exactement 40 %, comme pour les matins secs, la pluie ne dit plus rien sur la durée : les deux événements sont indépendants, et les deux colonnes foncées sont à la même hauteur.
+
+<Simulation
+  rendu="independance-aires"
+  label="Répartition des matins selon la pluie et la durée du trajet"
+  parametres={[
+    { nom: "bSachantA", label: "P(trajet long | pluie)", min: 0, max: 1, pas: 0.05, valeur: 0.8, role: "parametre", decimales: 2 }
+  ]}
+  legende="La probabilité totale d'un trajet long reste 40 % : si elle monte les jours de pluie, elle baisse les jours secs."
+/>
+
+## La définition
+
+Deux événements $A$ et $B$ sont indépendants (*independent*) si :
+
+$$
+P(A \cap B) = P(A)\, P(B)
+$$
+
+où :
+- $P(A \cap B)$ est la probabilité que les deux arrivent ensemble ;
+- $P(A)$ et $P(B)$ sont leurs probabilités séparées.
+
+Quand $P(B) > 0$, c'est équivalent à $P(A \mid B) = P(A)$ : connaître $B$ ne change pas la probabilité de $A$.
+
+Des exemples $x_1, \dots, x_n$ sont dits i.i.d. (*independent and identically distributed*, indépendants et identiquement distribués) s'ils sont indépendants entre eux et tirés selon la même loi. Alors la probabilité de tout le jeu de données est un produit : $P(x_1, \dots, x_n) = P(x_1)\,P(x_2) \cdots P(x_n)$.
+
+Autrement dit : deux événements sont indépendants quand la probabilité de les voir ensemble est simplement le produit de leurs probabilités, sans lien caché entre eux.
+
+<Depliable titre="Pourquoi les deux définitions sont équivalentes">
+
+Supposons $P(B) > 0$.
+
+- Si $P(A \cap B) = P(A)\,P(B)$, alors $P(A \mid B) = \frac{P(A \cap B)}{P(B)} = \frac{P(A)\,P(B)}{P(B)} = P(A)$.
+- Réciproquement, si $P(A \mid B) = P(A)$, alors $P(A \cap B) = P(A \mid B)\,P(B) = P(A)\,P(B)$.
+
+**L'indépendance est symétrique.** La formule $P(A \cap B) = P(A)\,P(B)$ ne distingue pas $A$ de $B$ : si $B$ n'apprend rien sur $A$, alors $A$ n'apprend rien sur $B$.
+
+**Les contraires aussi sont indépendants.** Si $A$ et $B$ sont indépendants :
+
+$$
+\begin{aligned}
+P(A \cap \bar{B}) &= P(A) - P(A \cap B) && A \text{ se découpe en } A \cap B \text{ et } A \cap \bar{B} \\
+&= P(A) - P(A)\,P(B) = P(A)\,\big(1 - P(B)\big) = P(A)\,P(\bar{B}) && \text{indépendance, puis factorisation}
+\end{aligned}
+$$
+
+</Depliable>
+
+## Un exemple à la main
+
+**Deux dés.** Probabilité d'obtenir 6 avec le premier et 6 avec le second : $\frac{1}{6} \times \frac{1}{6} = \frac{1}{36} \approx 0{,}028$. Les dés n'ont aucun lien, on multiplie.
+
+**La pluie et le trajet.** Avec $P(\text{pluie}) = 0{,}3$, $P(\text{long}) = 0{,}4$ et $P(\text{long} \mid \text{pluie}) = 0{,}8$ :
+
+- $P(\text{pluie et long}) = 0{,}8 \times 0{,}3 = 0{,}24$ ;
+- $P(\text{pluie}) \times P(\text{long}) = 0{,}3 \times 0{,}4 = 0{,}12$ ;
+- $0{,}24 \neq 0{,}12$ : les événements sont dépendants. Il y a deux fois plus de matins « pluie et trajet long » que s'ils étaient indépendants.
+
+**Un jeu de données i.i.d.** Un modèle donne aux cinq trajets d'un jeu de test les probabilités 0,5, 0,4, 0,8, 0,6 et 0,5. Si les trajets sont indépendants, la probabilité de l'ensemble vaut $0{,}5 \times 0{,}4 \times 0{,}8 \times 0{,}6 \times 0{,}5 = 0{,}048$. Son logarithme, $\ln 0{,}048 \approx -3{,}04$, est la somme des logarithmes : c'est pour cela que la perte d'un jeu de données s'écrit comme une somme d'une perte par exemple.
+
+## Essaie toi-même
+
+Reprends l'animation. Consigne : trouve la valeur de $P(\text{trajet long} \mid \text{pluie})$ qui rend les deux événements indépendants. Puis mets-la à 0 : que devient $P(\text{trajet long} \mid \text{pas de pluie})$ ?
+
+<Depliable titre="Ce que tu devrais observer">
+
+L'indépendance est atteinte pour $P(\text{long} \mid \text{pluie}) = 0{,}4$ : les deux colonnes foncées ont la même hauteur, et $P(\text{pluie et long}) = 0{,}12 = 0{,}3 \times 0{,}4$.
+
+Avec $P(\text{long} \mid \text{pluie}) = 0$, il faut que tous les trajets longs aient lieu les jours secs : $P(\text{long} \mid \text{pas de pluie}) = 0{,}4/0{,}7 \approx 0{,}571$. Les événements sont encore dépendants, mais dans l'autre sens : la pluie rendrait les trajets plus courts. Une dépendance peut aller dans un sens ou dans l'autre.
+
+</Depliable>
+
+## À quoi ça sert en IA
+
+- **La perte comme moyenne.** Avec des exemples i.i.d., la vraisemblance d'un jeu de données est un produit, et sa log-vraisemblance une somme : c'est ce qui justifie le [maximum de vraisemblance](/maths/maximum-vraisemblance/) et la perte moyenne sur les exemples.
+- **Les mini-lots.** La [loi des grands nombres](/maths/loi-grands-nombres/) garantit qu'une moyenne sur des exemples indépendants se rapproche de la vraie moyenne : c'est ce qui rend valable le gradient estimé sur un [mini-lot](/maths/sgd-minibatch/).
+- **Les modèles simplifiés.** Le classifieur de la fiche sur le [théorème de Bayes](/maths/bayes/) suppose les mots indépendants sachant la catégorie : une hypothèse fausse en général, mais utile.
+
+## Les pièges classiques
+
+**« Indépendants veut dire incompatibles. »** C'est presque le contraire. Deux événements incompatibles, de probabilités positives, ne peuvent pas arriver ensemble : $P(A \cap B) = 0 \neq P(A)\,P(B)$. Savoir que l'un est arrivé dit avec certitude que l'autre n'est pas arrivé : ils sont très dépendants.
+
+**« Les mots d'une phrase sont indépendants. »** Ils ne le sont pas du tout : après « mobile », « money » est bien plus probable qu'en moyenne. Toute la difficulté des [modèles de langage](/concepts/modele-langage/) vient de cette dépendance, que la [règle du produit](/maths/regle-produit/) permet d'écrire sans l'ignorer.
+
+**« Les données d'entraînement sont toujours i.i.d. »** Des photos prises par un même appareil, des SMS d'un même expéditeur, des ventes de jours consécutifs sont liés entre eux. Ignorer ces liens donne des évaluations trop optimistes, comme le signale la fiche sur les ensembles [train, validation, test](/concepts/train-val-test/).
+
+## Entraîne-toi
+
+**Exercice 1.** On lance une pièce trois fois. Quelle est la probabilité d'obtenir trois fois pile ? Au moins une fois face ?
+
+<Depliable titre="Corrigé">
+
+Trois fois pile : $(1/2)^3 = 1/8$. Au moins une fois face : $1 - 1/8 = 7/8$.
+
+</Depliable>
+
+**Exercice 2.** Dans une ville, 20 % des habitants ont un vélo et 50 % un téléphone à écran tactile ; 12 % ont les deux. Ces deux possessions sont-elles indépendantes ?
+
+<Depliable titre="Corrigé">
+
+$0{,}2 \times 0{,}5 = 0{,}1 \neq 0{,}12$. Elles sont (un peu) dépendantes : avoir un vélo rend légèrement plus probable d'avoir un tel téléphone, $0{,}12/0{,}2 = 0{,}6$ au lieu de 0,5.
+
+</Depliable>
+
+**Exercice 3.** Un modèle donne la probabilité 0,9 à la bonne réponse de chacun de 50 exemples de test indépendants. Quelle est la probabilité de tout le jeu ? Et la somme des $-\ln p$ ?
+
+<Depliable titre="Corrigé">
+
+$0{,}9^{50} \approx 0{,}005\,2$. La somme des $-\ln p$ vaut $50 \times 0{,}105 \approx 5{,}27$, soit une moyenne de 0,105 par exemple : c'est la perte moyenne du modèle.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "événements indépendants", en: "independent events", definition: "Événements tels que P(A ∩ B) = P(A) P(B) : l'un n'apprend rien sur l'autre." },
+  { fr: "i.i.d.", en: "independent and identically distributed", definition: "Exemples tirés indépendamment les uns des autres, selon la même loi." },
+  { fr: "indépendance conditionnelle", en: "conditional independence", definition: "Indépendance qui n'est vraie qu'une fois connue une troisième information, comme la catégorie d'un SMS." }
+]} />
