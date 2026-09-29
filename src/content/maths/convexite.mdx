@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.2 (minima locaux dans les réseaux de neurones)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -127,29 +127,38 @@ Avec la fonction 1, la courbe dépasse la corde sur une large zone du milieu, en
 
 ## Entraîne-toi
 
-**Exercice 1.** Vérifie l'inégalité de convexité pour $f(x) = x^2$, $a = 1$, $b = 5$ et $t = 0{,}25$.
+<Exercice titre="La corde au-dessus de la parabole" niveau="facile" reponse={3} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Vérifie l'inégalité de convexité pour $f(x) = x^2$, $a = 1$, $b = 5$ et $t = 0{,}25$. Entre l’écart entre la corde et la courbe.
+
+<div slot="solution">
 
 Point : $0{,}75 \times 1 + 0{,}25 \times 5 = 2$, courbe $f(2) = 4$. Corde : $0{,}75 \times 1 + 0{,}25 \times 25 = 7$. On a bien $4 \le 7$, avec un écart $0{,}25 \times 0{,}75 \times 16 = 3$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Montre que $f(x) = -x^2$ n'est pas convexe avec un seul contre-exemple.
+<Exercice titre="Un seul contre-exemple suffit" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Montre que $f(x) = -x^2$ n'est pas convexe avec un seul contre-exemple.
+
+<div slot="solution">
 
 $a = -1$, $b = 1$, $t = 0{,}5$ : le point est 0 et $f(0) = 0$. La corde vaut $0{,}5 \times (-1) + 0{,}5 \times (-1) = -1$. Or $0 > -1$ : la courbe dépasse la corde.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** La somme de deux fonctions convexes est-elle convexe ? Déduis-en que la perte du gbaka $\frac{1}{4}\sum_i (w x_i - y_i)^2$ est convexe en $w$.
+<Exercice titre="Pourquoi la perte du gbaka n’a qu’une vallée" niveau="defi">
 
-<Depliable titre="Corrigé">
+La somme de deux fonctions convexes est-elle convexe ? Déduis-en que la perte du gbaka $\frac{1}{4}\sum_i (w x_i - y_i)^2$ est convexe en $w$.
+
+<div slot="solution">
 
 Oui : si $f$ et $g$ vérifient chacune l'inégalité, on additionne les deux inégalités membre à membre, et $f + g$ la vérifie. Chaque terme $(w x_i - y_i)^2$ est le carré d'une fonction affine de $w$ ; on vérifie comme pour $x^2$ que c'est convexe, l'écart valant $t(1 - t)\,x_i^2\,(a - b)^2 \ge 0$. La somme, puis le produit par $\frac{1}{4} > 0$, restent convexes. La descente de gradient du gbaka ne pouvait donc pas se tromper de vallée.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
