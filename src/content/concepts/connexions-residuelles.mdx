@@ -14,7 +14,7 @@ sources:
   - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.1 (connexion résiduelle autour de chaque sous-couche, LayerNorm(x + Sublayer(x)))"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -97,15 +97,54 @@ Le premier terme, $\mathbf{I}$, transporte le gradient de la sortie jusqu'au blo
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : avec 30 couches, cherche une pente de branche pour laquelle le réseau simple reçoit encore un gradient raisonnable. Puis cherche les pentes pour lesquelles le réseau résiduel pose problème.
+<Exercice titre="Simple contre résiduel" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Avec 30 couches, cherche une pente de branche pour laquelle le réseau simple reçoit encore un gradient raisonnable. Puis cherche les pentes pour lesquelles le réseau résiduel pose problème.
+
+<div slot="solution">
 
 Pour le réseau simple, aucune pente entre $-0{,}3$ et $0{,}3$ ne marche : même avec $|b| = 0{,}3$, la première couche reçoit $0{,}3^{29} \approx 7 \times 10^{-16}$ fois le gradient. Il faudrait une pente proche de 1 à chaque couche, ce que rien ne garantit.
 
 Le réseau résiduel reste raisonnable tant que la pente est petite, par exemple entre $-0{,}1$ et $0{,}1$ : le facteur $(1 + b)^{29}$ va d'environ 0,05 à 16. Avec $b = 0{,}3$, il atteint environ 2 000 : les connexions résiduelles n'empêchent pas l'explosion si les branches sont trop fortes. C'est pourquoi on les combine avec la [normalisation](/concepts/normalisation-couches/) et une initialisation qui garde les branches petites au départ.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Vingt blocs, une petite pente négative" niveau="moyen" reponse={0.377} tolerance={0.002}>
+
+Un réseau empile 20 blocs. Dans chacun, la branche a une pente $b = -0{,}05$. Quelle fraction du gradient de la sortie la première couche reçoit-elle avec les raccourcis ? Et sans eux, si chaque couche multiplie simplement par $b$ ?
+
+<div slot="indice">
+
+Entre le premier et le dernier bloc, on traverse 19 facteurs : $1 + b$ avec raccourci, $b$ sans raccourci (en valeur absolue).
+
+</div>
+<div slot="solution">
+
+Avec raccourcis : $(1 - 0{,}05)^{19} = 0{,}95^{19} \approx 0{,}377$. La première couche reçoit plus du tiers du gradient : elle apprend normalement.
+
+Sans raccourcis : $0{,}05^{19} \approx 1{,}9 \times 10^{-25}$. Autant dire rien. La même branche, avec ou sans le « $+ \mathbf{h}_k$ », fait passer le gradient d'un tiers à un nombre qu'aucun ordinateur ne distingue de zéro à l'échelle de l'apprentissage.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de chemins dans un réseau résiduel ?" niveau="defi" reponse={120} tolerance={0}>
+
+La démonstration montre qu'un réseau de $n$ blocs résiduels contient $2^n$ chemins : chaque bloc est soit traversé par sa branche, soit court-circuité. Pour $n = 10$ blocs, combien y a-t-il de chemins en tout ? Combien passent par **exactement 3** branches ? Quelle est la longueur moyenne d'un chemin, en nombre de branches traversées ?
+
+<div slot="indice">
+
+Choisir un chemin, c'est choisir l'ensemble des blocs dont on traverse la branche. Pour exactement 3 branches, compte les façons de choisir 3 blocs parmi 10.
+
+</div>
+<div slot="solution">
+
+En tout : $2^{10} = 1\,024$ chemins. Par exactement 3 branches : $\binom{10}{3} = \frac{10 \times 9 \times 8}{3 \times 2 \times 1} = 120$ chemins.
+
+Chaque bloc est traversé dans exactement la moitié des chemins, donc la longueur moyenne vaut $10 / 2 = 5$ branches. Un réseau de 10 blocs se comporte ainsi comme un grand ensemble de réseaux, surtout de profondeur moyenne, et le chemin de longueur 0, le raccourci pur, transporte le gradient sans le moindre affaiblissement.
+
+</div>
+</Exercice>
 
 ## En code
 
