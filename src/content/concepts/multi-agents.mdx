@@ -1,0 +1,255 @@
+---
+id: multi-agents
+type: concept
+titre: "Plusieurs agents qui collaborent"
+sous_titre: "Systèmes multi-agents, orchestrateur et sous-agents"
+domaine: agents
+niveau: 5
+prerequis: [planification-agent]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Anthropic, « How we built our multi-agent research system », 13 juin 2025 — https://www.anthropic.com/engineering/multi-agent-research-system — schéma orchestrateur et sous-agents en parallèle ; +90,2 % sur l'évaluation interne de recherche par rapport à un agent seul ; agents ≈ 4 fois plus de tokens qu'un chat, multi-agents ≈ 15 fois ; sur BrowseComp, l'usage de tokens explique 80 % de la variance des performances ; temps de recherche réduit jusqu'à 90 % pour les requêtes complexes"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [agent](/concepts/agent-llm/) qui sait [planifier](/concepts/planification-agent/) découpe une grosse tâche en étapes. Mais il les exécute l'une après l'autre, dans un seul contexte qui grossit à chaque résultat. Pour comparer trois ordinateurs portables, il cherche le premier, puis le deuxième, puis le troisième, et quand il arrive au troisième, son contexte est encombré de tout ce qu'il a lu sur les deux autres. Or ces trois recherches ne dépendent pas les unes des autres. Pourquoi ne pas les confier à trois agents en même temps ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un agent orchestrateur découpe la tâche, confie chaque morceau indépendant à un sous-agent qui travaille en parallèle dans son propre contexte, puis assemble leurs rapports.
+</PhraseCle>
+
+## En image
+
+Pense à une rédaction qui prépare un dossier sur le prix du riz dans trois pays.
+
+- La rédactrice en chef **découpe** : un journaliste par pays, avec une consigne claire (« prix au kilo sur un an, deux sources au moins »).
+- Les trois journalistes enquêtent **en même temps**, chacun avec ses propres notes.
+- Chacun rend un **article court**, pas ses carnets entiers.
+- La rédactrice **assemble** et écrit l'introduction qui compare les trois.
+
+Là où l'image s'arrête : les journalistes peuvent s'appeler entre eux, se croiser à la machine à café, partager une intuition. Dans la plupart des systèmes actuels, les sous-agents ne communiquent qu'avec l'orchestrateur, et seulement par le texte de la consigne et du rapport. Une consigne vague donne un travail en double ou à côté.
+
+## Comment ça marche
+
+Le schéma le plus courant est celui de l'**orchestrateur et des sous-agents** (*orchestrator-workers*).
+
+1. **Planifier.** L'orchestrateur lit la demande et la découpe en sous-tâches, comme dans la fiche sur la planification, mais en cherchant celles qui sont **indépendantes**.
+2. **Déléguer.** Pour chaque sous-tâche, il écrit une consigne : l'objectif, le format du rapport attendu, les outils à utiliser, ce qu'il ne faut pas faire.
+3. **Exécuter en parallèle.** Chaque sous-agent est un agent complet, avec sa propre boucle et son propre contexte. Il ne voit ni les autres sous-agents ni tout l'historique de l'orchestrateur.
+4. **Synthétiser.** Chaque sous-agent renvoie un rapport condensé. L'orchestrateur les fusionne, vérifie les manques et relance une sous-tâche si besoin.
+
+Deux gains en découlent : le **temps**, puisque les sous-tâches avancent ensemble, et le **contexte**, puisque chaque sous-agent reste concentré sur un seul sujet. Le prix, ce sont des tokens en plus et du temps de coordination. Fais défiler.
+
+<PasAPas rendu="orchestre-agents" label="Un orchestrateur et trois sous-agents comparent des ordinateurs portables">
+  <Etape etat="initial">
+    **La demande arrive** chez l'orchestrateur : comparer trois ordinateurs portables.
+  </Etape>
+  <Etape etat="plan">
+    **Il découpe.** Les trois fiches produit se cherchent indépendamment : une consigne par sous-agent, avec le même format de rapport (prix, autonomie, poids, avis).
+  </Etape>
+  <Etape etat="parallele">
+    **Les sous-agents travaillent en même temps**, chacun dans son contexte. La frise en bas montre le temps : seul, il faudrait enchaîner les trois recherches.
+  </Etape>
+  <Etape etat="synthese">
+    **Retour des rapports.** L'orchestrateur ne reçoit que trois résumés courts, pas les dizaines de pages lues. Il ajoute un temps de coordination, en or sur la frise.
+  </Etape>
+  <Etape etat="bilan">
+    **Le bilan.** Avec des durées inventées de 10 minutes par recherche et 1 minute de coordination par sous-agent : 30 minutes seul, 13 minutes à plusieurs. Mais quatre agents ont consommé des tokens, pas un.
+  </Etape>
+</PasAPas>
+
+Combien gagne-t-on vraiment ? Supposons une tâche découpée en $n$ sous-tâches indépendantes qui prennent chacune un temps $t$, et un coût de coordination $c$ par sous-agent (écrire sa consigne, lire et fusionner son rapport). Un agent seul met $n\,t$ ; l'orchestrateur et ses $n$ sous-agents mettent $t + c\,n$. L'**accélération** vaut :
+
+$$
+S(n) = \frac{n\,t}{t + c\,n}
+$$
+
+où :
+- $n$ est le nombre de sous-tâches, confiées à autant de sous-agents ;
+- $t$ est la durée d'une sous-tâche ;
+- $c$ est le coût de coordination par sous-agent, en temps ;
+- $S(n)$ est le nombre de fois où l'équipe va plus vite qu'un agent seul.
+
+Exemple : $t = 10$ minutes, $c = 1$ minute. Avec 3 sous-agents, $S = 30 / 13 \approx 2{,}3$ ; avec 10 sous-agents, $S = 100 / 20 = 5$. On gagne, mais de moins en moins : dix fois plus d'agents ne vont pas dix fois plus vite.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi l'accélération plafonne à t / c">
+
+Le temps d'un agent seul est la somme des $n$ sous-tâches : $n\,t$. À plusieurs, les sous-tâches se déroulent en même temps, donc elles ne coûtent que la durée d'une seule, $t$ ; mais l'orchestrateur doit coordonner chaque sous-agent, ce qui ajoute $c\,n$. D'où le rapport $S(n) = \frac{n t}{t + c n}$.
+
+Divisons le haut et le bas par $n$ :
+
+$$
+\begin{aligned}
+S(n) &= \frac{n\,t}{t + c\,n} && \text{définition} \\
+&= \frac{t}{\frac{t}{n} + c} && \text{on divise numérateur et dénominateur par } n \\
+&\xrightarrow[n \to \infty]{} \frac{t}{c} && \text{car } \tfrac{t}{n} \to 0
+\end{aligned}
+$$
+
+L'accélération ne dépasse jamais $t / c$ : avec $t = 10$ et $c = 1$, jamais plus de 10 fois plus vite, quel que soit le nombre d'agents. Pour gagner beaucoup, il faut des sous-tâches **longues** et une coordination **légère**. Et si les sous-tâches dépendent les unes des autres, elles ne peuvent plus se dérouler en même temps : le parallélisme ne sert plus à rien.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Paralléliser ou pas ?" niveau="facile">
+
+Pour chaque tâche, un système multi-agents a-t-il un intérêt ?
+
+1. Rassembler les horaires d'ouverture de vingt pharmacies d'une ville.
+2. Écrire un programme où chaque fonction dépend de la précédente.
+3. Résumer un livre de douze chapitres, chapitre par chapitre, puis écrire un résumé global.
+
+<div slot="solution">
+
+1. **Oui** : vingt recherches indépendantes, chacune rapide à vérifier. C'est le cas idéal.
+2. **Non** : les étapes dépendent les unes des autres. Un seul agent, voire un workflow fixe, fera mieux, sans coût de coordination.
+3. **Oui** pour les résumés de chapitres, qui sont indépendants ; le résumé global revient à l'orchestrateur, qui doit attendre tous les rapports.
+
+</div>
+</Exercice>
+
+<Exercice titre="L'accélération d'une étude de marché" niveau="moyen" reponse={3} tolerance={0.01}>
+
+Une étude de marché se découpe en 6 sous-tâches indépendantes de 12 minutes chacune. Coordonner un sous-agent coûte 2 minutes à l'orchestrateur. Quelle est l'accélération $S$ obtenue avec 6 sous-agents ?
+
+<div slot="solution">
+
+$S = \frac{6 \times 12}{12 + 2 \times 6} = \frac{72}{24} = 3$. Seul, il faudrait 72 minutes ; à plusieurs, 24 minutes.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de sous-agents pour aller 4 fois plus vite ?" niveau="defi" reponse={7} tolerance={0} unite="sous-agents">
+
+Avec $t = 10$ minutes et $c = 1$ minute, combien de sous-agents faut-il au minimum pour aller au moins 4 fois plus vite qu'un agent seul ? Est-il possible d'aller 12 fois plus vite ?
+
+<div slot="indice">
+
+Résous $\frac{10 n}{10 + n} \geq 4$ en multipliant les deux côtés par $10 + n$, qui est positif.
+
+</div>
+<div slot="solution">
+
+$10 n \geq 4(10 + n) \iff 6 n \geq 40 \iff n \geq 6{,}67$, donc **7 sous-agents**. Vérification : $S(6) = 60/16 = 3{,}75$, $S(7) = 70/17 \approx 4{,}12$.
+
+Aller 12 fois plus vite est impossible : l'accélération plafonne à $t / c = 10$. Pour espérer plus, il faudrait alléger la coordination (des consignes et des rapports plus courts) ou découper en sous-tâches plus longues.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un orchestrateur qui découpe, des sous-agents simulés qui travaillent en parallèle avec des fils d'exécution, puis une synthèse. On mesure le temps écoulé.
+
+```python
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+FICHES = {  # données inventées
+    "portable A": {"prix": 650, "autonomie_h": 9, "poids_kg": 1.4},
+    "portable B": {"prix": 540, "autonomie_h": 7, "poids_kg": 1.8},
+    "portable C": {"prix": 720, "autonomie_h": 12, "poids_kg": 1.2},
+}
+
+def sous_agent(consigne):
+    """Simule une recherche de 0,2 s et renvoie un rapport court, pas tout ce qu'il a lu."""
+    time.sleep(0.2)
+    produit = consigne["produit"]
+    return {"produit": produit, **FICHES[produit]}
+
+def orchestrateur(demande, en_parallele=True):
+    consignes = [{"produit": p, "format": "prix, autonomie, poids"} for p in FICHES]  # découpage
+    debut = time.perf_counter()
+    if en_parallele:
+        with ThreadPoolExecutor(max_workers=len(consignes)) as pool:
+            rapports = list(pool.map(sous_agent, consignes))
+    else:
+        rapports = [sous_agent(c) for c in consignes]
+    duree = time.perf_counter() - debut
+    meilleur = max(rapports, key=lambda r: r["autonomie_h"] / r["prix"] * 100)
+    return meilleur["produit"], round(duree, 1)
+
+print("seul        :", orchestrateur("Compare ces portables", en_parallele=False))
+print("en parallèle:", orchestrateur("Compare ces portables", en_parallele=True))
+
+# L'accélération théorique et son plafond
+S = lambda n, t, c: n * t / (t + c * n)
+print([round(S(n, 10, 1), 2) for n in (1, 3, 7, 10, 100)], "plafond :", 10 / 1)
+```
+
+En vrai, l'orchestrateur est lui-même un agent dont l'un des outils consiste à lancer un sous-agent avec une consigne ; chaque sous-agent est une boucle d'agent complète, appelée en parallèle, et seul son rapport final revient dans le contexte de l'orchestrateur.
+
+```python
+# no-run
+import asyncio
+async def lancer_sous_agent(consigne):
+    return await boucle_agent(systeme="Tu es un sous-agent de recherche.", tache=consigne, tours_max=15)
+
+async def orchestrer(demande):
+    plan = await boucle_agent(systeme="Découpe en sous-tâches indépendantes, en JSON.", tache=demande)
+    rapports = await asyncio.gather(*(lancer_sous_agent(c) for c in plan["consignes"]))
+    return await boucle_agent(systeme="Synthétise ces rapports.", tache=str(rapports))
+```
+
+## Les pièges classiques
+
+**« Plus d'agents, c'est toujours mieux. »** L'accélération plafonne à $t / c$, et chaque agent consomme des tokens. Au-delà d'un certain nombre, on paie plus pour aller à peine plus vite.
+
+**« Les sous-agents se coordonnent tout seuls. »** Ils ne savent que ce que leur consigne dit. Deux consignes floues qui se recouvrent donnent deux fois la même recherche ; une consigne qui oublie un critère donne un rapport inutilisable.
+
+**« Le multi-agents convient à toutes les tâches. »** Il brille quand le travail se découpe en morceaux indépendants, comme une recherche large. Quand chaque étape dépend de la précédente, comme souvent en programmation, un seul agent fait mieux.
+
+## Dans la vraie vie
+
+En juin 2025, Anthropic a décrit son système de recherche, bâti sur ce schéma : un agent principal planifie, lance des sous-agents qui cherchent en parallèle, puis synthétise. Sur son évaluation interne de recherche, ce système a fait 90,2 % mieux qu'un agent seul utilisant Claude Opus 4, alors que l'orchestrateur tournait sur Claude Opus 4 et les sous-agents sur Claude Sonnet 4. Mais l'article est aussi clair sur le prix : un agent consomme environ 4 fois plus de tokens qu'une conversation, et un système multi-agents environ 15 fois plus. Les auteurs notent que, sur le test BrowseComp, la quantité de tokens utilisés explique à elle seule 80 % des différences de performance : répartir le travail sur plusieurs contextes, c'est aussi une façon de dépenser plus de calcul. Pour les requêtes complexes, le parallélisme a réduit le temps de recherche jusqu'à 90 %.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que renvoie un sous-agent à l'orchestrateur, idéalement ?",
+    choix: ["Tout son contexte", "Un rapport court au format demandé", "Rien, il agit seul", "La consigne qu'il a reçue"],
+    bonne: 1,
+    explication: "Un rapport condensé garde le contexte de l'orchestrateur léger ; c'est l'un des intérêts du découpage."
+  },
+  {
+    question: "Avec t = 20 min et c = 2 min, quelle est l'accélération maximale possible ?",
+    choix: ["20", "10", "40", "Illimitée"],
+    bonne: 1,
+    explication: "Le plafond vaut t / c = 20 / 2 = 10."
+  },
+  {
+    question: "Selon l'article d'Anthropic, combien de tokens un système multi-agents consomme-t-il environ, comparé à une conversation ?",
+    choix: ["Autant", "2 fois plus", "15 fois plus", "100 fois plus"],
+    bonne: 2,
+    explication: "Environ 15 fois plus, contre environ 4 fois plus pour un agent seul."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quand choisiriez-vous une architecture multi-agents plutôt qu'un agent unique ?">
+
+Quand la tâche se découpe en sous-tâches largement indépendantes, assez longues pour que le parallélisme compense la coordination, et quand la valeur du résultat justifie un coût en tokens bien plus élevé : recherche large, comparaison de nombreuses sources, analyse de nombreux documents. Chaque sous-agent y gagne un contexte propre et concentré. À l'inverse, pour une tâche séquentielle où chaque étape dépend de la précédente, ou quand le budget est serré, un agent unique est plus simple, moins cher et plus prévisible. Dans tous les cas, la qualité dépend des consignes : objectif, format de rapport, limites, et un orchestrateur qui vérifie les manques avant de conclure.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "système multi-agents", en: "multi-agent system", definition: "Plusieurs agents qui se répartissent une tâche, en général coordonnés par un agent principal." },
+  { fr: "orchestrateur", en: "orchestrator", definition: "Agent qui découpe la tâche, rédige les consignes, lance les sous-agents et synthétise leurs rapports." },
+  { fr: "sous-agent", en: "subagent", definition: "Agent lancé pour une sous-tâche, avec son propre contexte, qui renvoie un rapport." },
+  { fr: "accélération", en: "speedup", definition: "Rapport entre le temps d'un agent seul et le temps de l'équipe ; il plafonne à t / c." }
+]} />
