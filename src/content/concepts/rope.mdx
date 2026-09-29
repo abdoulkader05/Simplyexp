@@ -1,0 +1,247 @@
+---
+id: rope
+type: concept
+titre: "RoPE : encoder la position en faisant tourner les vecteurs"
+sous_titre: "Rotary Position Embedding dans les LLM modernes"
+domaine: transformers
+niveau: 5
+prerequis: [encodage-positionnel]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Su et al., « RoFormer: Enhanced Transformer with Rotary Position Embedding », avril 2021 — https://arxiv.org/abs/2104.09864 (version HTML : https://ar5iv.labs.arxiv.org/html/2104.09864) — résumé et section 3 (f_q(x_m, m) = (W_q x_m) e^{imθ}, angles θ_i = 10000^{−2(i−1)/d}, propriétés : longueur de séquence flexible, dépendance qui décroît avec la distance, compatibilité avec l'attention linéaire)"
+  - "Touvron et al., « LLaMA: Open and Efficient Foundation Language Models », Meta AI, 2023 — https://arxiv.org/abs/2302.13971 — section 2.2 (RoPE ajouté à chaque couche à la place des encodages absolus) et tableau 2 (modèle de 6,7 milliards de paramètres : dimension 4096, 32 têtes)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+L'[encodage positionnel](/concepts/encodage-positionnel/) du transformer original ajoute un vecteur de position à chaque token, une fois pour toutes, à l'entrée du modèle. Cela marche, mais l'attention, elle, a surtout besoin de savoir à quelle **distance** se trouvent deux tokens : le mot juste avant, ou celui dix mots plus loin. Avec une position ajoutée à l'entrée, cette distance n'apparaît qu'indirectement, mêlée au sens des mots, et il faut espérer que le modèle apprenne à l'extraire.
+
+En avril 2021, Su et ses coauteurs proposent une autre voie avec RoFormer : ne rien ajouter du tout, mais **faire tourner** les requêtes et les clés d'un angle proportionnel à leur position. Le score d'attention entre deux tokens ne dépend alors plus que de leur écart.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Chaque requête et chaque clé tourne d'un angle proportionnel à sa position ; comme un produit scalaire ne dépend que de l'angle entre deux vecteurs, le score d'attention ne dépend plus que de la distance entre les tokens.
+</PhraseCle>
+
+## En image
+
+Pense à deux aiguilles sur un même cadran, chacune posée sur une horloge qui avance d'un cran par mot.
+
+- La requête d'un mot en position 5 est tournée de 5 crans, la clé d'un mot en position 4, de 4 crans.
+- Si l'on fait avancer tout le texte de 100 mots, les deux aiguilles tournent chacune de 100 crans de plus.
+- Leur **écart**, lui, ne change pas : toujours un cran.
+- Or le score d'attention ne regarde que cet écart.
+
+Là où l'image s'arrête : un vrai vecteur de requête n'est pas une seule aiguille mais des dizaines de paires de coordonnées, chacune sur son propre cadran, qui tournent à des vitesses différentes, comme les roues de l'encodage sinusoïdal.
+
+## Comment ça marche
+
+Dans une tête d'attention, le token en position $m$ produit une requête $\mathbf{q}_m$ et le token en position $n$ une clé $\mathbf{k}_n$, de dimension $d$. RoPE (*Rotary Position Embedding*) découpe chacun de ces vecteurs en $d/2$ paires de coordonnées et fait tourner la paire numéro $i$ d'un angle $m\,\theta_i$ :
+
+$$
+\begin{pmatrix} q'_{2i-1} \\ q'_{2i} \end{pmatrix}
+=
+\begin{pmatrix} \cos m\theta_i & -\sin m\theta_i \\ \sin m\theta_i & \cos m\theta_i \end{pmatrix}
+\begin{pmatrix} q_{2i-1} \\ q_{2i} \end{pmatrix}
+\qquad
+\theta_i = 10000^{-2(i-1)/d}
+$$
+
+où :
+- $q_{2i-1}$ et $q_{2i}$ sont les deux coordonnées de la paire $i$ de la requête, avant rotation ;
+- $q'_{2i-1}$ et $q'_{2i}$ sont ces coordonnées après rotation ;
+- $m$ est la position du token, $i$ va de $1$ à $d/2$ ;
+- $\theta_i$ est l'angle par position de la paire $i$ : 1 radian pour la première, de plus en plus petit ensuite, comme les vitesses de l'encodage sinusoïdal.
+
+On fait exactement la même chose pour la clé $\mathbf{k}_n$, avec l'angle $n\,\theta_i$. Les valeurs, elles, ne tournent pas. Et contrairement à l'encodage original, la rotation s'applique dans **chaque couche**, juste avant le calcul des scores, et non une seule fois à l'entrée.
+
+Exemple à la main, en dimension 2, avec un angle de $30°$ par position et $\mathbf{q} = \mathbf{k} = (1 \,;\, 0)$ avant rotation. Pour $m = 2$ et $n = 1$, la requête tourne de $60°$ et devient $(0{,}5 \,;\, 0{,}866)$ ; la clé tourne de $30°$ et devient $(0{,}866 \,;\, 0{,}5)$. Leur produit scalaire vaut $0{,}5 \times 0{,}866 + 0{,}866 \times 0{,}5 \approx 0{,}866 = \cos 30°$. Fais défiler.
+
+<PasAPas rendu="rope-rotation" label="Une requête et une clé tournées selon leur position">
+  <Etape etat="initial">
+    **Avant rotation**, la requête et la clé sont identiques : leur produit scalaire vaut 1.
+  </Etape>
+  <Etape etat="m2n1">
+    **Requête en position 2, clé en position 1.** La requête tourne de $2 \times 30° = 60°$, la clé de $30°$. L'écart est de $30°$, le score vaut $\cos 30° \approx 0{,}866$.
+  </Etape>
+  <Etape etat="m5n4">
+    **Même écart, plus loin dans le texte.** Positions 5 et 4 : la requête tourne de $150°$, la clé de $120°$. Les deux aiguilles ont beaucoup tourné, mais l'écart reste $30°$ : le score est **exactement le même**, $0{,}866$.
+  </Etape>
+  <Etape etat="m5n1">
+    **Plus loin l'un de l'autre.** Positions 5 et 1 : écart de $120°$, le score tombe à $\cos 120° = -0{,}5$. Le score dépend de la distance, pas des positions elles-mêmes.
+  </Etape>
+</PasAPas>
+
+Les auteurs mettent en avant trois propriétés : RoPE s'adapte à des séquences de longueurs variées, la dépendance entre deux tokens tend à décroître quand leur distance augmente, et la méthode reste compatible avec des variantes d'attention plus rapides dites linéaires.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le score ne dépend que de m − n">
+
+Notons $R(a)$ la matrice de rotation d'angle $a$. Pour une paire, la requête tournée vaut $R(m\theta)\,\mathbf{q}$ et la clé tournée $R(n\theta)\,\mathbf{k}$. Leur produit scalaire s'écrit avec une transposée :
+
+$$
+\begin{aligned}
+\big(R(m\theta)\,\mathbf{q}\big) \cdot \big(R(n\theta)\,\mathbf{k}\big)
+&= \mathbf{q}^\top R(m\theta)^\top R(n\theta)\, \mathbf{k} && \text{produit scalaire écrit } \mathbf{u}^\top \mathbf{v} \\
+&= \mathbf{q}^\top R(-m\theta)\, R(n\theta)\, \mathbf{k} && \text{la transposée d'une rotation est la rotation inverse} \\
+&= \mathbf{q}^\top R\big((n-m)\theta\big)\, \mathbf{k} && \text{deux rotations successives : les angles s'ajoutent}
+\end{aligned}
+$$
+
+Les positions $m$ et $n$ n'apparaissent plus que par leur différence $n - m$. Le score total est la somme de ces contributions sur toutes les paires, donc lui aussi ne dépend que de $\mathbf{q}$, $\mathbf{k}$ et de l'écart entre les positions : exactement la propriété recherchée.
+
+La deuxième ligne se vérifie à la main : $R(a)^\top = \begin{pmatrix} \cos a & \sin a \\ -\sin a & \cos a \end{pmatrix}$, qui est bien $R(-a)$ puisque $\cos(-a) = \cos a$ et $\sin(-a) = -\sin a$. La troisième se vérifie en multipliant les matrices avec les formules d'addition, comme dans la fiche sur l'encodage positionnel.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="De combien tourne la requête ?" niveau="facile" reponse={90} tolerance={0} unite="degrés">
+
+Avec un angle de $30°$ par position, de combien de degrés tourne la requête d'un token en position 3 ?
+
+<div slot="solution">
+
+$3 \times 30° = 90°$ : un quart de tour. Une requête $(1 \,;\, 0)$ devient $(0 \,;\, 1)$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le même score plus loin" niveau="moyen" reponse={0.866} tolerance={0.002}>
+
+Toujours avec $30°$ par position, prends $\mathbf{q} = (1 \,;\, 0)$ et $\mathbf{k} = (0 \,;\, 1)$ avant rotation. Calcule le score pour une requête en position 10 et une clé en position 8. Puis compare avec les positions 4 et 2.
+
+<div slot="indice">
+
+Tu n'as pas besoin de calculer les deux rotations : seul compte l'écart. La requête tourne de $60°$ de plus que la clé ; cherche l'angle entre $\mathbf{q}$ et $\mathbf{k}$ après rotation.
+
+</div>
+<div slot="solution">
+
+Positions 10 et 8 : la requête tourne de $300°$ et devient $(0{,}5 \,;\, -0{,}866)$ ; la clé tourne de $240°$ et devient $(0{,}866 \,;\, -0{,}5)$. Produit scalaire : $0{,}433 + 0{,}433 \approx 0{,}866$.
+
+Positions 4 et 2 : même écart de 2 positions, donc même score, $0{,}866$. Au départ, $\mathbf{k}$ avait $90°$ d'avance sur $\mathbf{q}$ ; la requête rattrape $60°$, il reste $30°$ d'écart, et $\cos 30° \approx 0{,}866$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le contrat de 50 000 tokens" niveau="defi" reponse={0.92} tolerance={0.01} unite="tour">
+
+Dans LLaMA, la version à 6,7 milliards de paramètres a une dimension de 4096 répartie sur 32 têtes : chaque tête travaille en dimension $d = 4096 / 32 = 128$. Sa paire la plus lente est $i = 64$. Un utilisateur lui fait lire un contrat de 50 000 tokens. Combien de tours cette paire fait-elle entre le premier et le dernier token ?
+
+<div slot="indice">
+
+L'angle par position est $\theta_{64} = 10000^{-2 \times 63/128} = 10000^{-126/128}$. Un tour complet correspond à $2\pi / \theta_{64}$ positions.
+
+</div>
+<div slot="solution">
+
+La période vaut $2\pi \cdot 10000^{126/128} \approx 54\,410$ positions. Sur 50 000 tokens, la paire la plus lente fait $50\,000 / 54\,410 \approx 0{,}92$ tour : elle n'a même pas bouclé.
+
+C'est une information utile : sur ce contrat, deux tokens très éloignés ont encore des angles distincts sur cette paire. Au-delà d'environ 54 000 tokens, même elle recommence à passer par des angles déjà vus. Ce calcul ne dit rien de la longueur de texte sur laquelle le modèle a été entraîné, qui est une autre limite.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : RoPE sur des vecteurs de dimension quelconque, et la vérification que le score ne dépend que de l'écart.
+
+```python
+import numpy as np
+
+def rope(x, pos):
+    """Fait tourner chaque paire (x[2i], x[2i+1]) d'un angle pos × θ_i."""
+    d = x.shape[-1]
+    theta = 10000 ** (-np.arange(0, d, 2) / d)      # θ_1 = 1, puis de plus en plus petit
+    angle = pos * theta
+    x1, x2 = x[0::2], x[1::2]
+    sortie = np.empty_like(x)
+    sortie[0::2] = x1 * np.cos(angle) - x2 * np.sin(angle)
+    sortie[1::2] = x1 * np.sin(angle) + x2 * np.cos(angle)
+    return sortie
+
+rng = np.random.default_rng(0)
+q, k = rng.normal(size=8), rng.normal(size=8)
+
+for m, n in [(2, 1), (5, 4), (1000, 999), (5, 1)]:
+    score = rope(q, m) @ rope(k, n)
+    print(f"m = {m:4d}, n = {n:4d}, écart {m - n} : score {score:.4f}")
+
+# La rotation ne change pas la longueur des vecteurs : elle ne touche qu'à leur direction
+print(np.isclose(np.linalg.norm(rope(q, 37)), np.linalg.norm(q)))
+```
+
+En vrai, dans un modèle en PyTorch, on précalcule les cosinus et sinus pour toutes les positions, puis on les applique aux requêtes et aux clés de chaque couche, juste avant les scores :
+
+```python
+# no-run
+import torch
+def appliquer_rope(x, cos, sin):
+    """x : (lots, têtes, positions, d). cos, sin : (positions, d), précalculés une fois."""
+    x1, x2 = x[..., 0::2], x[..., 1::2]
+    tourne = torch.stack((x1 * cos[..., 0::2] - x2 * sin[..., 0::2],
+                          x1 * sin[..., 0::2] + x2 * cos[..., 0::2]), dim=-1)
+    return tourne.flatten(-2)
+q, k = appliquer_rope(q, cos, sin), appliquer_rope(k, cos, sin)   # les valeurs v ne tournent pas
+scores = q @ k.transpose(-2, -1) / q.shape[-1] ** 0.5
+```
+
+## Les pièges classiques
+
+**« RoPE ajoute un vecteur de position, comme l'encodage sinusoïdal. »** Rien n'est ajouté : RoPE **multiplie** les requêtes et les clés par une matrice de rotation. Leur longueur ne change pas, seule leur direction tourne.
+
+**« RoPE s'applique une fois, à l'entrée du modèle. »** Il s'applique dans chaque couche d'attention, aux requêtes et aux clés, juste avant le calcul des scores. Les vecteurs qui circulent entre les couches ne portent pas de position ajoutée.
+
+**« Avec RoPE, un modèle comprend des textes de n'importe quelle longueur. »** RoPE donne un angle pour toute position, mais un modèle n'a vu à l'entraînement que certains écarts. Au-delà, rien ne garantit qu'il sache se servir d'angles inédits.
+
+## Dans la vraie vie
+
+RoPE est utilisé dans de grands modèles de langage. Par exemple, LLaMA, publié par Meta en 2023, retire les encodages positionnels absolus et ajoute RoPE à chaque couche du réseau. L'intérêt pratique est double : aucun paramètre supplémentaire à apprendre, et un score d'attention qui ne dépend que des distances entre tokens, quelle que soit leur place dans le texte.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que fait RoPE à une requête en position m ?",
+    choix: ["Il lui ajoute un vecteur de position", "Il fait tourner chaque paire de coordonnées d'un angle proportionnel à m", "Il la multiplie par m", "Il la supprime si m est trop grand"],
+    bonne: 1,
+    explication: "Chaque paire tourne de m·θ_i ; la longueur du vecteur ne change pas."
+  },
+  {
+    question: "Pourquoi le score entre une requête en position 7 et une clé en position 5 est-il le même qu'entre les positions 3 et 1 ?",
+    choix: ["Par hasard", "Parce que le score ne dépend que de l'écart m − n", "Parce que RoPE ignore les positions paires", "Parce que les valeurs ne tournent pas"],
+    bonne: 1,
+    explication: "Les rotations se combinent en une seule rotation d'angle (n − m)θ : seule la distance compte."
+  },
+  {
+    question: "Quels vecteurs RoPE fait-il tourner ?",
+    choix: ["Les requêtes, les clés et les valeurs", "Seulement les requêtes et les clés", "Seulement les embeddings d'entrée", "Seulement les sorties du modèle"],
+    bonne: 1,
+    explication: "Ce sont les scores q · k qui doivent dépendre de la distance ; les valeurs ne tournent pas."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez RoPE et pourquoi il encode des positions relatives.">
+
+RoPE découpe les requêtes et les clés en paires de coordonnées et fait tourner la paire $i$ d'un angle $m\theta_i$, où $m$ est la position du token et $\theta_i$ décroît géométriquement avec $i$, comme les fréquences de l'encodage sinusoïdal. Comme une rotation transposée est la rotation inverse, le produit scalaire entre la requête tournée en $m$ et la clé tournée en $n$ vaut $\mathbf{q}^\top R((n-m)\theta)\,\mathbf{k}$ : il ne dépend que de l'écart. On encode donc des positions absolues (chaque vecteur tourne selon sa propre position), mais l'attention ne voit que des positions relatives. Il n'y a aucun paramètre à apprendre, la norme des vecteurs est préservée, et la rotation s'applique dans chaque couche, pas seulement à l'entrée.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "RoPE", en: "Rotary Position Embedding", definition: "Encodage de la position par rotation des requêtes et des clés, d'un angle proportionnel à la position." },
+  { fr: "matrice de rotation", en: "rotation matrix", definition: "Matrice qui fait tourner un vecteur d'un angle donné sans changer sa longueur." },
+  { fr: "position relative", en: "relative position", definition: "Écart entre deux positions ; avec RoPE, c'est la seule chose que voit le score d'attention." },
+  { fr: "angle par position", en: "rotation frequency", definition: "Angle θ_i dont tourne la paire i à chaque position ; il décroît d'une paire à la suivante." }
+]} />
