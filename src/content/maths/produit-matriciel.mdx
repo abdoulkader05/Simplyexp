@@ -14,7 +14,7 @@ sources:
   - "Kaplan et al., « Scaling Laws for Neural Language Models », 2020 — https://arxiv.org/abs/2001.08361 — section 2.1, équation 2.2 et tableau 1 (coût d'un passage avant)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -145,9 +145,11 @@ Le prix modifié est dans la colonne 2 de $\mathbf{P}$ : seules les cases de la 
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule $\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$. Que fait la deuxième matrice ?
+<Exercice titre="Une matrice qui échange" niveau="facile">
 
-<Depliable titre="Corrigé">
+Calcule $\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix} \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$. Que fait la deuxième matrice ?
+
+<div slot="solution">
 
 $$
 \begin{pmatrix} 1 \times 0 + 2 \times 1 & 1 \times 1 + 2 \times 0 \\ 3 \times 0 + 4 \times 1 & 3 \times 1 + 4 \times 0 \end{pmatrix} = \begin{pmatrix} 2 & 1 \\ 4 & 3 \end{pmatrix}
@@ -155,25 +157,42 @@ $$
 
 Multipliée à droite, elle échange les deux colonnes.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** $\mathbf{A}$ est de taille $4 \times 3$ et $\mathbf{B}$ de taille $3 \times 5$. Quelle est la taille de $\mathbf{A}\mathbf{B}$ ? Le produit $\mathbf{B}\mathbf{A}$ existe-t-il ? Combien de multiplications de nombres faut-il pour calculer $\mathbf{A}\mathbf{B}$ ?
+<Exercice titre="Compter les multiplications" niveau="moyen" reponse={60} tolerance={0}>
 
-<Depliable titre="Corrigé">
+$\mathbf{A}$ est de taille $4 \times 3$ et $\mathbf{B}$ de taille $3 \times 5$. Quelle est la taille de $\mathbf{A}\mathbf{B}$ ? Le produit $\mathbf{B}\mathbf{A}$ existe-t-il ? Saisis le nombre de multiplications de nombres qu'il faut pour calculer $\mathbf{A}\mathbf{B}$.
+
+<div slot="indice">
+
+Chaque case du résultat est un produit scalaire entre une ligne de $\mathbf{A}$ et une colonne de $\mathbf{B}$.
+
+</div>
+<div slot="solution">
 
 $\mathbf{A}\mathbf{B}$ est de taille $4 \times 5$. $\mathbf{B}\mathbf{A}$ n'existe pas : $\mathbf{B}$ a 5 colonnes et $\mathbf{A}$ a 4 lignes.
 
 Il y a $4 \times 5 = 20$ cases, et chacune demande un produit scalaire de longueur 3, soit 3 multiplications. Total : $20 \times 3 = 60$ multiplications. En général, un produit $(m \times n)$ par $(n \times p)$ coûte $m \times n \times p$ multiplications.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une couche reçoit un lot de 32 exemples de dimension 512 et produit des vecteurs de dimension 2 048. Quelle est la taille de sa matrice de poids $\mathbf{W}$ ? Combien de multiplications le produit $\mathbf{X}\mathbf{W}$ demande-t-il ?
+<Exercice titre="Le coût d'une couche de réseau" niveau="defi" reponse={33554432} tolerance={0} unite="multiplications">
 
-<Depliable titre="Corrigé">
+Une couche reçoit un lot de 32 exemples de dimension 512 et produit des vecteurs de dimension 2 048. Quelle est la taille de sa matrice de poids $\mathbf{W}$ ? Saisis le nombre de multiplications que demande le produit $\mathbf{X}\mathbf{W}$.
+
+<div slot="indice">
+
+$\mathbf{X}$ a une ligne par exemple. Utilise la règle $m \times n \times p$ de l'exercice précédent.
+
+</div>
+<div slot="solution">
 
 $\mathbf{X}$ est de taille $32 \times 512$. Pour obtenir $32 \times 2\,048$, il faut $\mathbf{W}$ de taille $512 \times 2\,048$. Le coût est $32 \times 512 \times 2\,048 = 33\,554\,432$ multiplications, plus de 33 millions pour une seule couche et un seul petit lot.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
