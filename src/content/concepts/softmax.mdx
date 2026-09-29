@@ -14,7 +14,7 @@ sources:
   - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.4 (transformation linéaire et softmax pour prédire le token suivant)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -117,15 +117,54 @@ Règle la température, et le score du wolof.
   legende="Scores du français et du dioula fixés à 2 et 0."
 />
 
-Consigne : pousse la température à 5, puis descends-la à 0,1. Que devient la distribution ? Ensuite, remets $T = 1$ et monte le score du wolof à 2, puis à 3.
+<Exercice titre="Le bouton de la température" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation, pousse la température à 5, puis descends-la à 0,1. Que devient la distribution ? Ensuite, remets $T = 1$ et monte le score du wolof à 2, puis à 3.
+
+<div slot="solution">
 
 À $T = 5$, les probabilités se rapprochent d'un tiers chacune : environ $(0{,}40\,;\,0{,}33\,;\,0{,}27)$. Le modèle devient hésitant. À $T = 0{,}1$, presque toute la probabilité va au français, qui a le plus grand score : le softmax se comporte comme « choisir le maximum ».
 
 Avec $T = 1$ et un score du wolof égal à 2, le français et le wolof se partagent la tête à égalité, 0,468 chacun, et le dioula garde 0,063. Avec un score de 3, le wolof passe devant avec 0,705. La somme reste toujours égale à 1 : quand une classe gagne, les autres perdent.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Un 7 pris pour un 1" niveau="moyen" reponse={0.366} tolerance={0.005}>
+
+Un modèle lit un chiffre manuscrit et hésite entre trois classes. Il donne les scores 2 au « 1 », 1,5 au « 7 » et $-1$ au « 9 ». Le chiffre était un 7. Quelle probabilité le softmax ($T = 1$) donne-t-il au 7 ? Que vaut la perte $-\ln p_y$, et dans quel sens le gradient pousse-t-il chaque score ?
+
+<div slot="indice">
+
+Calcule $e^{2}$, $e^{1{,}5}$ et $e^{-1}$, puis divise chacun par leur somme. Pour le gradient, utilise « probabilité prédite moins vérité ».
+
+</div>
+<div slot="solution">
+
+Les exponentielles valent environ 7,389, 4,482 et 0,368, de somme 12,239. D'où $p = (0{,}604\,;\,0{,}366\,;\,0{,}030)$ : le modèle se trompe, il préfère le 1. La perte vaut $-\ln 0{,}366 \approx 1{,}00$.
+
+Le gradient $p - y$ vaut $(0{,}604\,;\,-0{,}634\,;\,0{,}030)$. La descente de gradient va à l'opposé : elle **baisse** le score du 1, **monte** celui du 7, et touche à peine le 9, déjà presque exclu.
+
+</div>
+</Exercice>
+
+<Exercice titre="L'ordinateur affiche nan" niveau="defi" reponse={0.665} tolerance={0.005}>
+
+Un réseau renvoie les scores $(1000\,;\,999\,;\,998)$. Ton programme calcule directement $e^{1000}$ et affiche `nan` (« pas un nombre »). Explique pourquoi, puis calcule la vraie probabilité de la première classe sans jamais manipuler de nombre plus grand que 1.
+
+<div slot="indice">
+
+Retire le plus grand score à tous les scores : la démonstration de la section précédente montre que le résultat ne change pas.
+
+</div>
+<div slot="solution">
+
+$e^{1000}$ dépasse de loin le plus grand nombre qu'un ordinateur représente en virgule flottante (environ $1{,}8 \times 10^{308}$) : il devient « infini », et « infini divisé par infini » n'est pas un nombre.
+
+En retirant 1000, les scores deviennent $(0\,;\,-1\,;\,-2)$, et les exponentielles $(1\,;\,0{,}368\,;\,0{,}135)$, toutes inférieures ou égales à 1. D'où $p_1 = 1 / 1{,}503 \approx 0{,}665$. C'est exactement le résultat obtenu plus haut avec les scores $(2\,;\,1\,;\,0)$ : seuls les écarts comptent.
+
+</div>
+</Exercice>
 
 ## En code
 
