@@ -1,0 +1,247 @@
+---
+id: decodage-sampling
+type: concept
+titre: "Température, top-k, top-p : comment un LLM choisit ses mots"
+sous_titre: "Stratégies de décodage et d'échantillonnage"
+domaine: llm
+niveau: 5
+prerequis: [masque-causal]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Holtzman, Buys, Du, Forbes, Choi, « The Curious Case of Neural Text Degeneration », 22 avril 2019 — https://arxiv.org/abs/1904.09751 — résumé (décoder en maximisant la vraisemblance donne un texte fade et étrangement répétitif ; nucleus sampling : tirer dans le noyau dynamique de la loi en coupant la queue peu fiable), section 3 (V^(p) plus petit ensemble dont la probabilité cumulée atteint p, renormalisation par p′ ; top-k attribué à Fan et al. 2018 ; température exp(u/t) ; valeurs usuelles p ∈ [0,9 ; 1))"
+  - "Documentation Hugging Face Transformers, GenerationConfig — https://huggingface.co/docs/transformers/main_classes/text_generation — paramètres do_sample, temperature (1,0 par défaut), top_k (50 par défaut), top_p (1,0 par défaut), num_beams"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+À chaque pas, un [modèle de langage](/concepts/modele-langage/) ne donne pas un mot : il donne une loi de probabilité sur tout son vocabulaire. Grâce au [masque causal](/concepts/masque-causal/), cette loi ne dépend que des tokens déjà écrits. Reste une décision que le réseau ne prend pas lui-même : **quel token garder**. Prendre toujours le plus probable semble raisonnable ; en pratique, cela donne des textes plats qui tournent en boucle. Tirer au hasard dans toute la loi donne l'inverse : de temps en temps, un mot absurde tiré dans la longue queue des tokens improbables fait dérailler la phrase. Entre les deux, il faut des réglages.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Le décodage transforme la loi du token suivant en un choix : on peut prendre le plus probable, ou tirer au hasard après avoir durci ou aplati la loi (température) et coupé sa queue (top-k, top-p).
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui choisit un plat au restaurant, avec la carte classée par ses préférences.
+
+- **Glouton** : il commande toujours son plat préféré. Aucune surprise, et au bout d'un mois, c'est lassant.
+- **Température basse** : il reste très attaché à ses favoris, mais s'autorise parfois le deuxième. **Haute** : il hésite presque autant entre tous les plats.
+- **Top-k** : il ne regarde que les trois premières lignes de la carte, puis choisit parmi elles.
+- **Top-p** : il garde les plats qui, ensemble, représentent 75 % de ses envies. Un soir où il a un net favori, deux plats suffisent ; un soir où il hésite, la liste s'allonge.
+
+Là où l'image s'arrête : le modèle refait ce choix à chaque token, des centaines de fois par réponse, et chaque choix change la loi du token suivant.
+
+## Comment ça marche
+
+On note $P(x)$ la probabilité que le modèle donne au token $x$, sachant le contexte. Les stratégies se combinent, dans cet ordre en général : température, puis coupure, puis tirage.
+
+1. **Décodage glouton** (*greedy decoding*) : on prend $\arg\max_x P(x)$. C'est déterministe : même contexte, même sortie.
+2. **Température** $T > 0$ : on divise les scores du [softmax](/concepts/softmax/) par $T$ avant de normaliser. $T < 1$ durcit la loi, $T > 1$ l'aplatit.
+3. **Top-k** : on garde les $k$ tokens les plus probables, on met les autres à zéro, et on renormalise.
+4. **Top-p**, aussi appelé échantillonnage par noyau (*nucleus sampling*) : on garde le plus petit ensemble $V^{(p)}$ des tokens les plus probables dont la probabilité cumulée atteint $p$, et on renormalise. La taille du noyau s'adapte à la loi.
+
+La renormalisation du top-p s'écrit :
+
+$$
+P'(x) = \begin{cases} \dfrac{P(x)}{p'} & \text{si } x \in V^{(p)} \\[2mm] 0 & \text{sinon} \end{cases}
+\qquad \text{avec } p' = \sum_{x \in V^{(p)}} P(x)
+$$
+
+où :
+- $P(x)$ est la probabilité d'origine du token $x$ ;
+- $V^{(p)}$ est le noyau, le plus petit ensemble de tokens les plus probables tel que $p' \geq p$ ;
+- $p'$ est la probabilité totale du noyau, légèrement supérieure ou égale à $p$ ;
+- $P'(x)$ est la nouvelle loi dans laquelle on tire.
+
+Exemple à la main, avec la loi de l'animation et $p = 0{,}75$ : les probabilités cumulées valent $0{,}50$ puis $0{,}80$. Dès le deuxième token, on dépasse $0{,}75$ : le noyau est {lève, couche}, $p' = 0{,}8$, et l'on tire « lève » avec $0{,}5 / 0{,}8 = 0{,}625$ et « couche » avec $0{,}3 / 0{,}8 = 0{,}375$. Fais défiler.
+
+<PasAPas rendu="decodage-barres" label="Six façons de choisir le token suivant">
+  <Etape etat="initial">
+    **La loi du modèle.** Après « Le soleil se », six tokens candidats (les probabilités sont inventées pour l'illustration). « lève » domine, mais n'est pas seul.
+  </Etape>
+  <Etape etat="glouton">
+    **Glouton.** On prend « lève », toujours. Les auteurs de l'échantillonnage par noyau l'ont montré en 2019 : décoder en maximisant la probabilité donne un texte fade et étrangement répétitif.
+  </Etape>
+  <Etape etat="froid">
+    **Température 0,5.** Chaque probabilité est élevée à la puissance $1/T = 2$, puis renormalisée : « lève » monte à 0,71, les tokens rares s'effondrent.
+  </Etape>
+  <Etape etat="chaud">
+    **Température 2.** Puissance $1/2$ : la loi s'aplatit, « lève » descend à 0,34 et même « mange » atteint 0,07. Le texte devient plus varié, et plus risqué.
+  </Etape>
+  <Etape etat="topk">
+    **Top-k avec $k = 3$.** On garde lève, couche et voile (total 0,9), on divise par 0,9 : 0,56, 0,33 et 0,11. Les trois autres ne peuvent plus sortir.
+  </Etape>
+  <Etape etat="topp">
+    **Top-p avec $p = 0{,}75$.** Le noyau s'arrête dès que le cumul atteint 0,75 : deux tokens suffisent ici. Avec une loi plus étalée, il en aurait gardé davantage.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi diviser par p′, et d'où vient la puissance 1/T">
+
+**La renormalisation.** Après la coupure, les probabilités gardées ne somment plus à 1 mais à $p'$. Pour retrouver une loi :
+
+$$
+\begin{aligned}
+\sum_{x} P'(x) &= \sum_{x \in V^{(p)}} \frac{P(x)}{p'} + \sum_{x \notin V^{(p)}} 0 && \text{définition de } P' \\
+&= \frac{1}{p'} \sum_{x \in V^{(p)}} P(x) && \text{on sort la constante} \\
+&= \frac{p'}{p'} = 1 && \text{définition de } p'
+\end{aligned}
+$$
+
+Diviser par $p'$ garde aussi les **rapports** entre tokens : « lève » restait 5/3 fois plus probable que « couche », avant comme après.
+
+**La température.** Le softmax donne $P(x_i) = e^{s_i} / \sum_j e^{s_j}$, où $s_i$ est le score du token $i$. Avec la température, on calcule $e^{s_i / T} / \sum_j e^{s_j / T}$. Or $e^{s_i / T} = (e^{s_i})^{1/T}$, et $e^{s_i}$ est proportionnel à $P(x_i)$. Donc la nouvelle loi est proportionnelle à $P(x_i)^{1/T}$ : c'est pourquoi, dans l'animation, $T = 0{,}5$ revient à mettre les probabilités au carré puis à renormaliser. Quand $T$ tend vers 0, la puissance explose et toute la masse part sur le token le plus probable : on retrouve le décodage glouton.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le clavier qui propose deux mots" niveau="facile" reponse={0.375} tolerance={0.01}>
+
+Un clavier de téléphone utilise un petit modèle de langage et un top-k avec $k = 2$. Après « Le soleil se », la loi est celle de l'animation : lève 0,50, couche 0,30, voile 0,10, et le reste plus bas. Avec quelle probabilité tire-t-il « couche » ?
+
+<div slot="solution">
+
+On garde lève et couche, de total $0{,}5 + 0{,}3 = 0{,}8$. Puis $P'(\text{couche}) = 0{,}3 / 0{,}8 = 0{,}375$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un noyau à 90 %" niveau="moyen" reponse={0.111} tolerance={0.01}>
+
+Même loi, mais cette fois un top-p avec $p = 0{,}9$, la valeur basse de la plage usuelle citée par les auteurs. Quels tokens forment le noyau ? Avec quelle probabilité « voile » sort-il ?
+
+<div slot="indice">
+
+Additionne les probabilités dans l'ordre décroissant jusqu'à atteindre 0,9.
+
+</div>
+<div slot="solution">
+
+Cumul : 0,50, puis 0,80, puis 0,90. Le noyau est {lève, couche, voile}, $p' = 0{,}9$. Donc $P'(\text{voile}) = 0{,}1 / 0{,}9 \approx 0{,}111$. Ici top-p et top-k à 3 donnent le même noyau ; avec une loi plus plate, le top-p aurait gardé plus de tokens.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le service client qui doit rester sobre" niveau="defi" reponse={0.692} tolerance={0.01}>
+
+Un chatbot de service client hésite entre deux formules pour commencer sa réponse : « Bonjour » avec la probabilité 0,6 et « Salut » avec 0,4. L'entreprise veut un ton plus constant et règle la température à $T = 0{,}5$. Quelle est la nouvelle probabilité de « Bonjour » ?
+
+<div slot="indice">
+
+Avec la température $T$, la nouvelle loi est proportionnelle à $P^{1/T}$.
+
+</div>
+<div slot="solution">
+
+$1/T = 2$ : on met au carré, $0{,}36$ et $0{,}16$, puis on renormalise : $0{,}36 / (0{,}36 + 0{,}16) = 0{,}36 / 0{,}52 \approx 0{,}692$. « Bonjour » passe de 60 % à 69 % des réponses. Pour qu'il sorte à coup sûr, il faudrait faire tendre $T$ vers 0, ce qui revient au décodage glouton.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : les quatre stratégies sur la loi de l'animation, et 10 000 tirages pour chacune.
+
+```python
+import numpy as np
+
+mots = ["lève", "couche", "voile", "montre", "cache", "mange"]
+P = np.array([0.50, 0.30, 0.10, 0.05, 0.03, 0.02])
+rng = np.random.default_rng(0)
+
+def temperature(p, T):
+    q = p ** (1 / T)
+    return q / q.sum()
+
+def top_k(p, k):
+    q = np.zeros_like(p)
+    garde = np.argsort(p)[::-1][:k]
+    q[garde] = p[garde]
+    return q / q.sum()
+
+def top_p(p, seuil):
+    ordre = np.argsort(p)[::-1]
+    cumul = np.cumsum(p[ordre])
+    n = int(np.searchsorted(cumul, seuil - 1e-12)) + 1   # plus petit noyau qui atteint le seuil
+    q = np.zeros_like(p)
+    q[ordre[:n]] = p[ordre[:n]]
+    return q / q.sum()
+
+print("glouton :", mots[int(np.argmax(P))])
+for nom, loi in [("T = 0,5", temperature(P, 0.5)), ("T = 2", temperature(P, 2)),
+                 ("top-k 3", top_k(P, 3)), ("top-p 0,75", top_p(P, 0.75))]:
+    tirages = rng.choice(len(mots), size=10_000, p=loi)
+    freq = np.bincount(tirages, minlength=len(mots)) / 10_000
+    print(f"{nom:10}", " ".join(f"{m} {f:.2f}" for m, f in zip(mots, freq)))
+```
+
+En vrai, avec la bibliothèque `transformers`, ces réglages sont des paramètres de génération :
+
+```python
+# no-run
+from transformers import pipeline
+generateur = pipeline("text-generation", model="gpt2")
+print(generateur("The sun", max_new_tokens=20, do_sample=True, temperature=0.7, top_k=50, top_p=0.9))
+```
+
+## Les pièges classiques
+
+**« Une température de 0 rend le modèle plus intelligent. »** Elle le rend déterministe, pas plus juste. Si le token le plus probable est faux, le modèle le répétera à coup sûr.
+
+**« Top-k et top-p, c'est pareil. »** Top-k garde toujours $k$ tokens, même quand un seul est plausible, ou seulement $k$ quand vingt le sont. Top-p adapte la taille du noyau à la forme de la loi.
+
+**« La température change ce que le modèle sait. »** Elle ne touche pas aux poids : elle déforme seulement la loi au moment du choix. Le classement des tokens reste le même ; seuls les écarts entre eux changent.
+
+## Dans la vraie vie
+
+Les interfaces de programmation des modèles exposent presque toujours ces réglages. Dans la bibliothèque `transformers`, la température vaut 1 par défaut, le top-k 50 et le top-p 1, c'est-à-dire aucune coupure par noyau, sauf si la configuration du modèle en décide autrement. On baisse la température pour extraire des informations ou générer du code, où la constance compte ; on la monte pour des tâches créatives. Et comme le tirage ajoute du hasard, un token peu probable mais faux peut sortir : c'est l'un des chemins vers les [hallucinations](/concepts/hallucinations/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que fait une température T = 2 par rapport à T = 1 ?",
+    choix: ["Elle durcit la loi", "Elle aplatit la loi : les tokens rares gagnent en probabilité", "Elle supprime les tokens rares", "Elle ne change rien"],
+    bonne: 1,
+    explication: "La loi devient proportionnelle à P^(1/2) : les écarts se réduisent."
+  },
+  {
+    question: "Avec la loi 0,6 / 0,25 / 0,1 / 0,05 et p = 0,8, combien de tokens contient le noyau du top-p ?",
+    choix: ["1", "2", "3", "4"],
+    bonne: 1,
+    explication: "Cumul 0,6 puis 0,85 ≥ 0,8 : deux tokens."
+  },
+  {
+    question: "Pourquoi renormalise-t-on après un top-k ?",
+    choix: ["Pour accélérer le calcul", "Pour que les probabilités gardées somment de nouveau à 1", "Pour changer l'ordre des tokens", "Pour augmenter la température"],
+    bonne: 1,
+    explication: "Après la coupure, la somme est inférieure à 1 ; diviser par elle rend une vraie loi, sans changer les rapports."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment régleriez-vous le décodage d'un assistant qui génère du code, et d'un autre qui écrit des slogans ?">
+
+Pour le code, on veut de la constance et de l'exactitude : température basse (voire décodage glouton), éventuellement un top-p serré, car un token improbable casse souvent un programme. Pour les slogans, on veut de la variété : température autour de 1 ou un peu au-dessus, avec un top-p autour de 0,9 pour couper la queue de tokens absurdes tout en gardant de la diversité. Dans les deux cas, on évalue sur des exemples réels, car les réglages interagissent : une température élevée sans coupure fait sortir des tokens de la queue, et un top-p très bas avec une température haute revient presque à un choix uniforme entre deux ou trois tokens.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "décodage glouton", en: "greedy decoding", definition: "Choisir à chaque pas le token le plus probable." },
+  { fr: "température", en: "temperature", definition: "Réglage qui divise les scores avant le softmax : en dessous de 1 la loi se durcit, au-dessus elle s'aplatit." },
+  { fr: "top-k", en: "top-k sampling", definition: "Tirer parmi les k tokens les plus probables, après renormalisation." },
+  { fr: "échantillonnage par noyau", en: "nucleus sampling, top-p", definition: "Tirer dans le plus petit ensemble de tokens dont la probabilité cumulée atteint p, après renormalisation." }
+]} />
