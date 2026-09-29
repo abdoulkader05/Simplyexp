@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.3 (optimisation par gradient : la dérivée indique comment modifier l'entrée)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -128,29 +128,61 @@ En $a = 0$, la tangente est horizontale, de pente 0 : c'est le fond de la parabo
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule la dérivée de $f(x) = 3x^2 - 4x + 7$, puis $f'(2)$.
+<Exercice titre="Dériver un polynôme" niveau="facile" reponse={8} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Calcule la dérivée de $f(x) = 3x^2 - 4x + 7$ puis saisis la valeur de $f'(2)$.
+
+<div slot="solution">
 
 $f'(x) = 3 \times 2x - 4 = 6x - 4$, donc $f'(2) = 8$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Estime la dérivée de $e^x$ en 0 avec $h = 0{,}01$, puis compare avec la valeur exacte.
+<Exercice titre="Estimer une pente avec un petit pas" niveau="moyen" reponse={1.005} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Estime la dérivée de $e^x$ en 0 avec $h = 0{,}01$, puis compare avec la valeur exacte.
+
+<div slot="indice">
+
+Calcule le taux d'accroissement $\frac{e^{0 + h} - e^0}{h}$, avec $e^{0{,}01} \approx 1{,}010\,05$.
+
+</div>
+<div slot="solution">
 
 $(e^{0{,}01} - e^0)/0{,}01 = (1{,}010\,05 - 1)/0{,}01 \approx 1{,}005$. La valeur exacte est $e^0 = 1$ : l'estimation est très proche.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une perte vaut $\mathcal{L}(w) = (w - 3)^2$. Où la dérivée est-elle nulle ? Partant de $w = 0$, dans quel sens faut-il bouger $w$ ?
+<Exercice titre="Dans quel sens bouger un poids ?" niveau="moyen" reponse={3} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Une perte vaut $\mathcal{L}(w) = (w - 3)^2$. Où la dérivée est-elle nulle ? Saisis cette valeur de $w$. Partant de $w = 0$, dans quel sens faut-il bouger $w$ ?
+
+<div slot="solution">
 
 $\mathcal{L}'(w) = 2(w - 3)$ s'annule en $w = 3$, le minimum. En $w = 0$, $\mathcal{L}'(0) = -6 < 0$ : la perte baisse quand $w$ augmente, il faut donc augmenter $w$.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Combien de pains cuire ?" niveau="defi" reponse={30} tolerance={0} unite="dizaines">
+
+Une boulangère estime que si elle cuit $x$ dizaines de baguettes par jour, son bénéfice vaut $B(x) = -2x^2 + 120x - 500$, en centaines de francs. Au-delà d'un certain point, cuire plus fait perdre de l'argent : les invendus coûtent. Pour quelle valeur de $x$ le bénéfice est-il maximal ? Quel est alors ce bénéfice ?
+
+<div slot="indice">
+
+Au sommet de la courbe, la pente est nulle : résous $B'(x) = 0$.
+
+</div>
+<div slot="solution">
+
+$B'(x) = -4x + 120$ s'annule pour $x = 30$, soit 300 baguettes. Avant, $B'(x) > 0$ : le bénéfice monte ; après, $B'(x) < 0$ : il baisse. C'est bien un maximum.
+
+$B(30) = -2 \times 900 + 120 \times 30 - 500 = 1\,300$ centaines de francs, soit 130 000 F. Chercher où la dérivée s'annule, c'est exactement ce que fait l'entraînement d'un modèle, sauf qu'on y cherche un minimum de la perte.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
