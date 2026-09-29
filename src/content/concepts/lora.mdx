@@ -1,0 +1,232 @@
+---
+id: lora
+type: concept
+titre: "LoRA : adapter un géant en touchant à presque rien"
+sous_titre: "Low-Rank Adaptation et fine-tuning efficace"
+domaine: llm
+niveau: 5
+prerequis: [fine-tuning, rang-matrice]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Hu et al., « LoRA: Low-Rank Adaptation of Large Language Models », 2021 — https://arxiv.org/abs/2106.09685 — résumé (poids pré-entraînés gelés, matrices de décomposition de rang faible entraînables injectées dans chaque couche ; pour GPT-3 175B par rapport au fine-tuning complet avec Adam : 10 000 fois moins de paramètres entraînables, 3 fois moins de mémoire GPU, aucune latence supplémentaire à l'inférence) et section 4.1 (h = W₀x + ΔWx = W₀x + BAx, B de taille d × r, A de taille r × k, r ≪ min(d, k) ; A initialisée au hasard selon une loi gaussienne, B à zéro ; facteur α/r ; adaptation de W_q et W_v ; points de contrôle de 350 Go ramenés à 35 Mo par tâche avec r = 4)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Le [fine-tuning](/concepts/fine-tuning/) ajuste tous les poids d'un modèle pré-entraîné. Pour un modèle de plusieurs milliards de paramètres, c'est lourd à trois titres : il faut stocker en mémoire, pendant l'entraînement, les gradients et les états de l'optimiseur pour chaque poids ; il faut enregistrer une copie complète du modèle par tâche ; et il faut charger la bonne copie pour chaque usage. Pour GPT-3, une copie pèse 350 Go. Dix clients avec chacun leur version, c'est dix fois 350 Go. Pourtant, adapter un modèle à une tâche ne change sans doute pas tout ce qu'il sait : peut-on apprendre la modification sans toucher aux poids d'origine ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+On gèle les poids pré-entraînés et on apprend seulement une petite correction, écrite comme le produit de deux matrices étroites ; cette correction de rang faible coûte des milliers de fois moins de paramètres, et s'ajoute aux poids d'origine une fois l'entraînement fini.
+</PhraseCle>
+
+## En image
+
+Pense à un manuel scolaire imprimé à des milliers d'exemplaires.
+
+- Le réimprimer entièrement pour chaque école qui veut quelques ajustements serait absurde.
+- On imprime plutôt un mince **cahier de corrections** : quelques pages, qu'on glisse dans le manuel.
+- Chaque école a son propre cahier, et tout le monde partage le même manuel.
+- Le jour où une école veut un manuel propre, on recopie les corrections dans le texte : il n'y a plus rien à glisser.
+
+Là où l'image s'arrête : le cahier de LoRA ne liste pas des pages modifiées une à une. Il décrit la correction de façon très compacte, par une structure mathématique, le rang faible, qui ne permet pas de modifier n'importe quoi n'importe comment.
+
+## Comment ça marche
+
+Prenons une matrice de poids $W_0$ d'une couche, de taille $d \times k$ : par exemple la projection des requêtes $W_Q$ dans une couche d'[attention](/concepts/attention/). Un fine-tuning complet apprendrait une correction $\Delta W$ de même taille. LoRA, pour adaptation de rang faible (*Low-Rank Adaptation*), proposée par Hu et ses coauteurs en 2021, impose à cette correction d'être un produit de deux matrices étroites :
+
+$$
+h = W_0 x + \Delta W x = W_0 x + B A x
+$$
+
+où :
+- $x$ est l'entrée de la couche et $h$ sa sortie ;
+- $W_0$, de taille $d \times k$, est gelée : elle ne change pas pendant l'entraînement ;
+- $B$, de taille $d \times r$, et $A$, de taille $r \times k$, sont les seules matrices entraînées ;
+- $r$ est le rang, très petit devant $d$ et $k$ : 4 ou 8, là où $d$ et $k$ valent des milliers.
+
+Le produit $BA$ a bien la taille $d \times k$ de $W_0$, mais il ne contient que $r(d + k)$ paramètres libres au lieu de $d \times k$. Son [rang](/maths/rang-matrice/) est au plus $r$. Deux détails d'initialisation comptent : $A$ est tirée au hasard selon une loi gaussienne, et $B$ vaut zéro au départ. Au premier pas, $BA = 0$ : le modèle adapté commence exactement comme le modèle d'origine. Le paper multiplie aussi $BA$ par un facteur constant $\alpha / r$, qui évite de réajuster le pas d'apprentissage quand on change $r$.
+
+<Schema rendu="lora-schema" legende="Le passage avant avec LoRA. L'entrée traverse la matrice gelée W₀ et, en parallèle, les petites matrices A puis B ; les deux sorties s'additionnent." />
+
+Fais défiler : l'exemple prend $d = k = 6$ et $r = 1$, pour que tout soit visible.
+
+<PasAPas rendu="lora-matrices" label="Fine-tuning complet contre LoRA sur une matrice 6 × 6">
+  <Etape etat="initial">
+    **La matrice gelée.** $W_0$ compte $6 \times 6 = 36$ poids pré-entraînés. Avec LoRA, on n'y touchera plus.
+  </Etape>
+  <Etape etat="complet">
+    **Le fine-tuning complet** apprendrait une correction $\Delta W$ de même taille : 36 nombres à ajuster, à stocker, à sauvegarder.
+  </Etape>
+  <Etape etat="lora">
+    **LoRA** écrit la correction comme $B \times A$, avec $B$ de taille $6 \times 1$ et $A$ de taille $1 \times 6$ : 12 nombres. Le produit est une matrice $6 \times 6$ de rang 1.
+  </Etape>
+  <Etape etat="fusion">
+    **La fusion.** Après l'entraînement, on calcule $W = W_0 + BA$ une fois pour toutes. Le modèle adapté a exactement la même taille et la même vitesse que l'original.
+  </Etape>
+</PasAPas>
+
+Exemple à l'échelle d'un vrai modèle : une matrice de taille $4\,096 \times 4\,096$ contient $16\,777\,216$ poids. Avec $r = 8$, LoRA n'en entraîne que $8 \times (4\,096 + 4\,096) = 65\,536$, soit 256 fois moins.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Compter les paramètres, et pourquoi le rang est au plus r">
+
+**Les paramètres.** $B$ a $d$ lignes et $r$ colonnes, soit $dr$ nombres ; $A$ a $r$ lignes et $k$ colonnes, soit $rk$ nombres. Au total :
+
+$$
+\begin{aligned}
+\text{LoRA} &= dr + rk = r(d + k) && \text{on met } r \text{ en facteur} \\
+\frac{\text{complet}}{\text{LoRA}} &= \frac{dk}{r(d + k)} && \text{le gain} \\
+&= \frac{d}{2r} \quad \text{si } d = k && \text{car } \frac{d^2}{r \cdot 2d} = \frac{d}{2r}
+\end{aligned}
+$$
+
+Avec $d = 4\,096$ et $r = 8$ : $4\,096 / 16 = 256$. Le gain grandit avec la taille de la matrice.
+
+**Le rang.** Chaque colonne de $BA$ s'écrit $B$ multipliée par une colonne de $A$ : c'est une combinaison linéaire des $r$ colonnes de $B$. Toutes les colonnes de $BA$ vivent donc dans un espace engendré par $r$ vecteurs : le rang de $BA$ est au plus $r$. C'est l'hypothèse de LoRA : la modification utile pour une tâche tient dans un petit nombre de directions.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Compter sur un petit exemple" niveau="facile" reponse={12} tolerance={0}>
+
+Une matrice de poids mesure $6 \times 6$. Combien de paramètres LoRA entraîne-t-il avec $r = 1$ ? Et avec $r = 3$, est-ce encore avantageux ?
+
+<div slot="solution">
+
+Avec $r = 1$ : $1 \times (6 + 6) = 12$ paramètres, contre 36. Avec $r = 3$ : $3 \times 12 = 36$, autant que la matrice entière : aucun gain. LoRA n'a d'intérêt que si $r(d + k) < dk$, c'est-à-dire quand $r$ est très petit devant les dimensions, ce qui est le cas dans les vrais modèles.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le gain sur une vraie couche" niveau="moyen" reponse={256} tolerance={0}>
+
+Une couche d'attention utilise une matrice $W_Q$ de taille $4\,096 \times 4\,096$. Avec $r = 8$, combien de fois moins de paramètres LoRA entraîne-t-il pour cette matrice ?
+
+<div slot="solution">
+
+Complet : $4\,096^2 = 16\,777\,216$. LoRA : $8 \times 8\,192 = 65\,536$. Rapport : $16\,777\,216 / 65\,536 = 256$. On retrouve la formule $d / 2r = 4\,096 / 16$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Dix clients, un seul modèle" niveau="defi" reponse={8.39} tolerance={0.01} unite="Mo">
+
+On suppose un modèle de 7 milliards de paramètres stockés sur 2 octets chacun, avec 32 couches de dimension 4 096. On adapte, comme dans le paper, $W_Q$ et $W_V$ de chaque couche, toutes deux de taille $4\,096 \times 4\,096$, avec $r = 8$, et l'on stocke les adaptateurs sur 2 octets par paramètre. Quelle est la taille d'un adaptateur, en mégaoctets (1 Mo = 10⁶ octets) ? Compare le stockage pour dix clients : dix copies complètes, ou un modèle et dix adaptateurs.
+
+<div slot="indice">
+
+Par matrice : $r(d + k)$ paramètres. Multiplie par 2 matrices, 32 couches, puis 2 octets.
+
+</div>
+<div slot="solution">
+
+Par matrice : $65\,536$ paramètres. Par adaptateur : $65\,536 \times 2 \times 32 = 4\,194\,304$ paramètres, soit $8\,388\,608$ octets $\approx 8{,}39$ Mo.
+
+Le modèle complet pèse $7 \times 10^9 \times 2 = 14$ Go. Dix copies : 140 Go. Un modèle et dix adaptateurs : $14$ Go $+ 10 \times 8{,}39$ Mo $\approx 14{,}08$ Go, presque dix fois moins. Et changer de client revient à changer quelques mégaoctets, pas à recharger 14 Go.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une couche linéaire avec LoRA, qui vérifie le nombre de paramètres, le départ à l'identique, et la fusion.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+d, k, r, alpha = 64, 64, 4, 8
+W0 = rng.normal(size=(d, k))                    # poids pré-entraînés, gelés
+A = rng.normal(scale=0.01, size=(r, k))         # initialisation gaussienne
+B = np.zeros((d, r))                            # initialisation à zéro
+echelle = alpha / r
+
+def couche(x):
+    return W0 @ x + echelle * (B @ (A @ x))
+
+x = rng.normal(size=k)
+print("au départ, identique au modèle d'origine :", np.allclose(couche(x), W0 @ x))
+print("paramètres entraînés :", A.size + B.size, "contre", W0.size)
+
+# On simule un entraînement : B devient non nulle
+B = rng.normal(scale=0.1, size=(d, r))
+print("rang de BA :", np.linalg.matrix_rank(B @ A), "(au plus r =", r, ")")
+
+# Fusion : une seule matrice, même résultat
+W = W0 + echelle * (B @ A)
+print("fusion exacte :", np.allclose(W @ x, couche(x)))
+```
+
+En vrai, avec la bibliothèque `peft` de Hugging Face : on indique le rang et les modules à adapter.
+
+```python
+# no-run
+from transformers import AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model
+modele = AutoModelForCausalLM.from_pretrained("gpt2")
+config = LoraConfig(r=8, lora_alpha=16, target_modules=["c_attn"], lora_dropout=0.05)
+modele = get_peft_model(modele, config)
+modele.print_trainable_parameters()     # une infime fraction des paramètres
+```
+
+## Les pièges classiques
+
+**« LoRA rend le modèle plus petit. »** Le modèle garde exactement sa taille : on ajoute une correction, on ne retire rien. Ce sont l'**entraînement** et le **stockage par tâche** qui deviennent légers. Pour réduire la taille du modèle lui-même, il faut d'autres techniques, comme la [quantification](/concepts/quantification/).
+
+**« Un adaptateur LoRA ralentit les réponses. »** Une fois fusionné, $W = W_0 + BA$ a la taille de $W_0$ : aucun calcul en plus. Le résumé du paper le souligne : contrairement aux méthodes qui ajoutent des couches sur le chemin, LoRA n'introduit aucune latence à l'inférence.
+
+**« Plus r est grand, meilleur est le résultat. »** Un rang plus grand donne plus de liberté, mais coûte plus ; dans le paper, les adaptateurs de GPT-3 de 35 Mo utilisent un rang de 4 seulement. Au-delà d'un certain point, on se rapproche du fine-tuning complet sans en avoir la simplicité.
+
+## Dans la vraie vie
+
+Sur GPT-3 175B, le paper rapporte 10 000 fois moins de paramètres entraînables et 3 fois moins de mémoire GPU que le fine-tuning complet avec Adam, pour une qualité équivalente ou meilleure sur les tâches testées ; un point de contrôle passe de 350 Go à 35 Mo par tâche. Un serveur peut ainsi garder un seul modèle en mémoire et changer d'adaptateur selon le client ou la tâche.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que fait LoRA des poids pré-entraînés W₀ ?",
+    choix: ["Il les supprime", "Il les gèle et ajoute une correction BA", "Il les réduit à 4 bits", "Il les remplace par B"],
+    bonne: 1,
+    explication: "W₀ reste intacte ; seules les petites matrices A et B sont entraînées."
+  },
+  {
+    question: "Pourquoi initialise-t-on B à zéro ?",
+    choix: ["Pour économiser de la mémoire", "Pour que le modèle adapté parte exactement du modèle d'origine", "Pour que le rang soit nul à la fin", "Pour accélérer l'inférence"],
+    bonne: 1,
+    explication: "Avec B = 0, BA = 0 : au premier pas, h = W₀x."
+  },
+  {
+    question: "d = k = 1 000 et r = 5. Combien de paramètres LoRA pour cette matrice ?",
+    choix: ["5 000", "10 000", "1 000 000", "2 000"],
+    bonne: 1,
+    explication: "r(d + k) = 5 × 2 000 = 10 000, contre 1 000 000."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez LoRA et ses avantages par rapport au fine-tuning complet.">
+
+LoRA gèle les poids pré-entraînés et paramètre la mise à jour d'une matrice $W_0 \in \mathbb{R}^{d \times k}$ par un produit $BA$, avec $B \in \mathbb{R}^{d \times r}$, $A \in \mathbb{R}^{r \times k}$ et $r$ très petit. Seuls $A$ et $B$ sont entraînés : $r(d+k)$ paramètres au lieu de $dk$. $B$ est initialisée à zéro, donc l'entraînement part du modèle d'origine. Avantages : beaucoup moins de mémoire pendant l'entraînement (pas de gradients ni d'états d'Adam pour les poids gelés), des adaptateurs de quelques mégaoctets par tâche au lieu de copies complètes, la possibilité de servir plusieurs tâches avec un seul modèle de base, et aucune latence supplémentaire après fusion $W = W_0 + BA$. L'hypothèse sous-jacente est que la modification utile pour une tâche est de rang faible ; si la tâche demande de modifier profondément le modèle, un rang plus élevé ou un fine-tuning complet peut rester nécessaire.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "adaptation de rang faible", en: "Low-Rank Adaptation, LoRA", definition: "Apprendre une correction des poids écrite comme le produit de deux matrices étroites, les poids d'origine restant gelés." },
+  { fr: "rang", en: "rank", definition: "Nombre maximal de colonnes linéairement indépendantes ; ici, la largeur r du goulot entre A et B." },
+  { fr: "adaptateur", en: "adapter", definition: "Petit ensemble de paramètres entraînés pour une tâche, ajouté à un modèle de base partagé." },
+  { fr: "poids gelés", en: "frozen weights", definition: "Paramètres qu'on ne met pas à jour pendant l'entraînement." },
+  { fr: "fusion", en: "merging", definition: "Ajouter BA à W₀ après l'entraînement, pour obtenir une seule matrice sans coût à l'inférence." }
+]} />
