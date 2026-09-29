@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (entropie croisée) ; chapitre 12, section 12.4 (modèles de langage)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -108,29 +108,43 @@ Avec une perte de 0, la perplexité vaut 1 : une seule case, le modèle prédit 
 
 ## Entraîne-toi
 
-**Exercice 1.** Un modèle a une perte moyenne de 3 nats par mot. Quelle est sa perplexité ?
+<Exercice titre="De la perte à la perplexité" niveau="facile" reponse={20.1} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Un modèle a une perte moyenne de 3 nats par mot. Quelle est sa perplexité ?
+
+<div slot="solution">
 
 $e^3 \approx 20{,}1$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Un modèle donne la probabilité 0,25 à chacun des vrais mots d'un texte. Quelle est sa perplexité ?
+<Exercice titre="Un choix entre quatre mots" niveau="moyen" reponse={4} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Un modèle donne la probabilité 0,25 à chacun des vrais mots d'un texte. Quelle est sa perplexité ?
+
+<div slot="solution">
 
 Perte moyenne $-\ln 0{,}25 = \ln 4$, perplexité 4. C'est un choix uniforme entre 4 mots.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un modèle passe d'une perplexité de 20 à 15 après un entraînement plus long. De combien sa perte moyenne a-t-elle baissé ?
+<Exercice titre="Un entraînement plus long" niveau="defi" reponse={0.288} tolerance={0.01} unite="nat par mot">
 
-<Depliable titre="Corrigé">
+Un modèle passe d'une perplexité de 20 à 15 après un entraînement plus long. De combien sa perte moyenne a-t-elle baissé ?
+
+<div slot="indice">
+
+La perte moyenne est le logarithme de la perplexité.
+
+</div>
+<div slot="solution">
 
 $\ln 20 - \ln 15 = \ln(20/15) \approx 0{,}288$ nat par mot.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
