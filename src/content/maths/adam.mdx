@@ -16,7 +16,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.5 (algorithmes à pas adaptatif, dont Adam)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -133,29 +133,38 @@ Après 40 pas, $f$ vaut environ 4,88 pour $\alpha = 0{,}05$ (les pas sont trop c
 
 ## Entraîne-toi
 
-**Exercice 1.** Avec les valeurs par défaut et $\alpha = 0{,}001$, un paramètre reçoit $g_1 = -0{,}002$. De combien bouge-t-il au premier pas ? Et si $g_1 = -200$ ?
+<Exercice titre="Le premier pas ne dépend pas de l’échelle" niveau="facile" reponse={0.001} tolerance={0.00001}>
 
-<Depliable titre="Corrigé">
+Avec les valeurs par défaut et $\alpha = 0{,}001$, un paramètre reçoit $g_1 = -0{,}002$. De combien bouge-t-il au premier pas ? Et si $g_1 = -200$ ? Entre le déplacement du paramètre dans le premier cas.
+
+<div slot="solution">
 
 Dans les deux cas, $\hat{m}_1 = g_1$ et $\sqrt{\hat{v}_1} = |g_1|$, donc le pas vaut $-\alpha \times g_1 / |g_1| = +0{,}001$. Le paramètre augmente de 0,001, que le gradient soit minuscule ou énorme ; $\epsilon = 10^{-8}$ est négligeable devant 0,002.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Sans correction du biais, que vaudrait le premier pas avec $\beta_1 = 0{,}9$, $\beta_2 = 0{,}999$ et $g_1 = 4$ ?
+<Exercice titre="Ce que corrige la correction du biais" niveau="moyen" reponse={3.16} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Sans correction du biais, que vaudrait le premier pas avec $\beta_1 = 0{,}9$, $\beta_2 = 0{,}999$ et $g_1 = 4$ ? Entre le facteur $k$ tel que le pas vaut $-k\,\alpha$.
+
+<div slot="solution">
 
 $m_1 = 0{,}4$ et $v_1 = 0{,}016$, donc $\sqrt{v_1} \approx 0{,}126\,5$. Le pas serait $-\alpha \times 0{,}4 / 0{,}126\,5 \approx -3{,}16\,\alpha$ au lieu de $-\alpha$. Les deux biais ne se compensent pas : $0{,}1 / \sqrt{0{,}001} \approx 3{,}16$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un modèle a 7 milliards de paramètres stockés sur 2 octets chacun. Adam garde $m$ et $v$ sur 4 octets chacun. Combien de mémoire pour les poids ? Pour l'état d'Adam ?
+<Exercice titre="La facture mémoire d’un grand modèle" niveau="defi" reponse={56} tolerance={0.001} unite="Go">
 
-<Depliable titre="Corrigé">
+Un modèle a 7 milliards de paramètres stockés sur 2 octets chacun. Adam garde $m$ et $v$ sur 4 octets chacun. Combien de mémoire pour les poids ? Pour l'état d'Adam ? Entre la mémoire de l’état d’Adam.
+
+<div slot="solution">
 
 Poids : $7 \times 10^9 \times 2 = 14 \times 10^9$ octets, soit 14 Go. État d'Adam : $7 \times 10^9 \times 2 \times 4 = 56 \times 10^9$ octets, soit 56 Go, quatre fois plus que les poids.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
