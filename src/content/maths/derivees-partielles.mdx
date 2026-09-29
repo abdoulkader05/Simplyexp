@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.3 (dérivées partielles et gradient)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -118,29 +118,61 @@ En mettant $y$ à 0, la pente en $y$ tombe à 0 : on est au fond de la tranche d
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule les dérivées partielles de $f(x\,;\,y) = 3x + 5y^2 - xy$.
+<Exercice titre="Deux variables, deux dérivées" niveau="facile">
 
-<Depliable titre="Corrigé">
+Calcule les dérivées partielles de $f(x\,;\,y) = 3x + 5y^2 - xy$.
+
+<div slot="solution">
 
 $\frac{\partial f}{\partial x} = 3 - y$ et $\frac{\partial f}{\partial y} = 10y - x$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Pour $f(x\,;\,y\,;\,z) = x\,e^{y} + z^2$, calcule les trois dérivées partielles en $(1\,;\,0\,;\,2)$.
+<Exercice titre="Trois variables en un point" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Pour $f(x\,;\,y\,;\,z) = x\,e^{y} + z^2$, calcule les trois dérivées partielles en $(1\,;\,0\,;\,2)$.
+
+<div slot="indice">
+
+Pour dériver par rapport à une variable, traite les deux autres comme des nombres fixes.
+
+</div>
+<div slot="solution">
 
 $\frac{\partial f}{\partial x} = e^y = 1$, $\frac{\partial f}{\partial y} = x\,e^y = 1$ et $\frac{\partial f}{\partial z} = 2z = 4$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Pour le trajet de 4 km payé 500 F, la perte est $\ell(w\,;\,b) = (4w + b - 500)^2$. Calcule les deux dérivées partielles en $w = 100$, $b = 50$. Dans quel sens faut-il bouger chaque paramètre ?
+<Exercice titre="Corriger un prix de trajet" niveau="moyen" reponse={-400} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Pour le trajet de 4 km payé 500 F, la perte est $\ell(w\,;\,b) = (4w + b - 500)^2$. Calcule les deux dérivées partielles en $w = 100$, $b = 50$ et saisis $\frac{\partial \ell}{\partial w}$. Dans quel sens faut-il bouger chaque paramètre ?
+
+<div slot="solution">
 
 L'écart vaut $4 \times 100 + 50 - 500 = -50$. $\frac{\partial \ell}{\partial w} = 2 \times (-50) \times 4 = -400$ et $\frac{\partial \ell}{\partial b} = 2 \times (-50) = -100$. Les deux sont négatives : il faut augmenter $w$ et $b$ pour réduire l'erreur.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Agrandir une canette" niveau="defi" reponse={5} tolerance={0}>
+
+Une canette est un cylindre de rayon $r = 4$ cm et de hauteur $h = 10$ cm. Son volume vaut $V(r\,;\,h) = \pi r^2 h$. Le fabricant peut ajouter un millimètre soit au rayon, soit à la hauteur. Calcule $\frac{\partial V}{\partial r}$ et $\frac{\partial V}{\partial h}$ en $(4\,;\,10)$ puis saisis leur rapport $\frac{\partial V}{\partial r} / \frac{\partial V}{\partial h}$. Quelle modification rapporte le plus de volume ?
+
+<div slot="indice">
+
+Pour $\frac{\partial V}{\partial r}$, $\pi$ et $h$ sont des constantes ; pour $\frac{\partial V}{\partial h}$, c'est $\pi r^2$ qui est constant.
+
+</div>
+<div slot="solution">
+
+$\frac{\partial V}{\partial r} = 2\pi r h = 80\pi \approx 251$ cm³ par cm, et $\frac{\partial V}{\partial h} = \pi r^2 = 16\pi \approx 50$ cm³ par cm. Rapport : $\frac{2\pi r h}{\pi r^2} = \frac{2h}{r} = 5$.
+
+Un millimètre de rayon en plus ajoute environ 5 fois plus de volume qu'un millimètre de hauteur. Les dérivées partielles disent quel réglage a le plus d'effet : c'est exactement l'information qu'utilise l'entraînement pour choisir quels poids modifier le plus.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
