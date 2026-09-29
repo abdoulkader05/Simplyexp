@@ -1,0 +1,239 @@
+---
+id: pretraining
+type: concept
+titre: "Le pré-entraînement : lire Internet pour apprendre le monde"
+sous_titre: "Pré-entraînement des LLM, données et objectif"
+domaine: llm
+niveau: 5
+prerequis: [bert-vs-gpt, entropie-croisee, adam, bpe]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Brown et al., « Language Models are Few-Shot Learners », 28 mai 2020 — https://arxiv.org/abs/2005.14165 — section 2.2 et tableau 2.2 (300 milliards de tokens d'entraînement ; Common Crawl filtré 410 Md de tokens, 60 % du mélange ; WebText2 19 Md, 22 % ; Books1 12 Md, 8 % ; Books2 55 Md, 8 % ; Wikipédia 3 Md, 3 % ; Common Crawl de 45 To compressés à 570 Go après filtrage ; dédoublonnage approximatif ; sources de qualité échantillonnées plus souvent), calcul d'entraînement de GPT-3 175B d'environ 3,14 × 10²³ opérations"
+  - "Kaplan et al., « Scaling Laws for Neural Language Models », OpenAI, 2020 — https://arxiv.org/abs/2001.08361 — section 2.1 (passe avant ≈ 2N opérations par token, calcul d'entraînement C ≈ 6NBS)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un [décodeur](/concepts/bert-vs-gpt/) qui sort de l'usine a des poids tirés au hasard : il produit une bouillie de tokens. Pour qu'il sache écrire, raisonner un peu et connaître le monde, il faut lui montrer une quantité énorme de texte et lui faire prédire, encore et encore, le token suivant. Cette première phase s'appelle le pré-entraînement. C'est elle qui coûte le plus cher, de loin, et c'est elle qui donne au modèle presque tout ce qu'il sait. Mais que lui faire lire, combien, et à quel prix ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Le pré-entraînement fait lire à un modèle des centaines de milliards de tokens filtrés et mélangés, en minimisant à chaque position l'entropie croisée du token suivant ; son coût se résume par C ≈ 6 N D.
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui voudrait apprendre le français en lisant une bibliothèque immense, sans professeur.
+
+- Il ne lit pas tout ce qui traîne : il écarte les prospectus, les pages déchirées, les exemplaires en double.
+- Il relit plusieurs fois les ouvrages soignés, dictionnaires et bons romans, et survole le reste.
+- En lisant, il se cache la suite de chaque phrase et essaie de la deviner, puis vérifie. À force, il intègre la grammaire, le vocabulaire et beaucoup de faits.
+
+Là où l'image s'arrête : le modèle ne « comprend » pas ce qu'il lit comme un humain ; il ajuste des milliards de nombres pour que ses prédictions collent au texte. Et il retient aussi les erreurs et les biais de ce qu'il a lu.
+
+## Comment ça marche
+
+Le pré-entraînement (*pretraining*) enchaîne quatre étapes.
+
+1. **Collecter** : on part de copies du web (pages, forums), auxquelles on ajoute des sources plus soignées (livres, encyclopédies).
+2. **Nettoyer** : on filtre les pages de mauvaise qualité et l'on retire les doublons. Pour GPT-3, le web brut faisait 45 To compressés ; il en restait 570 Go après filtrage.
+3. **Mélanger** : chaque source reçoit un poids. Les sources soignées sont lues plus souvent que leur taille ne le voudrait.
+4. **Entraîner** : on découpe tout en tokens avec [BPE](/concepts/bpe/), on forme des lots de séquences, le modèle prédit chaque token suivant, on calcule l'[entropie croisée](/maths/entropie-croisee/) moyenne, et un optimiseur comme [Adam](/maths/adam/) met à jour les poids. Puis lot suivant, des centaines de milliers de fois.
+
+Le coût total en opérations se résume par une formule simple :
+
+$$
+C \approx 6\,N\,D
+$$
+
+où :
+- $C$ est le nombre d'opérations en virgule flottante de l'entraînement ;
+- $N$ est le nombre de paramètres du modèle ;
+- $D$ est le nombre de tokens lus pendant l'entraînement.
+
+Exemple : GPT-3 a $N = 175$ milliards de paramètres et a lu $D = 300$ milliards de tokens. $C \approx 6 \times 1{,}75 \times 10^{11} \times 3 \times 10^{11} = 3{,}15 \times 10^{23}$ opérations, très proche des $3{,}14 \times 10^{23}$ indiqués par ses auteurs. Fais défiler.
+
+<PasAPas rendu="pretraining-chaine" label="La chaîne du pré-entraînement de GPT-3">
+  <Etape etat="initial">
+    **Le web brut.** Une copie massive de pages. Beaucoup de bruit : menus, publicités, textes en double, pages mal encodées.
+  </Etape>
+  <Etape etat="filtre">
+    **Filtrer, dédoubler.** Les auteurs de GPT-3 gardent les pages qui ressemblent à des textes de référence, puis retirent les quasi-doublons : de 45 To compressés à 570 Go.
+  </Etape>
+  <Etape etat="melange">
+    **Mélanger.** Cinq sources, avec des poids qui ne suivent pas leur taille : Wikipédia pèse 3 % du mélange alors qu’elle est plus de cent fois plus petite que le web filtré.
+  </Etape>
+  <Etape etat="boucle">
+    **La boucle.** Tokeniser un lot, prédire chaque token suivant, mesurer la perte, corriger les poids. Puis recommencer avec le lot suivant.
+  </Etape>
+  <Etape etat="bilan">
+    **Le bilan.** 300 milliards de tokens lus, environ $3 \times 10^{23}$ opérations. À la fin, le modèle sait continuer un texte ; il ne sait pas encore suivre une consigne.
+  </Etape>
+</PasAPas>
+
+Le mélange a une conséquence peu intuitive : certaines sources sont relues plusieurs fois, d'autres ne sont même pas lues en entier.
+
+<Schema rendu="pretraining-passages" legende="Nombre de passages sur chaque source pendant le pré-entraînement de GPT-3 : poids dans le mélange × 300 milliards de tokens ÷ tokens disponibles." />
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient le 6 de C ≈ 6ND">
+
+**La passe avant.** Pour un token, chaque paramètre intervient essentiellement dans une multiplication suivie d'une addition, comme dans un [produit matriciel](/maths/produit-matriciel/). Cela fait 2 opérations par paramètre, soit environ $2N$ par token. On néglige ici le calcul de l'attention elle-même, faible devant $N$ tant que le contexte n'est pas très long.
+
+**La passe arrière.** La [rétropropagation](/concepts/backpropagation/) calcule deux choses par couche : le gradient par rapport aux entrées (pour continuer à remonter) et le gradient par rapport aux poids (pour les mettre à jour). Chacune coûte à peu près autant que la passe avant, d'où environ $4N$ par token.
+
+$$
+\begin{aligned}
+\text{par token} &\approx 2N + 4N = 6N && \text{passe avant + passe arrière} \\
+C &\approx 6N \times D && \text{on multiplie par le nombre de tokens lus}
+\end{aligned}
+$$
+
+Les auteurs des lois d'échelle écrivent $C \approx 6NBS$, avec $B$ la taille de lot en tokens et $S$ le nombre de pas : c'est la même chose, puisque $B \times S = D$.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Wikipédia relue combien de fois ?" niveau="facile" reponse={3} tolerance={0.01} unite="fois">
+
+Wikipédia compte 3 milliards de tokens dans le jeu de GPT-3 et pèse 3 % du mélange. Le modèle lit 300 milliards de tokens en tout. Combien de fois, en moyenne, a-t-il lu Wikipédia ?
+
+<div slot="solution">
+
+Tokens lus venant de Wikipédia : $0{,}03 \times 300 = 9$ milliards. Divisés par les 3 milliards disponibles : **3 passages**.
+
+</div>
+</Exercice>
+
+<Exercice titre="Deux semaines de calcul" niveau="moyen" reponse={13.9} tolerance={0.01} unite="jours">
+
+Une petite équipe veut pré-entraîner un modèle d'un milliard de paramètres sur 20 milliards de tokens. Son matériel fournit, en pratique, $10^{14}$ opérations par seconde. Combien de jours faut-il ?
+
+<div slot="indice">
+
+Calcule $C \approx 6ND$, divise par le débit pour obtenir des secondes, puis par 86 400.
+
+</div>
+<div slot="solution">
+
+$C \approx 6 \times 10^9 \times 2 \times 10^{10} = 1{,}2 \times 10^{20}$ opérations. En secondes : $1{,}2 \times 10^{20} / 10^{14} = 1{,}2 \times 10^6$. En jours : $1{,}2 \times 10^6 / 86\,400 \approx 13{,}9$ jours. Doubler le modèle **ou** les données double la facture.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le web même pas lu en entier" niveau="defi" reponse={0.44} tolerance={0.01} unite="passage">
+
+Le web filtré compte 410 milliards de tokens et pèse 60 % du mélange de GPT-3. Quelle fraction de ce web le modèle a-t-il lue ? Compare avec Wikipédia (exercice facile) : quel choix les auteurs ont-ils fait, et pourquoi ?
+
+<div slot="solution">
+
+Tokens lus venant du web : $0{,}6 \times 300 = 180$ milliards. Fraction : $180 / 410 \approx 0{,}44$. Le modèle n'a pas vu la moitié du web filtré, alors qu'il a lu Wikipédia trois fois.
+
+C'est un arbitrage entre quantité et qualité : les auteurs échantillonnent plus souvent les sources jugées de meilleure qualité, quitte à les répéter, plutôt que d'épuiser le web, plus bruité.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un pré-entraînement miniature. Un modèle de bigrammes à poids appris (une matrice de scores), entraîné par descente de gradient à prédire le caractère suivant d'un petit texte, et le calcul de $6ND$.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+texte = "le chat dort. le chien dort. le chat mange. " * 20
+vocab = sorted(set(texte))
+idx = {c: i for i, c in enumerate(vocab)}
+x = np.array([idx[c] for c in texte[:-1]])
+y = np.array([idx[c] for c in texte[1:]])
+V = len(vocab)
+
+W = rng.normal(0, 0.1, (V, V))            # les paramètres : un score par (caractère, suivant)
+for pas in range(301):
+    scores = W[x]                           # passe avant
+    scores -= scores.max(axis=1, keepdims=True)
+    P = np.exp(scores) / np.exp(scores).sum(axis=1, keepdims=True)
+    perte = -np.log(P[np.arange(len(y)), y]).mean()   # entropie croisée moyenne
+    grad = P.copy(); grad[np.arange(len(y)), y] -= 1  # gradient du softmax + entropie croisée
+    dW = np.zeros_like(W); np.add.at(dW, x, grad / len(y))
+    W -= 5.0 * dW                           # descente de gradient simple
+    if pas % 100 == 0:
+        print(f"pas {pas:3d} : perte {perte:.3f}")
+
+N, D = W.size, len(x) * 301
+print(f"N = {N} paramètres, D = {D} tokens lus, 6ND ≈ {6 * N * D:.2e} opérations")
+print("GPT-3 : 6ND ≈", f"{6 * 175e9 * 300e9:.2e}")
+```
+
+En vrai, on utilise une bibliothèque d'entraînement distribué sur des centaines ou des milliers de processeurs graphiques ; le principe de la boucle reste celui-ci : lot, perte, gradient, mise à jour.
+
+```python
+# no-run
+from transformers import AutoModelForCausalLM, AutoTokenizer
+modele = AutoModelForCausalLM.from_pretrained("gpt2")
+tok = AutoTokenizer.from_pretrained("gpt2")
+lot = tok(["Le chat dort sur le canapé."], return_tensors="pt")
+sortie = modele(**lot, labels=lot["input_ids"])   # la bibliothèque décale les labels d'un token
+print(sortie.loss)                                # entropie croisée moyenne du token suivant
+```
+
+## Les pièges classiques
+
+**« Le modèle a lu tout Internet. »** Il a lu une sélection filtrée et pondérée. Pour GPT-3, même le web filtré n'a pas été lu en entier, alors que d'autres sources ont été relues plusieurs fois.
+
+**« Plus de données, c'est toujours mieux. »** Des données de mauvaise qualité ou dupliquées coûtent du calcul et peuvent dégrader le modèle. Le filtrage et le dédoublonnage font partie du travail, pas des détails.
+
+**« Après le pré-entraînement, le modèle est un assistant. »** Il sait continuer un texte, pas suivre une consigne ni refuser une demande dangereuse. Il faut ensuite un [fine-tuning](/concepts/fine-tuning/), puis un [instruction tuning](/concepts/instruction-tuning/).
+
+## Dans la vraie vie
+
+Le pré-entraînement est l'étape la plus coûteuse de la vie d'un LLM, et de loin : quelques centaines de milliards de tokens, des mois de calcul sur des grappes de processeurs graphiques. Il fixe l'essentiel de ce que le modèle sait, y compris sa date limite de connaissances, et les biais de ses données. C'est aussi là que naissent les [hallucinations](/concepts/hallucinations/) : le modèle apprend ce qui est probable dans ses textes, pas ce qui est vrai. Combien de paramètres et combien de tokens choisir pour un budget donné ? C'est la question des [lois d'échelle](/concepts/lois-echelle/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quel est l'objectif d'entraînement d'un décodeur pendant le pré-entraînement ?",
+    choix: ["Suivre des consignes", "Prédire le token suivant, en minimisant l'entropie croisée", "Classer des textes", "Traduire"],
+    bonne: 1,
+    explication: "Chaque position fournit une cible : le token qui suit dans le texte."
+  },
+  {
+    question: "Un modèle de 7 milliards de paramètres lit 1 000 milliards de tokens. Quel est l'ordre de grandeur du calcul ?",
+    choix: ["4,2 × 10¹⁶", "4,2 × 10²²", "7 × 10²¹", "4,2 × 10²⁵"],
+    bonne: 1,
+    explication: "6 × 7 × 10⁹ × 10¹² = 4,2 × 10²² opérations."
+  },
+  {
+    question: "Pourquoi relire plusieurs fois certaines sources ?",
+    choix: ["Par erreur", "Parce qu'elles sont jugées de meilleure qualité", "Parce qu'elles sont plus grandes", "Pour réduire le calcul"],
+    bonne: 1,
+    explication: "Les poids du mélange favorisent les sources soignées, quitte à les répéter."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : décrivez les étapes d'un pré-entraînement et ce qui en détermine le coût.">
+
+On collecte de grands corpus (web, livres, code, encyclopédies), on les nettoie (filtres de qualité, dédoublonnage, retrait de contenus indésirables), on fixe les poids du mélange, on tokenise, puis on entraîne un décodeur à prédire le token suivant en minimisant l'entropie croisée, avec un optimiseur de type Adam, un calendrier de pas d'apprentissage et de grands lots répartis sur de nombreux processeurs. Le coût en calcul vaut environ 6 opérations par paramètre et par token lu, C ≈ 6ND : il croît linéairement avec la taille du modèle et avec le nombre de tokens. Le choix du couple N, D pour un budget donné relève des lois d'échelle ; la qualité et la diversité des données comptent autant que leur volume.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "pré-entraînement", en: "pretraining", definition: "Première phase d'entraînement d'un LLM : prédire le token suivant sur un très grand corpus." },
+  { fr: "mélange de données", en: "data mixture", definition: "Poids donnés à chaque source dans le flux d'entraînement." },
+  { fr: "dédoublonnage", en: "deduplication", definition: "Retrait des documents identiques ou presque identiques." },
+  { fr: "passage", en: "epoch", definition: "Lecture complète d'une source ; un modèle peut faire plus ou moins d'un passage selon le mélange." }
+]} />
