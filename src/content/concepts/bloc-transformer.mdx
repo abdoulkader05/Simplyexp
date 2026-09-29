@@ -1,0 +1,280 @@
+---
+id: bloc-transformer
+type: concept
+titre: "Le bloc Transformer : la brique Lego de tous les LLM"
+sous_titre: "Attention, feed-forward, résiduels et normalisation"
+domaine: transformers
+niveau: 5
+prerequis: [multi-head, encodage-positionnel, normalisation-couches, connexions-residuelles]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 14
+sources:
+  - "Vaswani et al., « Attention Is All You Need », NeurIPS 2017 — https://arxiv.org/abs/1706.03762 (version HTML consultée : https://arxiv.org/html/1706.03762v7) — résumé (BLEU 28,4 en anglais-allemand, 41,8 en anglais-français), introduction (douze heures d'entraînement sur huit GPU P100), section 3.1 (N = 6 couches identiques, deux sous-couches, LayerNorm(x + Sublayer(x)), d_model = 512, troisième sous-couche du décodeur), section 3.3 (FFN(x) = max(0, xW₁ + b₁)W₂ + b₂, appliqué à chaque position séparément et de façon identique, paramètres différents d'une couche à l'autre, d_ff = 2048), section 5.4 (dropout sur la sortie de chaque sous-couche, P_drop = 0,1)"
+  - "Documentation PyTorch, torch.nn.TransformerEncoderLayer — https://docs.pytorch.org/docs/2.14/generated/torch.nn.modules.transformer.TransformerEncoderLayer.html — dim_feedforward = 2048, dropout = 0,1 et activation ReLU par défaut ; paramètre norm_first (normalisation avant ou après chaque sous-couche, après par défaut)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+On a maintenant toutes les pièces. L'[attention multi-têtes](/concepts/multi-head/) laisse les mots échanger de l'information. L'[encodage positionnel](/concepts/encodage-positionnel/) leur dit où ils sont. La [normalisation de couche](/concepts/normalisation-couches/) garde les nombres dans une plage raisonnable. Les [connexions résiduelles](/concepts/connexions-residuelles/) permettent d'empiler beaucoup de couches sans que le gradient s'éteigne.
+
+Reste à les assembler. Une seule couche d'attention ne suffit pas : pour comprendre une phrase, il faut raffiner les vecteurs plusieurs fois. Il faut donc une brique qui prend des vecteurs et rend des vecteurs **de la même forme**, pour pouvoir l'empiler autant de fois qu'on veut. C'est le bloc Transformer.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un bloc Transformer enchaîne deux sous-couches, une attention multi-têtes qui fait circuler l'information entre les mots, puis un petit réseau appliqué à chaque mot séparément, chacune entourée d'un raccourci et suivie d'une normalisation ; la sortie a la même forme que l'entrée, ce qui permet d'empiler les blocs.
+</PhraseCle>
+
+## En image
+
+Pense à un atelier de couture qui retouche une pile de vêtements, pièce par pièce, en plusieurs passages.
+
+- D'abord une **réunion** : chaque couturière regarde les autres pièces de la commande pour accorder la sienne (les couleurs, les tailles). C'est l'attention.
+- Puis chacune retourne à **son poste** et retravaille sa pièce seule, avec les mêmes outils que ses collègues. C'est le réseau *feed-forward*.
+- À chaque étape, on ne jette pas la pièce d'origine : on **ajoute** des retouches par-dessus. C'est le raccourci.
+- En fin d'étape, on remet chaque pièce **au gabarit** : c'est la normalisation.
+
+Et la pile ressort sous la même forme qu'elle est entrée, prête pour le passage suivant.
+
+Là où l'image s'arrête : chaque passage de l'atelier a ses propres couturières, avec leurs propres habitudes. Dans un transformer, les blocs ont la même structure, mais chacun a ses propres poids, appris séparément.
+
+## Comment ça marche
+
+On range les vecteurs des $n$ tokens de la phrase dans une matrice $X$ de taille $n \times d_{\text{model}}$. Un bloc d'encodeur calcule :
+
+$$
+\begin{aligned}
+Z &= \mathrm{LayerNorm}\big(X + \mathrm{MultiHead}(X, X, X)\big) \\
+Y &= \mathrm{LayerNorm}\big(Z + \mathrm{FFN}(Z)\big)
+\end{aligned}
+\qquad \text{avec} \qquad
+\mathrm{FFN}(\mathbf{z}) = \max(0,\, \mathbf{z}\,W_1 + \mathbf{b}_1)\,W_2 + \mathbf{b}_2
+$$
+
+où :
+- $X$ est l'entrée du bloc, $Z$ le résultat de la première sous-couche, $Y$ la sortie du bloc, toutes de taille $n \times d_{\text{model}}$ ;
+- $\mathrm{MultiHead}(X, X, X)$ est la self-attention multi-têtes sur la phrase ;
+- $X + \dots$ et $Z + \dots$ sont les connexions résiduelles ;
+- $\mathrm{LayerNorm}$ normalise chaque ligne, c'est-à-dire chaque token, séparément ;
+- $\mathrm{FFN}$ (*feed-forward network*) est un [perceptron à une couche cachée](/concepts/mlp/), appliqué à chaque token $\mathbf{z}$ séparément, avec les mêmes poids pour tous ;
+- $W_1$ est de taille $d_{\text{model}} \times d_{\text{ff}}$ et $W_2$ de taille $d_{\text{ff}} \times d_{\text{model}}$ ; $\mathbf{b}_1$, $\mathbf{b}_2$ sont les biais ;
+- $\max(0, \cdot)$ est la [fonction ReLU](/concepts/fonctions-activation/), appliquée coordonnée par coordonnée.
+
+Dans le modèle de base de l'article, $d_{\text{model}} = 512$ et $d_{\text{ff}} = 2048$ : le réseau *feed-forward* élargit chaque vecteur à 2 048 coordonnées, puis le ramène à 512. Fais défiler pour suivre un bloc de haut en bas.
+
+<PasAPas rendu="bloc-flux" label="Parcours d'un bloc Transformer, de l'entrée à la sortie">
+  <Etape etat="initial">
+    Le bloc reçoit $n$ vecteurs de 512 coordonnées et en rend $n$ de 512. Entre les deux, deux sous-couches, chacune avec son raccourci et sa normalisation.
+  </Etape>
+  <Etape etat="attention">
+    **L'attention multi-têtes.** C'est la seule étape où les tokens se parlent : chaque vecteur devient un mélange des valeurs de toute la phrase.
+  </Etape>
+  <Etape etat="norme1">
+    **Raccourci et normalisation.** On ajoute l'entrée $X$ à la sortie de l'attention, puis on normalise chaque token : $Z = \mathrm{LayerNorm}(X + \mathrm{MultiHead}(X, X, X))$.
+  </Etape>
+  <Etape etat="ffn">
+    **Le réseau *feed-forward*.** Chaque token passe seul dans le même petit réseau : 512 coordonnées, puis 2 048 après $W_1$ et la ReLU, puis de nouveau 512 après $W_2$.
+  </Etape>
+  <Etape etat="norme2">
+    **Second raccourci, seconde normalisation.** $Y = \mathrm{LayerNorm}(Z + \mathrm{FFN}(Z))$. La sortie a la forme de l'entrée : elle peut entrer telle quelle dans le bloc suivant.
+  </Etape>
+</PasAPas>
+
+Un exemple à la main, en dimension 2 avec $d_{\text{ff}} = 4$ et des biais nuls. Un token sort de la première sous-couche avec $\mathbf{z} = (1\,;\,-1)$. On prend
+
+$$
+W_1 = \begin{pmatrix} 1 & 0 & 1 & -1 \\ 0 & 1 & 1 & 1 \end{pmatrix} \qquad W_2 = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 1 \\ 0 & 0 \end{pmatrix}
+$$
+
+Alors $\mathbf{z}\,W_1 = (1\,;\,-1\,;\,0\,;\,-2)$ ; la ReLU garde $(1\,;\,0\,;\,0\,;\,0)$ ; puis $(1\,;\,0\,;\,0\,;\,0)\,W_2 = (1\,;\,0)$. Le raccourci donne $\mathbf{z} + \mathrm{FFN}(\mathbf{z}) = (2\,;\,-1)$. La LayerNorm, sans gain ni décalage, retire la moyenne $0{,}5$ et divise par l'écart-type $1{,}5$ : la sortie du token vaut $(1\,;\,-1)$.
+
+On empile ensuite $N$ blocs identiques par leur structure, chacun avec ses propres poids. Dans l'article, l'encodeur en compte $N = 6$. Le décodeur a la même structure, avec deux différences : sa self-attention est munie du [masque causal](/concepts/masque-causal/), et il ajoute une troisième sous-couche, qui regarde la sortie de l'encodeur.
+
+<Schema rendu="bloc-pile" legende="L'encodeur du modèle de base : les embeddings, auxquels on ajoute l'encodage positionnel, traversent six blocs de même structure mais de poids différents. Chaque bloc garde la forme n × 512." />
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi on peut empiler, et où sont les poids">
+
+**La forme est conservée.** Suivons les tailles. $\mathrm{MultiHead}(X, X, X)$ rend $n \times d_{\text{model}}$ grâce à $W^O$. La somme $X + \mathrm{MultiHead}$ exige deux matrices de même taille : c'est le cas. La LayerNorm ne change pas la taille. Pour le FFN :
+
+$$
+\underbrace{Z}_{n \times d_{\text{model}}} \;\xrightarrow{\;\times W_1\;}\; n \times d_{\text{ff}} \;\xrightarrow{\;\mathrm{ReLU}\;}\; n \times d_{\text{ff}} \;\xrightarrow{\;\times W_2\;}\; n \times d_{\text{model}}
+$$
+
+La sortie $Y$ a donc la taille de $X$ : on peut brancher la sortie d'un bloc sur l'entrée du suivant, autant de fois qu'on veut. C'est exactement ce qu'exigent les deux raccourcis, qui additionnent l'entrée et la sortie de chaque sous-couche.
+
+**Les tokens ne se parlent que dans l'attention.** La ligne $i$ de $\mathrm{FFN}(Z)$ vaut $\max(0, \mathbf{z}_i W_1 + \mathbf{b}_1)\,W_2 + \mathbf{b}_2$ : elle ne dépend que de $\mathbf{z}_i$. De même, la LayerNorm d'une ligne ne dépend que de cette ligne. Seule l'attention mélange les lignes entre elles.
+
+**Où sont les poids.** En ignorant les biais et les normalisations, l'attention compte $4\,d_{\text{model}}^2$ poids (fiche multi-head) et le FFN $2\,d_{\text{model}}\,d_{\text{ff}}$. Avec $d_{\text{ff}} = 4\,d_{\text{model}}$, comme dans l'article ($2\,048 = 4 \times 512$) :
+
+$$
+\begin{aligned}
+\text{FFN} &= 2\,d_{\text{model}} \times 4\,d_{\text{model}} = 8\,d_{\text{model}}^2 \\
+\text{bloc} &= 4\,d_{\text{model}}^2 + 8\,d_{\text{model}}^2 = 12\,d_{\text{model}}^2 \\
+\frac{\text{FFN}}{\text{bloc}} &= \frac{8}{12} = \frac{2}{3}
+\end{aligned}
+$$
+
+Les deux tiers des poids d'un bloc sont dans le réseau *feed-forward*, pas dans l'attention. Avec $d_{\text{model}} = 512$, un bloc compte $12 \times 512^2 = 3\,145\,728$ poids, et les 6 blocs de l'encodeur environ 18,9 millions.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Suivre les formes" niveau="facile" reponse={20480} tolerance={0}>
+
+Une phrase de 10 tokens entre dans un bloc du modèle de base ($d_{\text{model}} = 512$, $d_{\text{ff}} = 2\,048$). Quelle est la taille de l'entrée ? Combien de nombres contient la couche cachée du réseau *feed-forward*, pour les 10 tokens ensemble ? Quelle est la taille de la sortie ?
+
+<div slot="solution">
+
+Entrée : $10 \times 512$. Couche cachée du FFN : $10 \times 2\,048 = 20\,480$ nombres, quatre fois plus que l'entrée. Sortie : de nouveau $10 \times 512$, la même forme que l'entrée, ce qui permet de l'envoyer dans le bloc suivant.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le poids du réseau feed-forward" niveau="moyen" reponse={2097152} tolerance={0}>
+
+Compte les poids des matrices $W_1$ et $W_2$ d'un bloc du modèle de base, sans les biais. Compare avec les $1\,048\,576$ poids de l'attention multi-têtes du même bloc.
+
+<div slot="solution">
+
+$W_1$ : $512 \times 2\,048 = 1\,048\,576$. $W_2$ : $2\,048 \times 512 = 1\,048\,576$. Total : $2\,097\,152$ poids, **deux fois** plus que l'attention. Le réseau qui retravaille chaque token seul pèse plus lourd que le mécanisme qui les fait communiquer.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un modèle plus large" niveau="defi" reponse={0.667} tolerance={0.002}>
+
+Un modèle utilise des blocs avec $d_{\text{model}} = 1\,024$ et $d_{\text{ff}} = 4\,096$. Quelle fraction des poids d'un bloc, biais et normalisations exclus, se trouve dans le réseau *feed-forward* ? Combien de poids compte un bloc ? Et que devient ce nombre si on double $d_{\text{model}}$ en gardant $d_{\text{ff}} = 4\,d_{\text{model}}$ ?
+
+<div slot="indice">
+
+Utilise la dérivation : un bloc compte $12\,d_{\text{model}}^2$ poids, dont $8\,d_{\text{model}}^2$ dans le FFN, dès que $d_{\text{ff}} = 4\,d_{\text{model}}$.
+
+</div>
+<div slot="solution">
+
+Ici aussi $d_{\text{ff}} = 4\,d_{\text{model}}$, donc la fraction vaut $8/12 = 2/3 \approx 0{,}667$, quelle que soit la taille.
+
+Un bloc compte $12 \times 1\,024^2 = 12\,582\,912$ poids. En doublant $d_{\text{model}}$, on multiplie ce nombre par $2^2 = 4$ : environ 50,3 millions. Le nombre de poids croît comme le **carré** de la largeur du modèle.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro, avec NumPy : un bloc complet d'encodeur, avec des poids tirés au hasard, pour vérifier les formes et compter les poids.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+d, d_ff, h, n = 64, 256, 4, 5          # petites tailles, même rapport d_ff = 4 d
+d_k = d // h
+
+def softmax(s):
+    e = np.exp(s - s.max(axis=-1, keepdims=True))
+    return e / e.sum(axis=-1, keepdims=True)
+
+def layer_norm(x, eps=1e-5):
+    return (x - x.mean(axis=-1, keepdims=True)) / np.sqrt(x.var(axis=-1, keepdims=True) + eps)
+
+W_Q, W_K, W_V, W_O = (rng.normal(0, d ** -0.5, (d, d)) for _ in range(4))
+W_1, W_2 = rng.normal(0, d ** -0.5, (d, d_ff)), rng.normal(0, d_ff ** -0.5, (d_ff, d))
+
+def multi_head(X):
+    Q, K, V = X @ W_Q, X @ W_K, X @ W_V
+    tetes = [softmax(Q[:, i*d_k:(i+1)*d_k] @ K[:, i*d_k:(i+1)*d_k].T / np.sqrt(d_k)) @ V[:, i*d_k:(i+1)*d_k]
+             for i in range(h)]
+    return np.concatenate(tetes, axis=1) @ W_O
+
+def bloc(X):
+    Z = layer_norm(X + multi_head(X))
+    return layer_norm(Z + np.maximum(0, Z @ W_1) @ W_2)
+
+X = rng.normal(size=(n, d))
+Y = bloc(bloc(bloc(X)))                 # on empile : la forme ne change pas
+print("entrée", X.shape, "→ sortie après 3 blocs", Y.shape)
+
+attention, ffn = 4 * d * d, W_1.size + W_2.size
+print("poids attention :", attention, "| poids FFN :", ffn, "| part du FFN :", round(ffn / (attention + ffn), 3))
+
+# L'exemple à la main de la fiche
+z = np.array([1.0, -1.0])
+W1 = np.array([[1, 0, 1, -1], [0, 1, 1, 1]], float)
+W2 = np.array([[1, 0], [0, 1], [1, 1], [0, 0]], float)
+print("FFN(z) =", np.maximum(0, z @ W1) @ W2, "| sortie =", layer_norm(z + np.maximum(0, z @ W1) @ W2, eps=0).round(3))
+```
+
+En vrai, avec PyTorch : la classe `TransformerEncoderLayer` reprend ce bloc, avec les valeurs de l'article par défaut pour la largeur du FFN et le dropout.
+
+```python
+# no-run
+import torch
+import torch.nn as nn
+
+couche = nn.TransformerEncoderLayer(d_model=512, nhead=8, dim_feedforward=2048,
+                                    dropout=0.1, batch_first=True)   # norm_first=False : normalisation après
+encodeur = nn.TransformerEncoder(couche, num_layers=6)                # 6 copies, poids indépendants
+x = torch.randn(1, 10, 512)
+print(encodeur(x).shape)                                             # torch.Size([1, 10, 512])
+```
+
+## Les pièges classiques
+
+**« Le réseau *feed-forward* mélange les mots. »** Il s'applique à chaque token séparément, avec les mêmes poids : aucune information ne passe d'un token à l'autre dans cette sous-couche. Les échanges entre mots ont lieu uniquement dans l'attention.
+
+**« L'essentiel des poids est dans l'attention. »** Avec $d_{\text{ff}} = 4\,d_{\text{model}}$, le FFN porte les deux tiers des poids d'un bloc. L'attention est ce qui rend le transformer original, mais elle n'est pas ce qui le rend lourd.
+
+**« Les blocs empilés sont des copies du même bloc. »** Ils ont la même structure, pas les mêmes poids. L'article le précise pour le FFN : les transformations linéaires sont les mêmes d'une position à l'autre, mais leurs paramètres changent d'une couche à l'autre.
+
+## Dans la vraie vie
+
+Dans l'article de 2017, l'encodeur et le décodeur empilent chacun 6 blocs, avec $d_{\text{model}} = 512$ et $d_{\text{ff}} = 2\,048$. Un dropout de 0,1 est appliqué à la sortie de chaque sous-couche, avant l'addition du raccourci et la normalisation. Les auteurs indiquent que ce modèle peut atteindre un nouvel état de l'art en traduction après seulement douze heures d'entraînement sur huit GPU P100, et leur plus grand modèle obtient des scores BLEU de 28,4 en anglais-allemand et de 41,8 en anglais-français.
+
+L'ordre des opérations n'est pas figé. L'article place la normalisation **après** l'addition du raccourci. PyTorch propose les deux variantes : avec le paramètre `norm_first=True`, la normalisation est faite **avant** l'attention et avant le FFN. La brique reste la même : attention, FFN, raccourcis, normalisations. C'est en empilant ces blocs, en plus grand nombre et plus larges, qu'on construit les grands modèles de langage.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans un bloc Transformer, où les tokens échangent-ils de l'information entre eux ?",
+    choix: ["Dans le réseau feed-forward", "Dans la LayerNorm", "Dans l'attention multi-têtes", "Dans les connexions résiduelles"],
+    bonne: 2,
+    explication: "Le FFN et la LayerNorm traitent chaque token séparément ; le raccourci additionne l'entrée d'un token à sa propre sortie. Seule l'attention mélange les tokens."
+  },
+  {
+    question: "Pourquoi peut-on empiler les blocs autant qu'on veut ?",
+    choix: ["Parce qu'ils partagent leurs poids", "Parce que la sortie d'un bloc a la même forme que son entrée", "Parce que le softmax normalise tout", "Parce que la LayerNorm supprime les poids inutiles"],
+    bonne: 1,
+    explication: "Un bloc transforme n × d_model en n × d_model : la sortie peut entrer telle quelle dans le bloc suivant."
+  },
+  {
+    question: "Avec d_model = 512 et d_ff = 2 048, que vaut la dimension de la couche cachée du FFN pour un token ?",
+    choix: ["512", "2 048", "64", "1 024"],
+    bonne: 1,
+    explication: "W₁ projette les 512 coordonnées vers d_ff = 2 048 ; W₂ les ramène à 512."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : décrivez un bloc d'encodeur Transformer et le rôle de chacun de ses éléments">
+
+Un bloc prend $n$ vecteurs de dimension $d_{\text{model}}$. La première sous-couche est une self-attention multi-têtes : c'est la seule opération qui fait circuler l'information entre les positions. La seconde est un réseau *feed-forward* à une couche cachée, en général quatre fois plus large, appliqué à chaque position séparément avec les mêmes poids ; il porte environ deux tiers des paramètres du bloc. Chaque sous-couche est entourée d'une connexion résiduelle, qui garde l'information d'entrée et facilite la circulation du gradient dans une pile profonde, et d'une normalisation de couche, placée après l'addition dans l'article original, souvent avant dans les implémentations qui le proposent. La sortie a la forme de l'entrée, ce qui permet d'empiler $N$ blocs de poids indépendants. L'ordre des tokens est fourni par l'encodage positionnel ajouté avant le premier bloc, et un décodeur ajoute un masque causal et, s'il y a un encodeur, une sous-couche d'attention vers sa sortie.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "bloc Transformer", en: "Transformer block", definition: "Brique formée d'une attention multi-têtes et d'un réseau feed-forward, chacun entouré d'un raccourci et d'une normalisation." },
+  { fr: "réseau feed-forward par position", en: "position-wise feed-forward network", definition: "Petit perceptron appliqué à chaque token séparément, avec les mêmes poids : max(0, zW₁ + b₁)W₂ + b₂." },
+  { fr: "sous-couche", en: "sub-layer", definition: "Une des deux étapes d'un bloc : l'attention ou le réseau feed-forward, avec son raccourci et sa normalisation." },
+  { fr: "empilement", en: "stacking", definition: "Enchaînement de N blocs de même structure et de poids différents, la sortie de l'un servant d'entrée au suivant." }
+]} />
