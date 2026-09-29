@@ -1,0 +1,241 @@
+---
+id: fine-tuning
+type: concept
+titre: "Le fine-tuning : spécialiser un modèle généraliste"
+sous_titre: "Ajuster un modèle pré-entraîné à une tâche"
+domaine: llm
+niveau: 5
+prerequis: [pretraining]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Howard, Ruder, « Universal Language Model Fine-tuning for Text Classification », 18 janvier 2018 — https://arxiv.org/abs/1801.06146 — résumé (avec seulement 100 exemples étiquetés, la méthode égale un entraînement à partir de zéro sur 100 fois plus de données) ; un fine-tuning trop agressif provoque un oubli catastrophique ; fine-tuning discriminant avec η^(l−1) = η^l / 2,6 ; dégel progressif en partant de la dernière couche)"
+  - "Devlin et al., « BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding », 2018 — https://arxiv.org/abs/1810.04805 — section 3.2 et annexe A.3 (tous les paramètres ajustés de bout en bout avec une couche de sortie propre à la tâche ; au plus une heure sur une TPU ; lots de 16 ou 32, taux 5, 3 ou 2 × 10⁻⁵, 2 à 4 époques ; les grands jeux de données sont moins sensibles aux réglages)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un modèle [pré-entraîné](/concepts/pretraining/) sait beaucoup de choses sur la langue, mais il ne sait pas ce que **toi** tu attends de lui : trier les réclamations d'un opérateur téléphonique, repérer les noms de médicaments dans des ordonnances, répondre dans le jargon d'un métier. Le réentraîner depuis zéro pour chaque tâche coûterait des mois de calcul et des milliards de tokens. Et l'on n'a souvent que quelques centaines d'exemples étiquetés. Comment réutiliser tout ce qu'il sait déjà, et ne lui apprendre que la différence ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Le fine-tuning reprend les poids d'un modèle pré-entraîné et continue la descente de gradient, avec des pas petits, sur un jeu de données propre à la tâche.
+</PhraseCle>
+
+## En image
+
+Pense à une infirmière expérimentée qui rejoint un service de pédiatrie.
+
+- On ne lui réapprend pas l'anatomie ni la pharmacologie : elle les connaît.
+- Elle suit quelques semaines d'adaptation : les doses pour enfants, les protocoles du service, le vocabulaire des parents.
+- Si on la « reformate » trop brutalement, en ne parlant plus que de pédiatrie pendant des mois, elle risque d'oublier des réflexes utiles ailleurs.
+
+Là où l'image s'arrête : le modèle n'a pas de mémoire séparée pour « le métier » et « la spécialité ». Tout est dans les mêmes poids, et c'est précisément ce qui rend l'oubli possible.
+
+## Comment ça marche
+
+Le fine-tuning (ou ajustement fin) suit la même boucle que le pré-entraînement, avec trois différences :
+
+1. **Le point de départ** : les poids pré-entraînés, pas des poids au hasard.
+2. **Les données** : quelques centaines ou milliers d'exemples de la tâche, souvent étiquetés. Pour classer des textes, on ajoute une petite **tête** : une couche qui transforme le dernier vecteur en scores de classes, suivie d'un [softmax](/concepts/softmax/).
+3. **Les réglages** : des pas d'apprentissage bien plus petits et peu d'époques. Pour BERT, les auteurs conseillent des taux de 2 à 5 × 10⁻⁵, des lots de 16 ou 32 exemples et 2 à 4 époques ; tout se refait en au plus une heure sur une seule puce spécialisée.
+
+Pourquoi des pas petits ? Parce qu'un fine-tuning trop agressif provoque un **oubli catastrophique** (*catastrophic forgetting*) : les poids s'éloignent tant de leur point de départ que le modèle perd ce qu'il avait appris. Howard et Ruder proposent deux parades. Le **dégel progressif** : on n'entraîne d'abord que la dernière couche, puis on libère les couches une à une en descendant. Et le **fine-tuning discriminant** : chaque couche reçoit son propre taux d'apprentissage, plus petit vers le bas, où se trouvent les connaissances les plus générales.
+
+$$
+\eta_{l-1} = \frac{\eta_l}{2{,}6} \qquad \Longrightarrow \qquad \eta_l = \frac{\eta_L}{2{,}6^{\,L - l}}
+$$
+
+où :
+- $L$ est le nombre de couches, et $l$ le numéro d'une couche ($1$ tout en bas, $L$ tout en haut) ;
+- $\eta_l$ est le taux d'apprentissage de la couche $l$ ;
+- $\eta_L$ est le taux de la couche du haut, réglé en premier ;
+- $2{,}6$ est le facteur que les auteurs ont trouvé efficace en pratique.
+
+Exemple à la main, avec $L = 4$ et $\eta_4 = 3 \times 10^{-5}$ : $\eta_3 \approx 1{,}15 \times 10^{-5}$, $\eta_2 \approx 0{,}44 \times 10^{-5}$ et $\eta_1 \approx 0{,}17 \times 10^{-5}$. La couche du bas bouge environ 17 fois moins vite que celle du haut. Fais défiler.
+
+<PasAPas rendu="fine-tuning-couches" label="Fine-tuning d'un modèle pré-entraîné, couche par couche">
+  <Etape etat="initial">
+    **Le point de départ.** Quatre couches pré-entraînées et une tête neuve, aux poids tirés au hasard. Le modèle ne sait pas encore faire la tâche. Les jauges à droite sont des niveaux d'illustration.
+  </Etape>
+  <Etape etat="tete">
+    **La tête d'abord.** Tout le reste est gelé : seule la tête apprend à lire les vecteurs que le modèle sait déjà produire. Ça suffit souvent à faire un grand pas.
+  </Etape>
+  <Etape etat="degel">
+    **Le dégel progressif.** On libère la couche 4, puis la couche 3. Les couches du haut, les plus spécialisées, s'adaptent en premier.
+  </Etape>
+  <Etape etat="taux">
+    **Des taux discriminants.** Toutes les couches apprennent, mais chacune à son rythme : on divise le taux par 2,6 à chaque couche en descendant.
+  </Etape>
+  <Etape etat="oubli">
+    **L'excès.** Avec un taux trop grand ou trop d'époques, la tâche progresse encore un peu, mais les connaissances générales s'effacent : c'est l'oubli catastrophique.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="De la règle couche par couche à la formule générale">
+
+La règle relie chaque couche à celle du dessus. On la déroule depuis le haut :
+
+$$
+\begin{aligned}
+\eta_{L-1} &= \frac{\eta_L}{2{,}6} && \text{une couche sous le sommet} \\
+\eta_{L-2} &= \frac{\eta_{L-1}}{2{,}6} = \frac{\eta_L}{2{,}6^2} && \text{on remplace } \eta_{L-1} \\
+\eta_l &= \frac{\eta_L}{2{,}6^{\,L-l}} && \text{après } L - l \text{ divisions}
+\end{aligned}
+$$
+
+C'est une suite géométrique de raison $1/2{,}6$ en descendant. Le rapport entre le haut et le bas vaut $2{,}6^{L-1}$ : environ $17{,}6$ pour 4 couches, mais $2{,}6^{11} \approx 37\,000$ pour 12 couches. Avec beaucoup de couches, les couches du bas ne bougent presque plus : elles gardent ce que le pré-entraînement leur a appris, ce qui limite l'oubli.
+
+Pourquoi protéger le bas ? Dans un réseau profond, les premières couches encodent des régularités générales (morceaux de mots, syntaxe) utiles à toutes les tâches ; les dernières sont plus proches de la sortie et doivent davantage changer pour la nouvelle tâche.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Compter les pas" niveau="facile" reponse={96} tolerance={0} unite="pas">
+
+Une association veut classer 1 000 messages de bénévoles en « urgent » ou « pas urgent ». Elle ajuste un petit modèle avec des lots de 32 messages pendant 3 époques. Combien de pas de gradient fait-elle ?
+
+<div slot="solution">
+
+Une époque parcourt les 1 000 messages en lots de 32 : $\lceil 1\,000 / 32 \rceil = 32$ pas (le dernier lot est incomplet). Trois époques : $3 \times 32 = 96$ pas. C'est minuscule à côté des centaines de milliers de pas d'un pré-entraînement.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le taux de la couche du bas" niveau="moyen" reponse={1.71} tolerance={0.01} unite="× 10⁻⁶">
+
+Un modèle a 4 couches. La couche du haut apprend avec $\eta_4 = 3 \times 10^{-5}$. Avec la règle du fine-tuning discriminant, quel est le taux de la couche 1, en millionièmes ?
+
+<div slot="solution">
+
+$\eta_1 = 3 \times 10^{-5} / 2{,}6^3 = 3 \times 10^{-5} / 17{,}576 \approx 1{,}71 \times 10^{-6}$. La couche du bas avance environ 17,6 fois plus lentement que celle du haut.
+
+</div>
+</Exercice>
+
+<Exercice titre="Quatre minutes de calcul" niveau="defi" reponse={4.2} tolerance={0.01} unite="minutes">
+
+On ajuste un modèle de 110 millions de paramètres sur 10 000 exemples de 128 tokens, pendant 3 époques. Avec la règle $C \approx 6ND$ vue au pré-entraînement et une carte qui fournit $10^{13}$ opérations par seconde, combien de minutes faut-il ?
+
+<div slot="indice">
+
+$D$ est le nombre total de tokens lus : exemples × tokens × époques.
+
+</div>
+<div slot="solution">
+
+$D = 10\,000 \times 128 \times 3 = 3{,}84 \times 10^6$ tokens. $C \approx 6 \times 1{,}1 \times 10^8 \times 3{,}84 \times 10^6 \approx 2{,}53 \times 10^{15}$ opérations. Durée : $2{,}53 \times 10^{15} / 10^{13} \approx 253$ secondes, soit environ **4,2 minutes**. Le pré-entraînement du même modèle demande des milliards de tokens : des centaines de milliers de fois plus.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un « modèle pré-entraîné » simulé par une matrice de caractéristiques fixe, une tête de classification neuve, et une comparaison entre entraîner depuis zéro et partir des caractéristiques pré-entraînées quand on a peu d'exemples.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+# Données : 2 classes, 20 dimensions, seules 2 dimensions sont utiles
+def donnees(n):
+    X = rng.normal(size=(n, 20))
+    y = (X[:, 0] + X[:, 1] > 0).astype(float)
+    return X, y
+
+X_app, y_app = donnees(30)       # très peu d'exemples étiquetés
+X_test, y_test = donnees(2000)
+
+# « Pré-entraînement » simulé : une projection qui a déjà appris à isoler les directions utiles
+pre_entraine = np.zeros((20, 2)); pre_entraine[0, 0] = pre_entraine[1, 1] = 1.0
+
+def entrainer_tete(F, y, pas=0.5, epoques=300):
+    w, b = np.zeros(F.shape[1]), 0.0
+    for _ in range(epoques):
+        p = 1 / (1 + np.exp(-(F @ w + b)))
+        w -= pas * F.T @ (p - y) / len(y)
+        b -= pas * (p - y).mean()
+    return w, b
+
+def exactitude(F, y, w, b):
+    return ((F @ w + b > 0) == y).mean()
+
+w, b = entrainer_tete(X_app, y_app)                             # tout apprendre avec 30 exemples
+print("depuis zéro, 20 dimensions :", exactitude(X_test, y_test, w, b))
+w, b = entrainer_tete(X_app @ pre_entraine, y_app)              # seule la tête apprend
+print("tête sur caractéristiques pré-entraînées :", exactitude(X_test @ pre_entraine, y_test, w, b))
+
+# Taux discriminants pour 4 couches
+eta_haut = 3e-5
+print([f"{eta_haut / 2.6 ** (4 - l):.2e}" for l in (4, 3, 2, 1)])
+```
+
+En vrai, avec la bibliothèque `transformers`, on charge un modèle pré-entraîné avec une tête de classification neuve, puis on l'entraîne sur ses exemples :
+
+```python
+# no-run
+from transformers import AutoModelForSequenceClassification, TrainingArguments, Trainer
+modele = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
+args = TrainingArguments(output_dir="sortie", learning_rate=3e-5, per_device_train_batch_size=32, num_train_epochs=3)
+Trainer(model=modele, args=args, train_dataset=jeu_entrainement, eval_dataset=jeu_validation).train()
+```
+
+## Les pièges classiques
+
+**« Le fine-tuning ajoute des connaissances comme on ajoute des fichiers. »** Il modifie les mêmes poids que ceux qui contiennent tout le reste. Il adapte surtout le comportement et le style ; y injecter beaucoup de faits nouveaux est coûteux et peu fiable. Pour des faits à jour, on préfère souvent donner les documents au modèle, comme dans le [RAG](/concepts/rag/).
+
+**« Plus d'époques, c'est mieux. »** Avec peu d'exemples, le modèle finit par les apprendre par cœur : c'est le [surapprentissage](/concepts/surapprentissage/). On surveille la perte sur un jeu de validation et l'on s'arrête quand elle remonte.
+
+**« Il faut toujours tout réentraîner. »** Entraîner seulement la tête, ou seulement de petites matrices ajoutées comme avec [LoRA](/concepts/lora/), suffit souvent et coûte bien moins de mémoire.
+
+## Dans la vraie vie
+
+En 2018, Howard et Ruder ont montré qu'avec seulement 100 exemples étiquetés, un modèle de langage ajusté égalait un modèle entraîné à partir de zéro sur 100 fois plus de données. La même année, les auteurs de BERT ajustaient un seul modèle pré-entraîné à de nombreuses tâches, chaque fois en au plus une heure de calcul. Aujourd'hui, c'est aussi par fine-tuning que l'on transforme un modèle qui complète du texte en assistant qui suit des consignes : c'est l'[instruction tuning](/concepts/instruction-tuning/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "D'où partent les poids au début d'un fine-tuning ?",
+    choix: ["De valeurs tirées au hasard", "Des poids du modèle pré-entraîné", "De zéro", "Des poids d'un autre fine-tuning obligatoirement"],
+    bonne: 1,
+    explication: "C'est tout l'intérêt : on réutilise ce que le pré-entraînement a appris."
+  },
+  {
+    question: "Qu'est-ce que l'oubli catastrophique ?",
+    choix: ["Une panne de mémoire du GPU", "La perte des connaissances générales quand le fine-tuning modifie trop les poids", "L'effacement des données d'entraînement", "Un bug de tokenisation"],
+    bonne: 1,
+    explication: "Un fine-tuning trop agressif éloigne les poids de leur point de départ et efface ce qu'ils savaient."
+  },
+  {
+    question: "Avec la règle η_{l−1} = η_l / 2,6, quel est le rapport entre les taux de la couche du haut et de celle juste en dessous ?",
+    choix: ["1", "2,6", "26", "0,26"],
+    bonne: 1,
+    explication: "Chaque couche descendante apprend 2,6 fois plus lentement."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : vous devez adapter un modèle pré-entraîné à la classification de 800 tickets de support. Comment procédez-vous ?">
+
+Je séparerais d'abord les données en entraînement, validation et test, en gardant l'équilibre des classes. Je commencerais par une référence simple : une tête de classification entraînée sur le modèle gelé. Puis j'ajusterais tout le modèle, ou de petites matrices ajoutées (LoRA) si la mémoire est limitée, avec un petit taux d'apprentissage (de l'ordre de 10⁻⁵), 2 à 4 époques et un arrêt anticipé sur la perte de validation. Avec si peu d'exemples, je testerais plusieurs graines et quelques taux, car les résultats varient beaucoup. Enfin je vérifierais que le modèle n'a pas perdu en qualité générale s'il doit servir à d'autres tâches, et j'analyserais les erreurs classe par classe sur le jeu de test.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "ajustement fin", en: "fine-tuning", definition: "Poursuivre l'entraînement d'un modèle pré-entraîné sur les données d'une tâche précise." },
+  { fr: "tête", en: "head", definition: "Petite couche ajoutée au-dessus du modèle pour produire la sortie propre à la tâche." },
+  { fr: "oubli catastrophique", en: "catastrophic forgetting", definition: "Perte des connaissances antérieures quand un nouvel entraînement modifie trop les poids." },
+  { fr: "dégel progressif", en: "gradual unfreezing", definition: "Libérer les couches une à une, en partant du haut, au fil de l'entraînement." }
+]} />
