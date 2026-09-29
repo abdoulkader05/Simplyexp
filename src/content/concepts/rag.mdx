@@ -1,0 +1,255 @@
+---
+id: rag
+type: concept
+titre: "Le RAG : donner une bibliothèque à un LLM"
+sous_titre: "Retrieval-Augmented Generation"
+domaine: llm
+niveau: 5
+prerequis: [hallucinations, recherche-semantique, in-context-learning]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Lewis et al., « Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks », 2020 — https://arxiv.org/abs/2005.11401 — résumé (mémoire paramétrique et mémoire non paramétrique ; index vectoriel dense de Wikipédia interrogé par un retriever neuronal ; deux formulations, mêmes passages pour toute la séquence ou passages différents par token ; état de l'art sur trois tâches de questions-réponses) et section 2 (p(y|x) ≈ Σ sur les k meilleurs z de p_η(z|x) p_θ(y|x,z) ; p_η(z|x) ∝ exp(d(z)ᵀq(x)) ; générateur BART-large de 400 millions de paramètres ; 21 millions de passages de 100 mots, Wikipédia de décembre 2018 ; k = 5 ou 10 à l'entraînement)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un employé demande à l'assistant de son entreprise : « J'ai 3 ans d'ancienneté, combien de jours de congé ai-je ? » Le règlement interne n'a jamais fait partie des textes de pré-entraînement du modèle. Il n'a aucun moyen de connaître la réponse… et pourtant il en donnera une, plausible et peut-être fausse : c'est une [hallucination](/concepts/hallucinations/). Le même problème se pose pour tout ce qui est récent, privé ou très spécialisé. On pourrait réentraîner le modèle sur ces documents, mais il faudrait recommencer à chaque mise à jour, et l'on ne saurait toujours pas d'où vient chaque réponse.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Avant de répondre, on cherche dans une base de documents les passages les plus proches de la question, et on les place dans le prompt ; le modèle répond en s'appuyant sur ces passages, qu'il peut citer.
+</PhraseCle>
+
+## En image
+
+Pense à un examen à livre ouvert.
+
+- L'élève n'a pas besoin de tout savoir par cœur : il a le droit d'apporter le manuel.
+- Face à une question, il commence par chercher les bonnes pages, grâce à l'index.
+- Il répond en s'appuyant sur ce qu'il vient de lire, et peut indiquer la page.
+- Si le programme change, on lui donne une nouvelle édition du manuel : pas besoin de refaire toute sa scolarité.
+
+Là où l'image s'arrête : si l'index le conduit aux mauvaises pages, l'élève répondra avec assurance à partir de passages hors sujet. La qualité de la recherche borne la qualité de la réponse.
+
+## Comment ça marche
+
+La génération augmentée par récupération (*retrieval-augmented generation*, RAG) combine deux mémoires, selon les termes de Lewis et ses coauteurs, qui l'introduisent en 2020 : la mémoire **paramétrique**, stockée dans les poids du modèle, et une mémoire **non paramétrique**, une base de documents qu'on interroge. Le système fonctionne en deux temps.
+
+1. **Indexer, une fois.** On découpe les documents en passages courts, on calcule l'embedding de chacun et on range ces vecteurs dans un index. Dans le paper, Wikipédia est découpé en 21 millions de passages de 100 mots.
+2. **À chaque question.** On calcule l'embedding de la question, on cherche les $k$ passages les plus proches par [recherche sémantique](/concepts/recherche-semantique/), puis on les place dans le prompt avec une consigne du type « réponds d'après ces documents ». Le modèle fait le reste par [apprentissage en contexte](/concepts/in-context-learning/).
+
+<Schema rendu="rag-schema" legende="Les deux phases du RAG. L'indexation se fait une fois, et se refait quand les documents changent ; la recherche et la génération se font à chaque question." />
+
+Fais défiler : les documents et les scores sont inventés pour l'illustration.
+
+<PasAPas rendu="rag-pipeline" label="Une question sur un règlement interne, traitée par RAG">
+  <Etape etat="initial">
+    **La question** porte sur un document privé : le règlement des congés. Le modèle ne l'a jamais lu.
+  </Etape>
+  <Etape etat="recherche">
+    **La recherche.** Chaque passage de la base reçoit un score de similarité cosinus avec la question.
+  </Etape>
+  <Etape etat="topk">
+    **Les $k = 2$ meilleurs** sont gardés. Le troisième, sur les notes de frais, est écarté.
+  </Etape>
+  <Etape etat="prompt">
+    **Le prompt augmenté** contient les passages numérotés, la consigne et la question. Le passage sur le télétravail est hors sujet, mais il ne gêne pas : le modèle s'appuie sur le premier.
+  </Etape>
+  <Etape etat="reponse">
+    **La réponse** : 26 jours, avec sa source. L'employé peut vérifier l'article 2 lui-même.
+  </Etape>
+</PasAPas>
+
+Le paper formalise la combinaison. Le système ne mise pas tout sur un seul passage : il pondère la réponse obtenue avec chaque passage par la confiance qu'il a dans ce passage.
+
+$$
+P(y \mid x) \approx \sum_{z \in \text{top-}k} p_\eta(z \mid x)\; p_\theta(y \mid x, z)
+$$
+
+où :
+- $x$ est la question et $y$ une réponse possible ;
+- $z$ parcourt les $k$ passages retrouvés ;
+- $p_\eta(z \mid x)$ est la probabilité que le passage $z$ soit le bon, donnée par le module de recherche, le *retriever*, de paramètres $\eta$ : elle est proportionnelle à $e^{s(z)}$, où $s(z)$ est le score du passage ;
+- $p_\theta(y \mid x, z)$ est la probabilité que le générateur, de paramètres $\theta$, produise $y$ quand on lui donne la question et le passage $z$.
+
+Exemple : deux passages de scores $2{,}0$ et $1{,}2$. Le [softmax](/concepts/softmax/) donne $p_\eta = e^{2}/(e^{2} + e^{1{,}2}) \approx 0{,}69$ et $0{,}31$. Avec le premier passage, le générateur produit la bonne réponse avec la probabilité $0{,}9$ ; avec le second, $0{,}2$. D'où $P \approx 0{,}69 \times 0{,}9 + 0{,}31 \times 0{,}2 \approx 0{,}621 + 0{,}062 \approx 0{,}68$.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient la somme sur les passages">
+
+On traite le passage utile $z$ comme une variable cachée : on ne sait pas lequel est le bon. La formule des probabilités totales, qui découle de la [règle du produit](/maths/regle-produit/), donne :
+
+$$
+\begin{aligned}
+P(y \mid x) &= \sum_{z} P(y, z \mid x) && \text{on somme sur tous les passages possibles} \\
+&= \sum_{z} P(z \mid x)\, P(y \mid x, z) && \text{règle du produit} \\
+&\approx \sum_{z \in \text{top-}k} p_\eta(z \mid x)\, p_\theta(y \mid x, z) && \text{on ne garde que les } k \text{ passages les plus probables}
+\end{aligned}
+$$
+
+L'approximation de la dernière ligne est ce qui rend le calcul possible : on ne peut pas faire tourner le générateur sur 21 millions de passages. On suppose que les passages hors du top-$k$ ont une probabilité négligeable. C'est aussi là que se loge le principal risque : si le bon passage n'est pas dans le top-$k$, il ne contribue plus du tout.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="RAG ou pas RAG ?" niveau="facile">
+
+Pour chaque question posée à un assistant, dis si une recherche dans une base de documents est utile.
+
+1. « Quel est le délai de rétractation prévu dans le contrat de ma banque ? »
+2. « Explique ce qu'est une fraction. »
+3. « Quels produits sont en rupture de stock aujourd'hui dans notre entrepôt ? »
+
+<div slot="solution">
+
+1. **Oui** : c'est un document précis, peut-être privé ; il faut le texte exact, et pouvoir le citer.
+2. **Pas nécessaire** : c'est une connaissance générale et stable, bien présente dans le pré-entraînement.
+3. **Oui**, mais pas forcément par recherche sémantique : l'information change tous les jours et vit dans une base de données. Un [appel d'outil](/concepts/appel-outils/) qui interroge cette base conviendra souvent mieux.
+
+</div>
+</Exercice>
+
+<Exercice titre="Pondérer deux passages" niveau="moyen" reponse={0.6} tolerance={0.005}>
+
+Le retriever donne $p_\eta = 0{,}6$ au premier passage et $0{,}4$ au second. Avec le premier, le générateur produit la bonne réponse avec la probabilité $0{,}8$ ; avec le second, $0{,}3$. Quelle est la probabilité $P(y \mid x)$ de la bonne réponse ?
+
+<div slot="solution">
+
+$P = 0{,}6 \times 0{,}8 + 0{,}4 \times 0{,}3 = 0{,}48 + 0{,}12 = 0{,}60$.
+
+Le second passage, moins pertinent, tire la probabilité vers le bas : un meilleur classement, qui donnerait plus de poids au premier, améliorerait directement la réponse.
+
+</div>
+</Exercice>
+
+<Exercice titre="La recherche borne la réponse" niveau="defi" reponse={0.76} tolerance={0.005}>
+
+Dans un assistant documentaire, le bon passage figure dans le top-$k$ pour 80 % des questions. Quand il y figure, le modèle répond juste 90 % du temps. Quand il n'y figure pas, le modèle répond juste 20 % du temps (il devine, ou le sait déjà). Quelle est la proportion de réponses justes ? Quel levier est le plus rentable : faire passer la recherche à 95 %, ou le générateur à 95 % ?
+
+<div slot="indice">
+
+Probabilités totales : sépare les questions où le bon passage est retrouvé de celles où il ne l'est pas.
+
+</div>
+<div slot="solution">
+
+$0{,}8 \times 0{,}9 + 0{,}2 \times 0{,}2 = 0{,}72 + 0{,}04 = 0{,}76$.
+
+Recherche à 95 % : $0{,}95 \times 0{,}9 + 0{,}05 \times 0{,}2 = 0{,}855 + 0{,}01 = 0{,}865$. Générateur à 95 % : $0{,}8 \times 0{,}95 + 0{,}04 = 0{,}80$. Améliorer la recherche rapporte plus de deux fois plus. D'où un réflexe utile : quand un RAG répond mal, commence par vérifier si les bons passages sont retrouvés.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un mini-RAG avec des embeddings jouets, la recherche des $k$ meilleurs passages, la construction du prompt, et la pondération de la formule.
+
+```python
+import numpy as np
+
+passages = [
+    "Congés, art. 2 : 25 jours par an, plus 1 jour par tranche de 3 ans d'ancienneté.",
+    "Télétravail, art. 1 : jusqu'à 2 jours par semaine, avec accord du responsable.",
+    "Notes de frais : à déposer avant le 5 du mois suivant, justificatifs joints.",
+]
+vocab = ["congé", "jour", "ancienneté", "télétravail", "semaine", "frais", "mois"]
+
+def embedding(texte):
+    t = texte.lower()
+    v = np.array([t.count(m) for m in vocab], dtype=float) + 0.01
+    return v / np.linalg.norm(v)                 # normalisé : cosinus = produit scalaire
+
+index = np.stack([embedding(p) for p in passages])
+
+def rechercher(question, k=2):
+    scores = index @ embedding(question)
+    meilleurs = np.argsort(-scores)[:k]
+    return [(passages[i], float(scores[i])) for i in meilleurs]
+
+question = "Avec 3 ans d'ancienneté, combien de jours de congé ?"
+trouves = rechercher(question)
+prompt = "Réponds d'après ces documents et cite ta source.\n"
+prompt += "\n".join(f"[{i + 1}] {p}" for i, (p, _) in enumerate(trouves))
+prompt += f"\nQuestion : {question}"
+print(prompt)
+
+# La pondération de Lewis et al. : softmax des scores, puis somme pondérée
+s = np.array([2.0, 1.2])
+p_eta = np.exp(s) / np.exp(s).sum()
+p_theta = np.array([0.9, 0.2])
+print("p_eta =", p_eta.round(2), "| P(y|x) =", round(float(p_eta @ p_theta), 3))
+```
+
+En vrai, avec un encodeur de phrases et une recherche vectorielle : le principe est identique, seules l'échelle et la qualité des embeddings changent.
+
+```python
+# no-run
+from sentence_transformers import SentenceTransformer, util
+encodeur = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+index = encodeur.encode(passages, normalize_embeddings=True)
+q = encodeur.encode(question, normalize_embeddings=True)
+meilleurs = util.semantic_search(q, index, top_k=2)[0]
+contexte = "\n".join(passages[m["corpus_id"]] for m in meilleurs)
+# puis : envoyer consigne + contexte + question au LLM
+```
+
+## Les pièges classiques
+
+**« Avec le RAG, le modèle ne peut plus halluciner. »** Il peut mal lire un passage, mélanger deux sources, ou ignorer les documents et répondre de mémoire. Le RAG réduit le problème et permet de vérifier, grâce aux citations ; il ne le supprime pas.
+
+**« Plus on met de passages, mieux c'est. »** Chaque passage coûte de la place dans la fenêtre de contexte et du temps de lecture, et des passages hors sujet peuvent distraire le modèle. On cherche le plus petit $k$ qui contient presque toujours le bon passage.
+
+**« Le RAG remplace le fine-tuning. »** Ils ne servent pas à la même chose. Le RAG apporte des **connaissances** à jour et vérifiables ; le [fine-tuning](/concepts/fine-tuning/) change un **comportement**, un style, un format. Les deux se combinent.
+
+## Dans la vraie vie
+
+Les assistants documentaires d'entreprise, les moteurs de recherche qui répondent par un résumé sourcé et les assistants de support client reposent sur ce principe. Dans le paper fondateur, le générateur est un modèle BART de 400 millions de paramètres, et la base, Wikipédia découpé en 21 millions de passages ; le système atteint l'état de l'art sur trois tâches de questions-réponses en domaine ouvert. Un avantage pratique décisif : pour mettre à jour les connaissances, on réindexe les documents, sans toucher au modèle. Le même mécanisme sert de mémoire longue aux agents, dans la fiche sur la [mémoire d'un agent](/concepts/memoire-agent/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Où sont stockées les connaissances ajoutées par le RAG ?",
+    choix: ["Dans les poids du modèle", "Dans une base de documents interrogée à chaque question", "Dans la température", "Dans le tokenizer"],
+    bonne: 1,
+    explication: "C'est la mémoire non paramétrique : un index de passages, consulté au moment de répondre."
+  },
+  {
+    question: "Les documents d'une entreprise changent chaque semaine. Que faut-il refaire ?",
+    choix: ["Réentraîner le modèle", "Réindexer les documents modifiés", "Changer de tokenizer", "Rien, le modèle devine"],
+    bonne: 1,
+    explication: "On recalcule les embeddings des passages modifiés ; le modèle reste le même."
+  },
+  {
+    question: "p_η = (0,5 ; 0,5) et p_θ(y) = (1 ; 0). Que vaut P(y | x) ?",
+    choix: ["1", "0", "0,5", "0,25"],
+    bonne: 2,
+    explication: "0,5 × 1 + 0,5 × 0 = 0,5."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : un RAG répond mal ; comment diagnostiquez-vous le problème ?">
+
+On sépare les deux étages. D'abord la recherche : sur un jeu de questions dont on connaît le bon passage, on mesure la proportion de cas où il figure dans le top-$k$. Si elle est faible, on agit sur le découpage des documents (passages trop longs ou trop courts), l'encodeur d'embeddings, la valeur de $k$, une recherche hybride par mots-clés, ou un reclassement des candidats. Ensuite la génération : avec le bon passage fourni à coup sûr, le modèle répond-il juste ? Sinon, on travaille la consigne (répondre uniquement d'après les documents, citer, dire « je ne sais pas »), le format des passages, ou le modèle. Comme la réponse est bornée par la recherche, c'est presque toujours par elle qu'on commence.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "génération augmentée par récupération", en: "retrieval-augmented generation, RAG", definition: "Chercher des passages pertinents dans une base, puis les donner au modèle dans le prompt pour qu'il réponde en s'appuyant dessus." },
+  { fr: "mémoire paramétrique", en: "parametric memory", definition: "Connaissances stockées dans les poids du modèle." },
+  { fr: "mémoire non paramétrique", en: "non-parametric memory", definition: "Connaissances stockées hors du modèle, dans une base de documents interrogeable." },
+  { fr: "module de recherche", en: "retriever", definition: "Module qui trouve les passages les plus pertinents pour une question." },
+  { fr: "passage", en: "chunk", definition: "Morceau de document, assez court pour être comparé et placé dans le prompt." }
+]} />
