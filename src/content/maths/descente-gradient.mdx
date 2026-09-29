@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 7 (Continuous Optimization), descente de gradient et taille du pas"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -140,31 +140,40 @@ La perte passe sous 1 000 au 13e pas ($w_{13} \approx 134{,}51$, perte environ 9
 
 ## Entraîne-toi
 
-**Exercice 1.** Pour $f(w) = (w - 3)^2$, avec $w_0 = 0$ et $\eta = 0{,}25$, calcule $w_1$, $w_2$ et $w_3$.
+<Exercice titre="Trois pas à la main" niveau="facile" reponse={2.625} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Pour $f(w) = (w - 3)^2$, avec $w_0 = 0$ et $\eta = 0{,}25$, calcule $w_1$, $w_2$ et $w_3$. Entre la valeur de $w_3$.
+
+<div slot="solution">
 
 $f'(w) = 2(w - 3)$. Donc $w_{t+1} = w_t - 0{,}5\,(w_t - 3)$, soit $w_{t+1} - 3 = 0{,}5\,(w_t - 3)$.
 
 $w_1 = 0 - 0{,}25 \times (-6) = 1{,}5$ ; $w_2 = 1{,}5 - 0{,}25 \times (-3) = 2{,}25$ ; $w_3 = 2{,}25 - 0{,}25 \times (-1{,}5) = 2{,}625$. L'écart à 3 est divisé par 2 à chaque pas.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Pour $f(x\,;\,y) = x^2 + 2y^2$, avec $\eta = 0{,}1$, fais un pas à partir de $(1\,;\,1)$. La valeur de $f$ baisse-t-elle ?
+<Exercice titre="Un pas en deux dimensions" niveau="moyen" reponse={1.36} tolerance={0.005}>
 
-<Depliable titre="Corrigé">
+Pour $f(x\,;\,y) = x^2 + 2y^2$, avec $\eta = 0{,}1$, fais un pas à partir de $(1\,;\,1)$. La valeur de $f$ baisse-t-elle ? Entre la nouvelle valeur de $f$.
+
+<div slot="solution">
 
 $\nabla f(1\,;\,1) = (2\,;\,4)$. Le pas donne $(1 - 0{,}2\,;\,1 - 0{,}4) = (0{,}8\,;\,0{,}6)$. On passe de $f = 3$ à $f = 0{,}64 + 0{,}72 = 1{,}36$ : la valeur baisse nettement.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Pour le gbaka, quel pas d'apprentissage ferait arriver sur $w^*$ en un seul pas ? Pourquoi ne peut-on pas faire ça avec un vrai réseau ?
+<Exercice titre="Le pas parfait du gbaka" niveau="defi" reponse={0.0183} tolerance={0.0005}>
 
-<Depliable titre="Corrigé">
+Pour le gbaka, quel pas d'apprentissage ferait arriver sur $w^*$ en un seul pas ? Pourquoi ne peut-on pas faire ça avec un vrai réseau ?
+
+<div slot="solution">
 
 Il faut $1 - 54{,}5\,\eta = 0$, soit $\eta = 1 / 54{,}5 \approx 0{,}018\,3$. Ici, on connaît exactement la courbure de la perte, le nombre 54,5. Pour un réseau, la courbure change d'un endroit à l'autre et d'une direction à l'autre, et on ne la calcule pas : on choisit un $\eta$ prudent et on fait beaucoup de petits pas.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
