@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.8 (espérance, variance et covariance)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -137,29 +137,48 @@ En doublant $d$ de 2 à 4, la variance passe de 2 à 8 : elle est multipliée pa
 
 ## Entraîne-toi
 
-**Exercice 1.** Une variable vaut 0 avec la probabilité 0,7 et 10 avec la probabilité 0,3. Calcule son espérance et sa variance.
+<Exercice titre="Tout ou rien" niveau="facile" reponse={21} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Une variable vaut 0 avec la probabilité 0,7 et 10 avec la probabilité 0,3. Calcule son espérance et sa variance. Dans la case, donne la variance.
+
+<div slot="indice">
+
+Calcule d'abord $\mathbb{E}[X^2]$, puis retire $\mathbb{E}[X]^2$.
+
+</div>
+<div slot="solution">
 
 $\mathbb{E}[X] = 3$. $\mathbb{E}[X^2] = 0{,}3 \times 100 = 30$. $\mathrm{Var}(X) = 30 - 9 = 21$, écart type $\approx 4{,}58$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Les ventes $X$ ont une espérance de 10 et une variance de 8 (en milliers de F). La vendeuse garde $Y = 0{,}2\,X - 1$ comme bénéfice. Espérance et variance de $Y$ ?
+<Exercice titre="Le bénéfice de la vendeuse" niveau="moyen" reponse={0.32} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Les ventes $X$ ont une espérance de 10 et une variance de 8 (en milliers de F). La vendeuse garde $Y = 0{,}2\,X - 1$ comme bénéfice. Espérance et variance de $Y$ ? Dans la case, donne la variance.
 
-$\mathbb{E}[Y] = 0{,}2 \times 10 - 1 = 1$. $\mathrm{Var}(Y) = 0{,}2^2 \times 8 = 0{,}32$.
+<div slot="solution">
 
-</Depliable>
+$\mathbb{E}[Y] = 0{,}2 \times 10 - 1 = 1$. $\mathrm{Var}(Y) = 0{,}2^2 \times 8 = 0{,}32$. Le « − 1 » décale les valeurs sans changer leur dispersion.
 
-**Exercice 3.** On lance deux dés indépendants. Quelle est l'espérance de la somme ? Sa variance ?
+</div>
+</Exercice>
 
-<Depliable titre="Corrigé">
+<Exercice titre="Deux dés, une somme" niveau="defi" reponse={5.83} tolerance={0.01}>
+
+On lance deux dés indépendants. Quelle est l'espérance de la somme ? Sa variance ? Dans la case, donne la variance.
+
+<div slot="indice">
+
+La variance d'un seul dé vaut $35/12$ ; pour des variables indépendantes, les variances s'additionnent.
+
+</div>
+<div slot="solution">
 
 Espérance : $3{,}5 + 3{,}5 = 7$. Variance : $35/12 + 35/12 = 35/6 \approx 5{,}83$, par indépendance.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
