@@ -1,0 +1,258 @@
+---
+id: self-attention
+type: concept
+titre: "Self-attention : chaque mot interroge tous les autres"
+sous_titre: "Auto-attention et représentation contextuelle"
+domaine: transformers
+niveau: 5
+prerequis: [qkv]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 14
+sources:
+  - "Vaswani et al., « Attention Is All You Need », NeurIPS 2017 — https://arxiv.org/abs/1706.03762 (version HTML consultée : https://arxiv.org/html/1706.03762v7) — section 3.2.1 (Attention(Q, K, V) = softmax(QKᵀ/√d_k)V), section 3.1 (encodeur formé de 6 couches, chacune avec une sous-couche de self-attention), section 3.2.3 (trois usages de l'attention dans le modèle)"
+  - "Documentation PyTorch, torch.nn.MultiheadAttention — https://docs.pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html — paramètres embed_dim, num_heads, batch_first (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Le mot « avocat » a au moins deux sens. Dans « l'avocat plaide », c'est une personne au tribunal ; dans « l'avocat mûrit », c'est un fruit. Pourtant, après la [tokenisation](/concepts/tokenisation/), les deux phrases donnent le même token, et donc le même [embedding](/concepts/embeddings/) : un seul vecteur pour les deux sens.
+
+Un modèle qui comprend la phrase doit donc **modifier** le vecteur de chaque mot selon ses voisins. Les [RNN](/concepts/rnn/) le faisaient en lisant la phrase mot après mot, ce qui oblige l'information à voyager de proche en proche. La fiche [Query, Key, Value](/concepts/qkv/) a montré comment un décodeur interroge une autre phrase. L'auto-attention, qu'on désigne presque toujours par son nom anglais, *self-attention*, pousse l'idée au bout : **chaque mot d'une phrase interroge tous les mots de cette même phrase**, y compris lui-même.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Dans la self-attention, requêtes, clés et valeurs viennent toutes de la même phrase : chaque mot calcule sa ressemblance avec tous les autres, puis se remplace par un mélange de leurs valeurs, ce qui le rend dépendant du contexte.
+</PhraseCle>
+
+## En image
+
+Imagine une réunion de voisins où chacun doit résumer ce qu'on attend de lui.
+
+- Chaque participant prépare une **question** : « qui ici peut m'aider sur mon sujet ? »
+- Chacun porte aussi un **badge** qui annonce son domaine : c'est ce que les autres regardent pour décider s'il peut les aider.
+- Et chacun a des **informations** à partager, qu'il donne à qui le consulte.
+- Tout le monde pose sa question à tout le monde **en même temps**, puis repart avec un résumé qui mélange surtout les réponses des voisins utiles.
+
+Là où l'image s'arrête : dans une vraie réunion, chacun choisit à qui parler. Ici, tout le monde consulte tout le monde, avec des poids ; personne n'est ignoré, seulement très peu écouté. Et à la fin, personne ne garde ses informations d'origine : chacun est **remplacé** par son résumé, avant la couche suivante.
+
+## Comment ça marche
+
+On range les vecteurs des $n$ mots de la phrase en lignes dans une matrice $X$. Chaque mot produit sa requête, sa clé et sa valeur avec les trois projections apprises :
+
+$$
+Q = X W_Q \qquad K = X W_K \qquad V = X W_V
+$$
+
+où :
+- $X$ a une ligne par mot de la phrase ;
+- $W_Q$, $W_K$ et $W_V$ sont les matrices de projection, partagées par tous les mots ;
+- la ligne $i$ de $Q$ est la requête du mot $i$, et de même pour $K$ et $V$.
+
+Puis on applique la formule de l'attention, avec $d_k$ la dimension des clés :
+
+$$
+Y = \mathrm{softmax}\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+$$
+
+où :
+- $QK^\top$ est un tableau $n \times n$ : la case $(i, j)$ dit combien le mot $i$ s'intéresse au mot $j$ ;
+- le softmax s'applique à chaque ligne, dont les poids somment donc à 1 ;
+- la ligne $i$ de $Y$ est la nouvelle représentation du mot $i$, un mélange des valeurs de **toute** la phrase.
+
+Prenons deux phrases de deux mots, avec des vecteurs à deux coordonnées inventés pour l'exemple : la première dit « justice », la seconde « nourriture ». « avocat » vaut $(1\,;\,1)$, ni l'un ni l'autre ; « plaide » vaut $(3\,;\,0)$ ; « mûrit » vaut $(0\,;\,3)$. Pour garder les calculs à la main, on prend les trois projections égales à l'identité : chaque mot est à la fois sa requête, sa clé et sa valeur. Fais défiler.
+
+<PasAPas rendu="self-attention-avocat" label="Le vecteur du mot avocat modifié par la self-attention dans deux phrases">
+  <Etape etat="initial">
+    Au départ, « avocat » a le même vecteur $(1\,;\,1)$ dans les deux phrases. Rien ne dit encore de quel avocat on parle.
+  </Etape>
+  <Etape etat="poids1">
+    **Dans « avocat plaide ».** La requête d'« avocat » donne le score $(1\,;\,1)\cdot(1\,;\,1) = 2$ avec lui-même et $(1\,;\,1)\cdot(3\,;\,0) = 3$ avec « plaide ». Divisés par $\sqrt{2}$ : $1{,}41$ et $2{,}12$. Le softmax donne $0{,}33$ et $0{,}67$.
+  </Etape>
+  <Etape etat="sortie1">
+    **Le mélange.** Le nouveau vecteur d'« avocat » vaut $0{,}33 \times (1\,;\,1) + 0{,}67 \times (3\,;\,0) \approx (2{,}34\,;\,0{,}33)$. Il penche nettement du côté de la justice.
+  </Etape>
+  <Etape etat="phrase2">
+    **Dans « avocat mûrit ».** Les scores sont les mêmes par symétrie, donc les poids aussi. Mais la valeur du voisin a changé : $0{,}33 \times (1\,;\,1) + 0{,}67 \times (0\,;\,3) \approx (0{,}33\,;\,2{,}34)$.
+  </Etape>
+  <Etape etat="compare">
+    **Un mot, deux vecteurs.** Le même token sort avec deux représentations différentes, chacune tirée vers son contexte. C'est une **représentation contextuelle** (*contextual representation*).
+  </Etape>
+</PasAPas>
+
+Chaque ligne du tableau des poids se calcule indépendamment des autres : tous les mots font leur calcul **en même temps**, par quelques produits de matrices. Un RNN, lui, doit attendre le mot $i - 1$ pour traiter le mot $i$. Et pour relier le premier mot au dernier, la self-attention n'a besoin que d'une étape, là où le RNN en demande autant qu'il y a de mots entre eux.
+
+<Schema rendu="rnn-contre-self-attention" legende="Dans un RNN, l'information du premier mot traverse tous les mots intermédiaires. Dans la self-attention, chaque paire de mots est reliée directement, et toutes les paires se calculent en même temps." />
+
+Il y a un prix. Le tableau $QK^\top$ a $n \times n$ cases : doubler la longueur du texte multiplie le travail par quatre. C'est le [coût quadratique](/concepts/cout-quadratique/) de l'attention.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="La self-attention ignore l'ordre des mots">
+
+Mélangeons les mots de la phrase. Mélanger les lignes de $X$ revient à la multiplier à gauche par une matrice de permutation $P$ : une matrice de 0 et de 1 avec un seul 1 par ligne et par colonne, qui vérifie $P^\top P = I$. La phrase mélangée donne :
+
+$$
+\begin{aligned}
+Q' &= (PX)\,W_Q = P\,Q, \qquad K' = P\,K, \qquad V' = P\,V && \text{associativité du produit} \\
+Q' K'^\top &= P\,Q\,K^\top P^\top && (PK)^\top = K^\top P^\top
+\end{aligned}
+$$
+
+Le tableau des scores est le même, avec ses lignes et ses colonnes mélangées de la même façon. Or le softmax d'une ligne ne dépend que des nombres de cette ligne, pas de leur place : mélanger les colonnes mélange les poids de la même façon, et mélanger les lignes échange simplement les lignes. Donc, en notant $A = \mathrm{softmax}(QK^\top/\sqrt{d_k})$ :
+
+$$
+\begin{aligned}
+Y' &= \mathrm{softmax}\left(\frac{P\,Q K^\top P^\top}{\sqrt{d_k}}\right) P\,V && \text{on remplace } Q', K', V' \\
+&= P\,A\,P^\top\,P\,V && \text{softmax par ligne, voir ci-dessus} \\
+&= P\,A\,V = P\,Y && P^\top P = I
+\end{aligned}
+$$
+
+Mélanger les mots mélange les sorties, sans rien changer d'autre : chaque mot reçoit **exactement** le même vecteur, où qu'il soit placé. Pour la self-attention seule, « le chien mord l'homme » et « l'homme mord le chien » ne se distinguent pas. C'est pourquoi on ajoute aux vecteurs une information de position, l'[encodage positionnel](/concepts/encodage-positionnel/).
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Qui mord qui ?" niveau="facile">
+
+On applique une self-attention **sans** information de position aux phrases « chien mord homme » et « homme mord chien », avec les mêmes vecteurs de départ pour chaque mot. Le vecteur de sortie de « chien » est-il le même dans les deux phrases ? Qu'est-ce que cela implique pour un modèle qui doit dire qui a mordu qui ?
+
+<div slot="solution">
+
+Oui, il est **identique**. Les deux phrases contiennent les mêmes trois mots ; seule leur place change, et la dérivation montre que la self-attention ne voit pas les places. « chien » calcule les mêmes scores avec les mêmes voisins et obtient le même mélange.
+
+Un modèle bâti sur cette seule opération ne pourrait donc pas savoir qui mord qui. Il faut injecter la position de chaque mot dans son vecteur avant l'attention : c'est le rôle de l'encodage positionnel.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un voisin plus bavard" niveau="moyen" reponse={0.804} tolerance={0.002}>
+
+Même règle de calcul que dans l'animation : projections identité et $d_k = 2$. La phrase est cette fois « avocat juge », avec « avocat » $= (1\,;\,1)$ et « juge » $= (4\,;\,0)$. Quel poids la ligne d'« avocat » donne-t-elle à « juge » ? Et quel est le nouveau vecteur d'« avocat » ?
+
+<div slot="indice">
+
+Les scores bruts sont $(1\,;\,1)\cdot(1\,;\,1)$ et $(1\,;\,1)\cdot(4\,;\,0)$. Divise-les par $\sqrt{2} \approx 1{,}414$, puis utilise $\frac{1}{1 + e^{-(b - a)}}$ pour le poids du second.
+
+</div>
+<div slot="solution">
+
+Scores bruts : 2 et 4 ; mis à l'échelle : $1{,}414$ et $2{,}828$. L'écart vaut $1{,}414$, donc le poids de « juge » est $\frac{1}{1 + e^{-1{,}414}} \approx 0{,}804$, et celui d'« avocat » $0{,}196$.
+
+Nouveau vecteur : $0{,}196 \times (1\,;\,1) + 0{,}804 \times (4\,;\,0) \approx (3{,}41\,;\,0{,}20)$. Un voisin au vecteur plus long obtient un score plus élevé et tire davantage le mot vers lui.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix d'un long document" niveau="defi" reponse={4000000} tolerance={0}>
+
+Un assistant résume un rapport de 2 000 tokens. Combien de scores la self-attention calcule-t-elle pour ce texte, dans une seule couche d'attention ? Un rapport de 4 000 tokens coûterait-il deux fois plus ?
+
+<div slot="solution">
+
+Un score par paire (requête, clé), soit $n \times n = 2\,000 \times 2\,000 = 4\,000\,000$ scores. Avec 4 000 tokens : $16\,000\,000$, soit **quatre fois** plus, pas deux.
+
+Le tableau des scores croît comme le carré de la longueur. Et un modèle empile de nombreuses couches d'attention : ce coût est l'une des raisons pour lesquelles la longueur de contexte des modèles est limitée, et pour lesquelles on cherche des calculs d'attention plus économes.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro, avec NumPy, sur les deux phrases de l'animation :
+
+```python
+import numpy as np
+
+def self_attention(X, W_Q, W_K, W_V):
+    Q, K, V = X @ W_Q, X @ W_K, X @ W_V
+    scores = Q @ K.T / np.sqrt(K.shape[1])
+    poids = np.exp(scores - scores.max(axis=1, keepdims=True))
+    poids = poids / poids.sum(axis=1, keepdims=True)    # softmax ligne par ligne
+    return poids, poids @ V
+
+I = np.eye(2)                                          # projections identité, pour l'exemple
+for phrase, voisin in [("avocat plaide", [3.0, 0.0]), ("avocat mûrit", [0.0, 3.0])]:
+    X = np.array([[1.0, 1.0], voisin])
+    poids, Y = self_attention(X, I, I, I)
+    print(phrase, "| poids d'avocat :", poids[0].round(2), "| avocat devient :", Y[0].round(2))
+
+# L'ordre ne compte pas : on échange les deux mots, les sorties s'échangent aussi
+X = np.array([[1.0, 1.0], [3.0, 0.0]])
+_, Y = self_attention(X, I, I, I)
+_, Y_inv = self_attention(X[::-1], I, I, I)
+print("mêmes sorties, dans l'autre ordre :", np.allclose(Y, Y_inv[::-1]))
+```
+
+En vrai, avec PyTorch : on passe trois fois la même séquence, puisque requêtes, clés et valeurs viennent de la même phrase.
+
+```python
+# no-run
+import torch
+import torch.nn as nn
+
+attention = nn.MultiheadAttention(embed_dim=512, num_heads=1, batch_first=True)
+x = torch.randn(1, 10, 512)                 # une phrase de 10 tokens
+y, poids = attention(x, x, x)               # self-attention : requête = clé = valeur = x
+print(y.shape, poids.shape)                 # torch.Size([1, 10, 512]) torch.Size([1, 10, 10])
+```
+
+## Les pièges classiques
+
+**« La self-attention sait dans quel ordre sont les mots. »** Non : la dérivation le démontre, elle est aveugle à l'ordre. Sans encodage positionnel, une phrase et son anagramme donnent les mêmes vecteurs, simplement rangés autrement.
+
+**« Un mot ne se regarde pas lui-même. »** Il se regarde, et souvent beaucoup : dans l'exemple, « avocat » garde un tiers de son propre vecteur. Ce poids sur soi permet au mot de conserver une partie de son sens d'origine.
+
+**« Self-attention et attention, c'est deux mécanismes différents. »** C'est le même calcul, $\mathrm{softmax}(QK^\top/\sqrt{d_k})\,V$. Seule change l'origine des vecteurs : dans l'attention d'un encodeur-décodeur, les requêtes viennent d'une phrase et les clés et valeurs d'une autre ; dans la self-attention, tout vient de la même phrase.
+
+## Dans la vraie vie
+
+Dans l'article de 2017 qui introduit les transformers, l'encodeur est une pile de 6 couches identiques, et chacune commence par une sous-couche de self-attention. Le décodeur en utilise aussi, avec une précaution supplémentaire, le [masque causal](/concepts/masque-causal/), qui l'empêche de regarder les mots qu'il n'a pas encore écrits. Les auteurs y utilisent l'attention de trois façons : la self-attention de l'encodeur, celle du décodeur, et l'attention de l'encodeur vers le décodeur vue dans la fiche précédente.
+
+Tous les grands modèles de langage actuels reposent sur des couches de self-attention empilées. Quand un assistant comprend que « elle » désigne Awa dans « Awa a appelé sa sœur parce qu'elle était en retard », c'est une affaire de poids d'attention entre ces mots, affinés couche après couche. En pratique, on fait tourner plusieurs self-attentions en parallèle dans chaque couche : c'est l'objet de la fiche [multi-head attention](/concepts/multi-head/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans la self-attention, d'où viennent les requêtes, les clés et les valeurs ?",
+    choix: ["Les requêtes du décodeur, les clés et valeurs de l'encodeur", "Toutes de la même phrase", "Les clés d'un dictionnaire fixe", "Uniquement du premier mot"],
+    bonne: 1,
+    explication: "C'est ce qui définit la self-attention : Q, K et V sont trois projections des vecteurs d'une même phrase."
+  },
+  {
+    question: "Pour une phrase de 50 tokens, combien de cases compte le tableau des poids d'attention ?",
+    choix: ["50", "100", "2 500", "1 225"],
+    bonne: 2,
+    explication: "Un poids par paire (mot qui interroge, mot interrogé), soi-même compris : 50 × 50 = 2 500."
+  },
+  {
+    question: "Pourquoi ajoute-t-on un encodage positionnel ?",
+    choix: ["Pour accélérer le calcul", "Parce que la self-attention seule ne voit pas l'ordre des mots", "Pour réduire la mémoire", "Pour remplacer le softmax"],
+    bonne: 1,
+    explication: "Permuter les mots permute simplement les sorties : sans information de position, l'ordre est invisible."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quels avantages la self-attention a-t-elle sur un RNN, et quel est son principal coût ?">
+
+Deux avantages principaux. D'abord le parallélisme : toutes les positions se traitent en même temps, par des produits de matrices, alors qu'un RNN doit attendre l'état précédent. Ensuite les dépendances lointaines : deux mots sont reliés en une seule étape, quelle que soit leur distance, au lieu de faire transiter l'information par tous les mots intermédiaires, ce qui facilite l'apprentissage. Le coût : le tableau des scores a $n^2$ cases, donc le calcul et la mémoire croissent comme le carré de la longueur de la séquence. En outre, l'opération ignore l'ordre des mots, qu'il faut réinjecter par un encodage positionnel.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "self-attention", en: "self-attention", definition: "Attention où requêtes, clés et valeurs viennent toutes de la même séquence : chaque position interroge toutes les autres." },
+  { fr: "représentation contextuelle", en: "contextual representation", definition: "Vecteur d'un mot qui dépend des mots qui l'entourent, et non du mot seul." },
+  { fr: "matrice de permutation", en: "permutation matrix", definition: "Matrice de 0 et de 1, avec un seul 1 par ligne et par colonne, qui réordonne les lignes d'une autre matrice." },
+  { fr: "tableau des poids d'attention", en: "attention matrix", definition: "Tableau n × n dont la case (i, j) est le poids que la position i donne à la position j." }
+]} />
