@@ -1,0 +1,223 @@
+---
+id: lois-echelle
+type: concept
+titre: "Les lois d'échelle : plus gros = meilleur… mais jusqu'où ?"
+sous_titre: "Scaling laws : paramètres, données et calcul"
+domaine: llm
+niveau: 5
+prerequis: [pretraining, perplexite]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Kaplan et al., « Scaling Laws for Neural Language Models », OpenAI, 2020 — https://arxiv.org/abs/2001.08361 — résumé et résultats principaux (lois de puissance L(N) = (N_c/N)^α_N avec α_N ≈ 0,076, L(D) avec α_D ≈ 0,095, L(C_min) avec α ≈ 0,050 ; tendances sur plus de sept ordres de grandeur ; N compte les paramètres hors embeddings ; recommandation N ∝ C^0,73 ; grands modèles plus efficaces en données), section 2.1 (C ≈ 6NBS)"
+  - "Hoffmann et al., « Training Compute-Optimal Large Language Models », DeepMind, 2022 — https://arxiv.org/abs/2203.15556 — résumé (à chaque doublement de la taille du modèle, doubler aussi le nombre de tokens ; les grands modèles actuels sont sous-entraînés ; Chinchilla : 70 milliards de paramètres, 1 400 milliards de tokens, même budget que Gopher à 280 milliards, meilleur que Gopher et GPT-3), loi ajustée ( L(N, D) = E + A/N^α + B/D^β avec E = 1,69, A = 406,4, B = 410,7, α = 0,34, β = 0,28 ; environ 20 milliards de tokens pour un modèle d'un milliard de paramètres)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [pré-entraînement](/concepts/pretraining/) coûte environ $6ND$ opérations : $N$ paramètres, $D$ tokens lus. Avec un budget donné, que vaut-il mieux faire : un très gros modèle qui lit peu, ou un modèle plus modeste qui lit beaucoup ? Se tromper coûte des millions en calcul. Or on ne peut pas essayer à pleine taille : un seul essai prend des semaines. Il faut donc **prédire** la qualité d'un grand modèle à partir de petits. C'est ce que font les lois d'échelle.
+
+## L'idée en une phrase
+
+<PhraseCle>
+La perte d'un modèle de langage baisse de façon très régulière, en loi de puissance, quand on augmente les paramètres, les données ou le calcul ; à budget fixé, il existe un partage optimal entre taille du modèle et nombre de tokens.
+</PhraseCle>
+
+## En image
+
+Pense à un étudiant qui prépare un concours avec un nombre d'heures fixé.
+
+- S'il passe tout son temps à acheter des manuels sans les lire, il a une grande bibliothèque mais n'apprend rien : c'est un gros modèle qui lit trop peu.
+- S'il relit cent fois le même petit polycopié, il sature : c'est un petit modèle qui lit énormément.
+- Il y a un juste milieu, et il se déplace avec le budget : avec plus d'heures, il faut à la fois plus de livres et plus de lecture.
+
+Là où l'image s'arrête : pour les modèles, ce juste milieu se calcule. Des centaines d'entraînements de petite taille suffisent à ajuster une formule qui prédit le comportement des grands.
+
+## Comment ça marche
+
+Les auteurs mesurent la perte, l'[entropie croisée](/maths/entropie-croisee/) du token suivant sur un texte de test, pour des centaines de modèles de tailles et de durées différentes. En 2020, l'équipe de Kaplan observe que, tant qu'un seul facteur limite, la perte suit une **loi de puissance** : par exemple $L(N) = (N_c / N)^{0{,}076}$ quand seuls les paramètres limitent, sur plus de sept ordres de grandeur.
+
+En 2022, l'équipe de Hoffmann ajuste une formule qui combine taille et données :
+
+$$
+L(N, D) = E + \frac{A}{N^{\alpha}} + \frac{B}{D^{\beta}}
+$$
+
+où :
+- $L$ est la perte prédite, en nats par token ;
+- $N$ est le nombre de paramètres et $D$ le nombre de tokens d'entraînement ;
+- $E = 1{,}69$ est la perte irréductible : l'incertitude propre au texte, qu'aucun modèle ne peut supprimer ;
+- $A = 406{,}4$ et $\alpha = 0{,}34$ décrivent ce que coûte un modèle trop petit ;
+- $B = 410{,}7$ et $\beta = 0{,}28$ décrivent ce que coûte un entraînement trop court.
+
+Exemple à la main. Gopher : $N = 280$ milliards, $D = 300$ milliards. Chinchilla : $N = 70$ milliards, $D = 1\,400$ milliards, pour un budget comparable. Le terme « modèle » vaut $406{,}4 / (2{,}8 \times 10^{11})^{0{,}34} \approx 0{,}052$ pour Gopher et $0{,}084$ pour Chinchilla ; le terme « données » vaut $410{,}7 / (3 \times 10^{11})^{0{,}28} \approx 0{,}251$ pour Gopher et $0{,}163$ pour Chinchilla. Totaux : $L \approx 1{,}993$ contre $1{,}937$. En [perplexité](/maths/perplexite/), $e^{1{,}993} \approx 7{,}3$ contre $e^{1{,}937} \approx 6{,}9$. Le modèle quatre fois plus petit gagne, parce qu'il a lu plus. Fais défiler.
+
+<PasAPas rendu="chinchilla-courbe" label="Perte prédite à budget fixé en fonction de la taille du modèle">
+  <Etape etat="initial">
+    **Le budget est fixé** à celui de Chinchilla. Comme $C \approx 6ND$, chaque paramètre de plus se paie en tokens de moins : $D = C / (6N)$.
+  </Etape>
+  <Etape etat="cuvette">
+    **Une cuvette.** À gauche, le modèle est trop petit : le terme $A / N^{\alpha}$ domine. À droite, il est trop gros pour le budget et lit trop peu : c'est $B / D^{\beta}$ qui domine.
+  </Etape>
+  <Etape etat="gopher">
+    **Gopher**, 280 milliards de paramètres, se trouve sur la pente de droite : trop de paramètres, pas assez de tokens pour ce budget.
+  </Etape>
+  <Etape etat="chinchilla">
+    **Chinchilla**, 70 milliards de paramètres, est beaucoup plus près du fond : même calcul, perte plus basse. La formule ajustée place même l'optimum un peu en dessous de 70 milliards.
+  </Etape>
+</PasAPas>
+
+La conclusion de Hoffmann et ses coauteurs tient en une phrase : à chaque doublement de la taille du modèle, il faut aussi doubler le nombre de tokens. Pour un modèle d'un milliard de paramètres, cela fait environ 20 milliards de tokens. Kaplan et ses coauteurs recommandaient au contraire de consacrer l'essentiel d'un budget supplémentaire à la taille ($N \propto C^{0{,}73}$) ; selon les auteurs de Chinchilla, beaucoup de grands modèles de l'époque étaient donc sous-entraînés.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Trouver le meilleur partage à budget fixé">
+
+On fixe $C$ et l'on remplace $D$ par $C / (6N)$ :
+
+$$
+\begin{aligned}
+L(N) &= E + A N^{-\alpha} + B \left(\frac{C}{6}\right)^{-\beta} N^{\beta} && \text{car } D^{-\beta} = (C/6)^{-\beta} N^{\beta} \\
+L'(N) &= -\alpha A N^{-\alpha - 1} + \beta B \left(\frac{C}{6}\right)^{-\beta} N^{\beta - 1} && \text{on dérive terme à terme} \\
+0 &= -\alpha A N^{-\alpha} + \beta B \left(\frac{C}{6}\right)^{-\beta} N^{\beta} && \text{on annule et on multiplie par } N \\
+N^{\alpha + \beta} &= \frac{\alpha A}{\beta B} \left(\frac{C}{6}\right)^{\beta} && \text{on isole } N \\
+N_{\text{opt}} &\propto C^{\beta / (\alpha + \beta)} = C^{0{,}45} && \text{avec } \alpha = 0{,}34,\ \beta = 0{,}28
+\end{aligned}
+$$
+
+Et comme $D = C / (6N)$, $D_{\text{opt}} \propto C^{1 - 0{,}45} = C^{0{,}55}$. Les deux exposants sont proches de $\frac{1}{2}$ : quand le budget est multiplié par 4, la taille et les données doivent chacune être multipliées par environ 2. C'est la règle « doubler ensemble ».
+
+Pourquoi une loi de puissance est-elle si commode ? Parce que $\ln L = \text{constante} - \alpha \ln N$ : en échelle logarithmique, c'est une droite. Il suffit de quelques points sur de petits modèles pour la tracer et la prolonger vers les grands.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Doubler la taille" niveau="facile" reponse={5.1} tolerance={0.02} unite="%">
+
+Selon la loi de Kaplan $L(N) = (N_c / N)^{0{,}076}$, de combien de pour cent la perte baisse-t-elle quand on double le nombre de paramètres, si rien d'autre ne limite ?
+
+<div slot="solution">
+
+$L(2N) / L(N) = 2^{-0{,}076} \approx 0{,}949$ : la perte baisse d'environ **5,1 %**. Chaque doublement apporte le même gain relatif, que l'on passe de 1 à 2 millions ou de 100 à 200 milliards de paramètres. C'est pour cela que les progrès demandent des multiplications de taille, pas des additions.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le petit modèle qui lit dix fois plus" niveau="moyen" reponse={2.325} tolerance={0.002}>
+
+Un modèle d'un milliard de paramètres, entraîné sur 20 milliards de tokens, a une perte prédite de 2,58 selon la formule de Hoffmann. Quelle est sa perte prédite s'il lit 200 milliards de tokens ?
+
+<div slot="indice">
+
+Seul le terme $B / D^{\beta}$ change. Calcule-le pour $D = 2 \times 10^{11}$ et ajoute $E + A / N^{\alpha} \approx 1{,}69 + 0{,}354$.
+
+</div>
+<div slot="solution">
+
+$410{,}7 / (2 \times 10^{11})^{0{,}28} \approx 0{,}281$. Donc $L \approx 1{,}69 + 0{,}354 + 0{,}281 \approx 2{,}325$. Lire dix fois plus fait gagner environ 0,25, mais le calcul est aussi dix fois plus cher : $6ND$ passe de $1{,}2 \times 10^{20}$ à $1{,}2 \times 10^{21}$. Ce surcoût peut valoir la peine si le modèle doit ensuite servir des millions de fois, car un petit modèle coûte moins cher à utiliser.
+
+</div>
+</Exercice>
+
+<Exercice titre="Seize fois plus de calcul" niveau="defi" reponse={3.5} tolerance={0.01} unite="fois">
+
+Un laboratoire obtient un budget de calcul 16 fois plus grand. Selon les exposants ajustés ($N_{\text{opt}} \propto C^{0{,}45}$), par combien doit-il multiplier la taille de son modèle ? Et le nombre de tokens ? Compare avec la règle « doubler ensemble ».
+
+<div slot="solution">
+
+$16^{0{,}4516} \approx 3{,}5$ pour la taille, et $16^{0{,}5484} \approx 4{,}57$ pour les tokens. Vérification : $3{,}5 \times 4{,}57 \approx 16$, puisque $C \propto ND$. La règle « doubler ensemble » donnerait $\sqrt{16} = 4$ pour chacun : l'ordre de grandeur est le même, la formule ajustée penche un peu plus vers les données.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : la loi ajustée, la comparaison Gopher-Chinchilla, et la recherche numérique de l'optimum à budget fixé.
+
+```python
+import numpy as np
+
+E, A, B, alpha, beta = 1.69, 406.4, 410.7, 0.34, 0.28
+
+def perte(N, D):
+    return E + A / N**alpha + B / D**beta
+
+for nom, N, D in [("Gopher", 280e9, 300e9), ("Chinchilla", 70e9, 1.4e12)]:
+    L = perte(N, D)
+    print(f"{nom:11s} L = {L:.3f}  perplexité = {np.exp(L):.2f}  calcul 6ND = {6 * N * D:.2e}")
+
+# À budget fixé, on balaie les tailles et on garde la meilleure
+C = 6 * 70e9 * 1.4e12
+N = np.logspace(9.5, 12, 2000)
+L = perte(N, C / (6 * N))
+i = np.argmin(L)
+print(f"optimum de la formule : N ≈ {N[i] / 1e9:.0f} Md de paramètres, D ≈ {C / (6 * N[i]) / 1e9:.0f} Md de tokens, L = {L[i]:.3f}")
+
+# Exposants de l'optimum
+print("N_opt ∝ C^", round(beta / (alpha + beta), 3), "  D_opt ∝ C^", round(alpha / (alpha + beta), 3))
+```
+
+Il n'y a pas de fonction toute faite pour cela dans les grandes bibliothèques : en pratique, les équipes entraînent une série de petits modèles, mesurent leur perte, puis ajustent la formule par moindres carrés, par exemple avec `scipy.optimize.curve_fit`, avant de lancer le grand entraînement.
+
+```python
+# no-run
+from scipy.optimize import curve_fit
+params, _ = curve_fit(lambda ND, E, A, B, a, b: E + A / ND[0]**a + B / ND[1]**b, (Ns, Ds), pertes_mesurees)
+```
+
+## Les pièges classiques
+
+**« Plus gros est toujours mieux. »** À budget fixé, un modèle trop gros lit trop peu et fait moins bien qu'un plus petit bien nourri : c'est tout le résultat de Chinchilla.
+
+**« La perte peut descendre jusqu'à zéro. »** La formule contient une perte irréductible $E$ : le texte lui-même garde une part d'imprévisible. Les gains ralentissent à l'approche de ce plancher.
+
+**« Une baisse de perte régulière garantit des capacités régulières. »** Les lois d'échelle prédisent la perte moyenne sur le token suivant, pas le moment où une compétence précise apparaît. Deux modèles de même perte peuvent différer sur une tâche donnée.
+
+## Dans la vraie vie
+
+Les lois d'échelle servent à planifier : avant un entraînement coûteux, on entraîne une série de petits modèles, on ajuste les courbes, et l'on choisit $N$ et $D$ pour le budget disponible. Chinchilla, avec ses 70 milliards de paramètres et ses 1 400 milliards de tokens, a surpassé Gopher et GPT-3, pourtant bien plus gros, pour un budget de calcul du même ordre. Et comme un modèle plus petit coûte moins cher à chaque utilisation, on peut avoir intérêt à dépasser l'optimum en tokens pour un modèle destiné à servir très souvent. Pour réduire encore ce coût d'usage, on peut aussi alléger les poids : c'est la [quantification](/concepts/quantification/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que représente E dans L(N, D) = E + A/N^α + B/D^β ?",
+    choix: ["Le nombre d'époques", "La perte irréductible, qu'aucun modèle ne peut supprimer", "L'erreur de mesure", "L'énergie consommée"],
+    bonne: 1,
+    explication: "C'est le plancher de la perte, dû à l'imprévisibilité propre du texte."
+  },
+  {
+    question: "Selon la règle issue de Chinchilla, si l'on double la taille du modèle, que faire des données ?",
+    choix: ["Les garder identiques", "Les doubler aussi", "Les diviser par deux", "Les multiplier par dix"],
+    bonne: 1,
+    explication: "Taille et nombre de tokens doivent croître ensemble, à peu près au même rythme."
+  },
+  {
+    question: "Pourquoi trace-t-on les lois d'échelle en échelle logarithmique ?",
+    choix: ["Pour faire joli", "Parce qu'une loi de puissance y devient une droite, facile à prolonger", "Parce que la perte est négative", "Parce que N est petit"],
+    bonne: 1,
+    explication: "ln L = constante − α ln N : une droite de pente −α."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : vous avez un budget de calcul fixé pour pré-entraîner un modèle. Comment choisissez-vous sa taille et le nombre de tokens ?">
+
+J'entraînerais d'abord une série de petits modèles, de tailles et de durées variées, en mesurant la perte de validation. J'ajusterais une loi du type L(N, D) = E + A/N^α + B/D^β, puis, avec la contrainte C ≈ 6ND, je trouverais le couple qui minimise la perte prédite ; l'ordre de grandeur de Chinchilla, environ 20 tokens par paramètre, sert de repère. Je corrigerais ensuite selon l'usage : si le modèle doit servir énormément, je préférerais un modèle plus petit entraîné plus longtemps, car le coût d'inférence dépend de N. Je vérifierais aussi que j'ai assez de données de qualité pour D, sans trop de répétitions.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "loi d'échelle", en: "scaling law", definition: "Relation régulière, souvent en loi de puissance, entre la perte et la taille, les données ou le calcul." },
+  { fr: "loi de puissance", en: "power law", definition: "Relation de la forme y = a·x^(−α), qui devient une droite en échelle logarithmique." },
+  { fr: "optimal en calcul", en: "compute-optimal", definition: "Se dit du partage entre taille et données qui minimise la perte pour un budget de calcul donné." },
+  { fr: "perte irréductible", en: "irreducible loss", definition: "Plancher de la perte, lié à l'incertitude propre au texte." }
+]} />
