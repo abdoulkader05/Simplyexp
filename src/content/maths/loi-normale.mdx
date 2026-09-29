@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.9.3 (loi gaussienne et théorème central limite) ; chapitre 5, section 5.5.1 (moindres carrés et vraisemblance gaussienne)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -109,29 +109,43 @@ Avec $k = 2$, on obtient environ 95,4 % ; avec $k = 3$, environ 99,7 %. Au-delà
 
 ## Entraîne-toi
 
-**Exercice 1.** Les prix d'un trajet suivent $\mathcal{N}(820, 30^2)$ en F. Dans quel intervalle se trouvent environ 95 % des prix ?
+<Exercice titre="Le prix d'un trajet" niveau="facile" reponse={880} tolerance={0.001} unite="F">
 
-<Depliable titre="Corrigé">
+Les prix d'un trajet suivent $\mathcal{N}(820, 30^2)$ en F. Dans quel intervalle se trouvent environ 95 % des prix ? Dans la case, donne la borne haute.
+
+<div slot="solution">
 
 $820 \pm 2 \times 30$, soit entre 760 et 880 F.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Avec $\mathcal{N}(165, 8^2)$, quelle proportion d'élèves mesure moins de 157 cm ?
+<Exercice titre="Les plus petits de la classe" niveau="moyen" reponse={0.16} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Avec $\mathcal{N}(165, 8^2)$, quelle proportion d'élèves mesure moins de 157 cm ? Réponds par un nombre entre 0 et 1.
+
+<div slot="indice">
+
+157 cm est exactement à un écart type sous la moyenne. Utilise la règle des 68 %.
+
+</div>
+<div slot="solution">
 
 157 cm est à un écart type sous la moyenne. Il y a environ 68 % à moins d'un écart type, donc 32 % au-delà, répartis également des deux côtés : environ 16 %.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Si $X$ suit $\mathcal{N}(10, 4)$, quelle est la loi de $Y = 3X + 1$ ?
+<Exercice titre="Changer d'échelle" niveau="defi" reponse={6} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Si $X$ suit $\mathcal{N}(10, 4)$, quelle est la loi de $Y = 3X + 1$ ? Dans la case, donne l'écart type de $Y$.
+
+<div slot="solution">
 
 $\mathbb{E}[Y] = 3 \times 10 + 1 = 31$ et $\mathrm{Var}(Y) = 9 \times 4 = 36$. On admet qu'une transformation affine d'une variable normale reste normale : $Y$ suit $\mathcal{N}(31, 36)$, d'écart type 6.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
