@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, introduction (un réseau comme composition de fonctions f(x) = f₃(f₂(f₁(x))))"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -119,29 +119,61 @@ Pour le carré, le graphe affiché ne montre que des $x$ positifs, et chaque sor
 
 ## Entraîne-toi
 
-**Exercice 1.** Avec $f(x) = 136\,x + 4$, calcule $f(0)$, $f(1)$ et $f(1) - f(0)$. Que représentent ces nombres pour le gbaka ?
+<Exercice titre="Lire une fonction de prix" niveau="facile" reponse={136} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Avec $f(x) = 136\,x + 4$, calcule $f(0)$, $f(1)$ et $f(1) - f(0)$. Que représentent ces nombres pour le gbaka ? Saisis la valeur de $f(1) - f(0)$.
+
+<div slot="solution">
 
 $f(0) = 4$, $f(1) = 140$ et $f(1) - f(0) = 136$. Le prix d'un trajet de 0 km serait 4 F, une sorte de prise en charge, et chaque kilomètre en plus coûte 136 F.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Avec $f(x) = 2x - 1$ et $g(x) = x^2$, calcule $(f \circ g)(3)$ et $(g \circ f)(3)$.
+<Exercice titre="L'ordre compte" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Avec $f(x) = 2x - 1$ et $g(x) = x^2$, calcule $(f \circ g)(3)$ et $(g \circ f)(3)$.
+
+<div slot="indice">
+
+$(f \circ g)(3)$ se lit « $f$ appliquée au résultat de $g$ » : on calcule d'abord $g(3)$.
+
+</div>
+<div slot="solution">
 
 $(f \circ g)(3) = f(9) = 17$. $(g \circ f)(3) = g(5) = 25$. L'ordre change le résultat.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une couche d'un réseau calcule $h = 3x - 2$, la suivante $y = 0{,}5\,h + 1$. Écris $y$ directement en fonction de $x$. Que conclus-tu sur l'intérêt d'empiler ces deux couches ?
+<Exercice titre="Deux couches qui n'en font qu'une" niveau="moyen" reponse={1.5} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Une couche d'un réseau calcule $h = 3x - 2$, la suivante $y = 0{,}5\,h + 1$. Écris $y$ directement en fonction de $x$ et saisis le coefficient de $x$. Que conclus-tu sur l'intérêt d'empiler ces deux couches ?
+
+<div slot="solution">
 
 $y = 0{,}5\,(3x - 2) + 1 = 1{,}5\,x - 1 + 1 = 1{,}5\,x$. Les deux couches affines équivalent à une seule couche affine. Sans fonction non affine entre elles, les empiler n'apporte rien.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le forfait internet" niveau="defi" reponse={4400} tolerance={0} unite="F">
+
+Un forfait mobile coûte 3 000 F par mois et inclut 5 Go. Chaque Go supplémentaire coûte 400 F. Écris le coût mensuel $f(x)$ pour une consommation de $x$ Go, avec $x \geq 5$, puis calcule le coût d'un mois où tu as consommé 8,5 Go.
+
+<div slot="indice">
+
+Seuls les Go au-delà des 5 premiers sont payés en plus : il y en a $x - 5$.
+
+</div>
+<div slot="solution">
+
+$f(x) = 3\,000 + 400\,(x - 5)$ pour $x \geq 5$. Pour 8,5 Go : $f(8{,}5) = 3\,000 + 400 \times 3{,}5 = 4\,400$ F.
+
+Pour $x < 5$, le coût reste 3 000 F : la fonction complète est définie par morceaux, constante puis affine. Beaucoup de fonctions utiles en IA sont ainsi faites de morceaux.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
