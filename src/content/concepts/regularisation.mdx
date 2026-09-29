@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 9 (Linear Regression), moindres carrés régularisés"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -118,15 +118,51 @@ Tout poids dont l'utilité $a$ est inférieure à $\lambda/2$ est mis exactement
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : pars de $\log_{10}\lambda = -9$ et monte doucement. À partir de quelle valeur l'erreur de test passe-t-elle sous 3 ? Où est-elle la plus petite ? Que deviennent les barres des poids ?
+<Exercice titre="Trouver la bonne pénalité" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Pars de $\log_{10}\lambda = -9$ et monte doucement. À partir de quelle valeur l'erreur de test passe-t-elle sous 3 ? Où est-elle la plus petite ? Que deviennent les barres des poids ?
+
+<div slot="solution">
 
 L'erreur de test passe sous 3 dès $\lambda = 10^{-6}$ environ (2,29), et elle est la plus basse vers $10^{-5,5}$ à $10^{-5}$, autour de 1,62. Elle remonte ensuite doucement, puis nettement au-delà de $10^{-2}$ : à $\lambda = 1$, elle vaut 3,60, presque autant que le polynôme de degré 0.
 
 Pendant ce temps, les barres des poids baissent de plusieurs ordres de grandeur : de plusieurs centaines à moins de 1. La courbe perd ses boucles bien avant que les poids ne deviennent petits : il suffit d'empêcher les très grands poids, ceux qui servaient à se contorsionner.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Deux modèles de prix immobiliers" niveau="moyen" reponse={1.9} tolerance={0.001}>
+
+Deux modèles prédisent le prix d'une maison. Le premier a une erreur d'entraînement $\mathcal{L} = 0{,}5$ et des poids $\mathbf{w} = (3\,;\,-2\,;\,1)$. Le second a $\mathcal{L} = 0{,}8$ et $\mathbf{w} = (1\,;\,-1\,;\,0{,}5)$. Avec $\lambda = 0{,}1$, calcule l'objectif $J$ du premier. Lequel des deux l'apprentissage régularisé préfère-t-il ?
+
+<div slot="solution">
+
+Premier : $\|\mathbf{w}\|_2^2 = 9 + 4 + 1 = 14$, donc $J = 0{,}5 + 0{,}1 \times 14 = 1{,}9$.
+
+Second : $\|\mathbf{w}\|_2^2 = 1 + 1 + 0{,}25 = 2{,}25$, donc $J = 0{,}8 + 0{,}225 = 1{,}025$.
+
+L'apprentissage régularisé préfère le second, bien qu'il colle moins aux données d'entraînement : ses poids trois fois plus petits valent plus que ses 0,3 d'erreur en plus. Sans régularisation ($\lambda = 0$), c'est le premier qui gagnerait.
+
+</div>
+</Exercice>
+
+<Exercice titre="Les poids qui fondent" niveau="defi" reponse={1.743} tolerance={0.002}>
+
+Dans une descente de gradient sur $J$, le terme $\lambda \|\mathbf{w}\|_2^2$ a pour gradient $2\lambda\,\mathbf{w}$. Imagine un poids dont la perte $\mathcal{L}$ ne dépend presque plus (son gradient de perte est nul). Avec un pas $\eta = 0{,}1$ et $\lambda = 0{,}5$, ce poids vaut 5. Que vaut-il après 10 pas ?
+
+<div slot="indice">
+
+Un pas donne $w \leftarrow w - \eta \times 2\lambda\,w = (1 - 2\eta\lambda)\,w$. Calcule le facteur, puis élève-le à la puissance 10.
+
+</div>
+<div slot="solution">
+
+Le facteur vaut $1 - 2 \times 0{,}1 \times 0{,}5 = 0{,}9$. Après 10 pas : $5 \times 0{,}9^{10} \approx 5 \times 0{,}349 \approx 1{,}743$.
+
+À chaque pas, le poids perd 10 % de sa valeur : il « fond » géométriquement vers 0 tant que la perte ne le retient pas. C'est exactement ce que dit le nom *weight decay* : les poids inutiles s'effacent d'eux-mêmes, et seuls restent grands ceux dont la perte a vraiment besoin.
+
+</div>
+</Exercice>
 
 ## En code
 
