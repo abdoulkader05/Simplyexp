@@ -1,0 +1,259 @@
+---
+id: kv-cache
+type: concept
+titre: "Le KV cache : l'astuce qui rend ChatGPT rapide"
+sous_titre: "Mise en cache des clés et valeurs pendant la génération"
+domaine: transformers
+niveau: 5
+prerequis: [masque-causal, bloc-transformer]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Touvron et al., « LLaMA: Open and Efficient Foundation Language Models », Meta AI, 2023 — https://arxiv.org/abs/2302.13971 — tableau 2 (modèle de 6,7 milliards de paramètres : dimension 4096, 32 têtes, 32 couches)"
+  - "Pope et al., « Efficiently Scaling Transformer Inference », 9 novembre 2022 — https://arxiv.org/abs/2211.05102 — résumé (attention multi-requêtes : plusieurs têtes de requêtes partagent une seule tête de clés et valeurs, mémoire réduite, contextes jusqu'à 32 fois plus longs ; 29 ms par token en génération sur PaLM 540B avec des poids en int8, contexte de 2048 tokens)"
+  - "Documentation Hugging Face Transformers, GenerationConfig — https://huggingface.co/docs/transformers/main_classes/text_generation — paramètre use_cache (réutiliser les clés et valeurs passées pour accélérer le décodage)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un modèle de langage écrit sa réponse un token à la fois : il calcule le token suivant, l'ajoute au texte, recommence. Or, pour prédire chaque nouveau token, chaque couche d'attention a besoin des clés et des valeurs de **tous** les tokens précédents. Une implémentation naïve refait donc passer tout le texte dans le modèle à chaque token généré. Pour écrire une réponse de 500 tokens après une question de 1 000 tokens, cela revient à retraiter 1 000 tokens, puis 1 001, puis 1 002… Un gâchis énorme, car l'essentiel de ce travail a déjà été fait au tour précédent.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Grâce au masque causal, les clés et les valeurs d'un token ne changent plus une fois calculées : on les garde en mémoire, et chaque nouveau token n'a plus qu'à calculer les siennes.
+</PhraseCle>
+
+## En image
+
+Pense à un greffier qui tient le procès-verbal d'une longue réunion, et à qui l'on demande sans cesse « qui a dit quoi ? ».
+
+- Sans méthode, à chaque question, il réécouterait l'enregistrement complet depuis le début.
+- Avec méthode, il tient une fiche par intervenant, remplie au fil de l'eau : chaque nouvelle prise de parole ajoute **une** ligne, et rien de ce qui est écrit ne change.
+- Pour répondre, il consulte ses fiches au lieu de tout réécouter.
+- Le prix à payer : un classeur qui grossit au fil de la réunion.
+
+Là où l'image s'arrête : le greffier pourrait réviser une fiche si un intervenant se contredisait. Le KV cache, lui, n'a jamais à le faire, car le masque causal garantit que ce qui est déjà calculé ne dépend pas de ce qui vient après.
+
+## Comment ça marche
+
+Dans chaque couche, chaque token produit une requête, une clé et une valeur. Avec le [masque causal](/concepts/masque-causal/), un token ne regarde que lui-même et les tokens avant lui. Conséquence : la clé et la valeur du token numéro 5, dans chaque couche, ne dépendent que des tokens 1 à 5. Quand le token 6 arrive, elles ne changent pas.
+
+Pendant la génération, on garde donc, pour chaque couche, les clés et les valeurs de tous les tokens déjà traités : c'est le KV cache (*key-value cache*). À chaque nouveau token, on calcule seulement **sa** requête, **sa** clé et **sa** valeur, on ajoute la clé et la valeur au cache, et sa requête interroge tout le cache. Fais défiler.
+
+<PasAPas rendu="kv-generation" label="Génération de « Le chat dort sur », avec et sans cache">
+  <Etape etat="initial">
+    **Le prompt.** « Le chat » entre dans le modèle : on calcule les clés et valeurs de ces 2 tokens dans chaque couche. Jusqu'ici, avec ou sans cache, c'est pareil.
+  </Etape>
+  <Etape etat="t3">
+    **Le token « dort » est choisi.** Sans cache, on refait passer les 3 tokens et on recalcule 3 paires (K, V). Avec cache, les 2 premières sont relues telles quelles, seule celle de « dort » est calculée.
+  </Etape>
+  <Etape etat="t4">
+    **Le token « sur ».** Sans cache : 4 paires recalculées. Avec cache : toujours une seule.
+  </Etape>
+  <Etape etat="bilan">
+    **Bilan.** 9 calculs de clés et valeurs sans cache, 4 avec. Sur une vraie réponse de centaines de tokens, l'écart devient énorme.
+  </Etape>
+</PasAPas>
+
+Le cache ne coûte pas du calcul, il coûte de la **mémoire** :
+
+<Schema rendu="kv-memoire" legende="Pour chaque couche, le cache garde une bande de clés et une bande de valeurs, avec une case par token déjà vu. Chaque nouveau token ajoute une case à chaque bande." />
+
+$$
+\text{taille du cache} = 2 \times L \times h \times d_{\text{tête}} \times T \times b
+$$
+
+où :
+- le facteur $2$ compte les clés **et** les valeurs ;
+- $L$ est le nombre de couches, $h$ le nombre de têtes d'attention par couche ;
+- $d_{\text{tête}}$ est la dimension d'une clé dans une tête ;
+- $T$ est le nombre de tokens déjà traités (question et réponse comprises) ;
+- $b$ est le nombre d'octets par nombre stocké (2 en demi-précision).
+
+Exemple sur une configuration publiée : le LLaMA de 6,7 milliards de paramètres a $L = 32$ couches, $h = 32$ têtes et une dimension de 4096, donc $d_{\text{tête}} = 4096 / 32 = 128$. En demi-précision, chaque token occupe $2 \times 32 \times 32 \times 128 \times 2 = 524\,288$ octets, environ un demi-mégaoctet. Pour 2 048 tokens : $2\,048 \times 524\,288 \approx 1{,}07$ milliard d'octets, soit un peu plus d'un gigaoctet, **par conversation**.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Le gain en calcul et le compte de la mémoire">
+
+**Le gain en calcul.** On génère $T$ tokens à partir de rien. Sans cache, au pas $t$, on recalcule les clés et valeurs des $t$ tokens présents :
+
+$$
+\begin{aligned}
+\text{sans cache} &= 1 + 2 + \dots + T = \frac{T(T+1)}{2} && \text{somme des entiers de 1 à } T \\
+\text{avec cache} &= 1 + 1 + \dots + 1 = T && \text{un seul nouveau token par pas}
+\end{aligned}
+$$
+
+Le rapport vaut $\frac{T+1}{2}$ : pour $T = 1\,000$, 500 500 calculs contre 1 000, soit 500 fois moins. Attention : l'attention elle-même, la requête du nouveau token contre toutes les clés, reste à faire à chaque pas ; le cache supprime les recalculs, pas cette consultation.
+
+**La mémoire.** Pour un token et une couche, chaque tête garde une clé et une valeur de $d_{\text{tête}}$ nombres : $2 \times h \times d_{\text{tête}}$ nombres. On multiplie par les $L$ couches, par les $T$ tokens, puis par les $b$ octets de chaque nombre :
+
+$$
+2 \times h \times d_{\text{tête}} \times L \times T \times b
+$$
+
+Si le serveur traite plusieurs conversations à la fois, il faut encore multiplier par leur nombre : c'est souvent le cache, plus que les poids du modèle, qui limite le nombre d'utilisateurs servis en même temps.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le poids d'un token" niveau="facile" reponse={0.524} tolerance={0.005} unite="Mo">
+
+Avec la configuration de LLaMA 6,7 milliards ($L = 32$, $h = 32$, $d_{\text{tête}} = 128$, 2 octets par nombre), combien de mégaoctets (1 Mo = $10^6$ octets) le cache occupe-t-il **par token** ?
+
+<div slot="solution">
+
+$2 \times 32 \times 32 \times 128 \times 2 = 524\,288$ octets, soit environ 0,524 Mo. Chaque mot de la conversation « pèse » un demi-mégaoctet dans la mémoire du GPU, tant que la conversation dure.
+
+</div>
+</Exercice>
+
+<Exercice titre="Mille tokens sans cache" niveau="moyen" reponse={500.5} tolerance={0.001} unite="fois">
+
+On génère 1 000 tokens à partir de rien. Combien de fois plus de calculs de clés et valeurs fait-on sans cache qu'avec ?
+
+<div slot="indice">
+
+Sans cache, au pas $t$ on recalcule $t$ paires : additionne de 1 à 1 000. Avec cache, une seule paire par pas.
+
+</div>
+<div slot="solution">
+
+Sans cache : $\frac{1\,000 \times 1\,001}{2} = 500\,500$. Avec cache : $1\,000$. Rapport : $500{,}5$. Plus la réponse est longue, plus le gain est grand, puisque le rapport vaut $\frac{T+1}{2}$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de tokens tiennent sur la carte ?" niveau="defi" reponse={20218} tolerance={0.001} unite="tokens">
+
+Tu fais tourner LLaMA 6,7 milliards en demi-précision sur une carte graphique de 24 Go ($24 \times 10^9$ octets). Les poids occupent 2 octets par paramètre. En négligeant tout le reste, combien de tokens au maximum peut contenir le KV cache ?
+
+<div slot="indice">
+
+Poids : $6{,}7 \times 10^9 \times 2$ octets. Ce qui reste est pour le cache, à 524 288 octets par token.
+
+</div>
+<div slot="solution">
+
+Les poids prennent $13{,}4 \times 10^9$ octets. Il reste $24 - 13{,}4 = 10{,}6 \times 10^9$ octets, soit $\frac{10{,}6 \times 10^9}{524\,288} \approx 20\,218$ tokens.
+
+C'est un plafond optimiste : en réalité, les calculs intermédiaires prennent aussi de la place. Et ces 20 000 tokens sont à partager entre toutes les conversations servies en même temps : 10 utilisateurs n'auraient qu'environ 2 000 tokens chacun. Voilà pourquoi réduire la taille du cache est un enjeu majeur.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une couche d'attention causale qui génère avec et sans cache, et la preuve que les sorties sont identiques.
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+d = 16
+Wq, Wk, Wv = (rng.normal(size=(d, d)) / np.sqrt(d) for _ in range(3))
+
+def attention(q, K, V):
+    s = K @ q / np.sqrt(d)
+    p = np.exp(s - s.max()); p /= p.sum()
+    return p @ V
+
+def sans_cache(X):
+    """À chaque pas, on recalcule K et V pour tout le texte présent."""
+    sorties, calculs = [], 0
+    for t in range(1, len(X) + 1):
+        K, V = X[:t] @ Wk, X[:t] @ Wv
+        calculs += t
+        sorties.append(attention(X[t - 1] @ Wq, K, V))
+    return np.array(sorties), calculs
+
+def avec_cache(X):
+    """On garde K et V ; chaque pas n'ajoute que la paire du nouveau token."""
+    sorties, K, V = [], np.empty((0, d)), np.empty((0, d))
+    for x in X:
+        K, V = np.vstack([K, x @ Wk]), np.vstack([V, x @ Wv])
+        sorties.append(attention(x @ Wq, K, V))
+    return np.array(sorties), len(X)
+
+X = rng.normal(size=(200, d))                  # 200 tokens, un par pas
+a, n_sans = sans_cache(X)
+b, n_avec = avec_cache(X)
+print("sorties identiques :", np.allclose(a, b))
+print("calculs de (K, V) :", n_sans, "sans cache,", n_avec, "avec")
+
+# Taille du cache pour LLaMA 6,7 milliards, en demi-précision
+octets_par_token = 2 * 32 * 32 * 128 * 2
+for T in (2_048, 8_192, 32_768):
+    print(f"{T:6d} tokens : {T * octets_par_token / 1e9:5.2f} Go")
+```
+
+En vrai, la bibliothèque `transformers` expose ce cache par le paramètre `use_cache` de sa fonction de génération :
+
+```python
+# no-run
+from transformers import AutoModelForCausalLM, AutoTokenizer
+tok = AutoTokenizer.from_pretrained("gpt2")
+modele = AutoModelForCausalLM.from_pretrained("gpt2")
+entree = tok("Le KV cache sert à", return_tensors="pt")
+sortie = modele.generate(**entree, max_new_tokens=30, use_cache=True)
+print(tok.decode(sortie[0]))
+```
+
+## Les pièges classiques
+
+**« Le KV cache réduit la mémoire. »** C'est l'inverse : il échange du calcul contre de la mémoire. Il supprime les recalculs, mais il faut stocker les clés et valeurs de chaque token, dans chaque couche, pour chaque conversation.
+
+**« On met aussi les requêtes en cache. »** Inutile : la requête d'un token passé ne sert qu'au moment où ce token est traité. Les nouveaux tokens ont besoin des clés et valeurs anciennes, jamais des requêtes anciennes.
+
+**« Le cache marche pour n'importe quel transformer. »** Il repose sur le masque causal. Dans un encodeur bidirectionnel, où chaque token regarde aussi les suivants, ajouter un token changerait les représentations de tous les autres : le cache deviendrait faux.
+
+## Dans la vraie vie
+
+Avec le KV cache, chaque nouveau token d'une réponse ne coûte qu'un passage dans le modèle pour lui seul, plus la consultation du cache : c'est ce qui rend la génération token après token raisonnablement rapide. Sa taille est devenue un enjeu de conception. Une réponse est l'**attention multi-requêtes** (*multi-query attention*), où plusieurs têtes de requêtes partagent une seule tête de clés et de valeurs : le cache est divisé d'autant. Pope et ses coauteurs montrent en 2022 que cette mémoire réduite permet des contextes jusqu'à 32 fois plus longs, et atteignent 29 millisecondes par token en génération sur PaLM, un modèle de 540 milliards de paramètres, avec un contexte de 2 048 tokens.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que contient le KV cache ?",
+    choix: ["Les poids du modèle", "Les clés et valeurs des tokens déjà traités, dans chaque couche", "Les requêtes de tous les tokens", "Les réponses déjà données aux autres utilisateurs"],
+    bonne: 1,
+    explication: "Les nouveaux tokens ont besoin des clés et valeurs passées ; on les garde au lieu de les recalculer."
+  },
+  {
+    question: "Pourquoi les clés et valeurs d'un token passé ne changent-elles pas quand on ajoute un token ?",
+    choix: ["Parce qu'elles sont arrondies", "Parce que le masque causal empêche un token de dépendre des tokens qui le suivent", "Parce que le modèle est gelé", "Elles changent, il faut les recalculer"],
+    bonne: 1,
+    explication: "Avec le masque causal, la représentation du token j ne dépend que des tokens 1 à j."
+  },
+  {
+    question: "Si l'on double le nombre de couches d'un modèle, que devient la taille du cache par token ?",
+    choix: ["Elle ne change pas", "Elle double", "Elle quadruple", "Elle est divisée par deux"],
+    bonne: 1,
+    explication: "La taille est proportionnelle au nombre de couches L."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : qu'est-ce que le KV cache, et quel compromis introduit-il ?">
+
+Pendant la génération autorégressive d'un décodeur causal, les clés et valeurs d'un token, dans chaque couche, ne dépendent que des tokens précédents : elles ne changent pas quand de nouveaux tokens arrivent. On les stocke donc, et chaque pas ne calcule que la requête, la clé et la valeur du nouveau token, puis fait l'attention de cette requête contre tout le cache. Le nombre de projections passe de $O(T^2)$ à $O(T)$ sur une génération de $T$ tokens. Le compromis est la mémoire : $2 \times L \times h \times d_{\text{tête}} \times T \times b$ octets par séquence, qui limite la longueur de contexte et le nombre de requêtes servies en parallèle. D'où des techniques comme l'attention multi-requêtes, où plusieurs têtes de requêtes partagent une seule tête de clés et valeurs.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "KV cache", en: "key-value cache", definition: "Mémoire qui garde les clés et valeurs de chaque token déjà traité, dans chaque couche, pendant la génération." },
+  { fr: "génération autorégressive", en: "autoregressive generation", definition: "Écrire un texte token après token, chacun calculé à partir des précédents." },
+  { fr: "attention multi-requêtes", en: "multi-query attention", definition: "Variante où plusieurs têtes de requêtes partagent une seule tête de clés et valeurs, ce qui réduit le cache." },
+  { fr: "demi-précision", en: "half precision", definition: "Représentation des nombres sur 2 octets au lieu de 4." }
+]} />
