@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.2 à 3.3 (variables aléatoires, distributions discrètes et densités)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -114,29 +114,48 @@ Avec $n = 20$ et $p = 0{,}5$, la loi prend une forme de cloche symétrique autou
 
 ## Entraîne-toi
 
-**Exercice 1.** On lance deux dés et $S$ est la somme. Calcule $P(S = 7)$ et $P(S = 2)$.
+<Exercice titre="La somme de deux dés" niveau="facile" reponse={0.1667} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+On lance deux dés et $S$ est la somme. Calcule $P(S = 7)$ et $P(S = 2)$. Dans la case, donne $P(S = 7)$.
+
+<div slot="solution">
 
 36 résultats équiprobables. $S = 7$ : 6 résultats, donc $6/36 = 1/6$. $S = 2$ : seulement (1, 1), donc $1/36$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Avec $n = 3$ clients et $p = 0{,}8$, calcule la loi du nombre de paiements mobiles.
+<Exercice titre="Trois clients à la caisse" niveau="moyen" reponse={0.384} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Avec $n = 3$ clients et $p = 0{,}8$, calcule la loi du nombre de paiements mobiles. Dans la case, donne la probabilité d'exactement 2 paiements mobiles.
+
+<div slot="indice">
+
+Pour 2 paiements sur 3, il y a 3 façons de choisir le client qui ne paie pas par mobile.
+
+</div>
+<div slot="solution">
 
 $P(0) = 0{,}2^3 = 0{,}008$ ; $P(1) = 3 \times 0{,}8 \times 0{,}04 = 0{,}096$ ; $P(2) = 3 \times 0{,}64 \times 0{,}2 = 0{,}384$ ; $P(3) = 0{,}8^3 = 0{,}512$. Somme : 1.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Le temps d'attente est uniforme sur $[0\,;\,10]$ minutes. Quelle est la probabilité d'attendre entre 4 et 7 minutes ? Plus de 8 minutes ?
+<Exercice titre="L’attente à l’arrêt" niveau="defi" reponse={0.3} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Le temps d'attente est uniforme sur $[0\,;\,10]$ minutes. Quelle est la probabilité d'attendre entre 4 et 7 minutes ? Plus de 8 minutes ? Dans la case, donne la première.
+
+<div slot="indice">
+
+Pour une loi uniforme, la probabilité est proportionnelle à la longueur de l'intervalle : la densité vaut $1/10$ par minute.
+
+</div>
+<div slot="solution">
 
 $P(4 \le T \le 7) = 3 \times 0{,}1 = 0{,}3$. $P(T > 8) = 2 \times 0{,}1 = 0{,}2$.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
