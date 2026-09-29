@@ -1,0 +1,250 @@
+---
+id: flash-attention
+type: concept
+titre: "FlashAttention : accélérer l'attention sans rien approximer"
+sous_titre: "Optimisation mémoire de l'attention sur GPU"
+domaine: transformers
+niveau: 5
+prerequis: [cout-quadratique]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Dao et al., « FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness », 2022 — https://arxiv.org/abs/2205.14135 (version HTML : https://ar5iv.labs.arxiv.org/html/2205.14135) — résumé (15 % plus rapide de bout en bout sur BERT-large, séquences de 512, par rapport au record MLPerf 1.1 ; 3 fois plus rapide sur GPT-2, séquences de 1K ; 2,4 fois sur Long-Range Arena ; Path-X, 16K, 61,4 % ; Path-256, 64K, 63,1 %), section 2.1 (A100 : HBM de 40 à 80 Go à 1,5–2,0 To/s ; SRAM de 192 Ko sur chacun des 108 multiprocesseurs, environ 19 To/s), section 3 (tuilage, recalcul, mémoire linéaire en n, théorème 2 : Θ(Nd + N²) accès HBM pour l'attention standard contre Θ(N²d²M⁻¹))"
+  - "Dépôt officiel Dao-AILab/flash-attention — https://github.com/Dao-AILab/flash-attention — installation du paquet flash-attn, signature de flash_attn_func (entrées de forme lots, positions, têtes, dimension ; argument causal ; fp16 et bf16), code source CUDA"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+La fiche sur le [coût quadratique](/concepts/cout-quadratique/) l'a montré : pour $n$ tokens, chaque tête calcule une matrice de $n \times n$ scores. L'implémentation directe l'écrit en entier dans la mémoire du GPU, la relit pour appliquer la softmax, écrit le résultat, puis le relit encore pour le multiplier par les valeurs. Sur de longs textes, ce n'est pas le calcul qui ralentit le plus : ce sont ces allers-retours de données. En 2022, Dao et ses coauteurs publient FlashAttention. Leur idée : ne pas changer une seule virgule du résultat, mais réorganiser le calcul pour ne jamais stocker cette grande matrice.
+
+## L'idée en une phrase
+
+<PhraseCle>
+FlashAttention calcule l'attention par petits blocs dans la mémoire la plus rapide du GPU, en tenant à jour deux sommes, si bien que la matrice des scores n'existe jamais en entier, et que le résultat reste exactement le même.
+</PhraseCle>
+
+## En image
+
+Pense à un comptable qui doit calculer une moyenne pondérée sur des milliers de factures rangées aux archives, au sous-sol.
+
+- La méthode naïve : tout monter sur son bureau, qui est trop petit, donc tout recopier sur un grand registre au sous-sol, puis descendre et remonter sans cesse pour relire ce registre.
+- La méthode futée : monter les factures par petits paquets, et tenir sur un post-it deux totaux seulement, la somme des poids et la somme pondérée.
+- Après le dernier paquet, une seule division donne la moyenne : exactement celle de la méthode naïve.
+- Le grand registre n'a jamais été écrit.
+
+Le sous-sol, c'est la mémoire principale du GPU ; le bureau, sa petite mémoire rapide. Là où l'image s'arrête : pour que la softmax reste stable avec de grands scores, il faut aussi tenir à jour le plus grand score vu jusqu'ici ; on le verra dans la dérivation.
+
+## Comment ça marche
+
+Un GPU a deux mémoires très différentes. Pour un A100, les auteurs donnent ces ordres de grandeur :
+
+<Schema rendu="memoire-gpu" legende="La HBM contient tout mais débite lentement ; la SRAM, sur la puce, débite environ dix fois plus vite mais ne fait que quelques centaines de kilo-octets par multiprocesseur. Chiffres de l'A100, d'après le paper FlashAttention." />
+
+L'attention classique fait passer toute la matrice $S$ par la HBM (*high bandwidth memory*, la mémoire principale). FlashAttention découpe les clés et les valeurs en blocs qui tiennent dans la SRAM (*static random-access memory*, la mémoire sur la puce), et traite chaque bloc entièrement là-bas. C'est le **tuilage** (*tiling*).
+
+La difficulté est la [softmax](/concepts/softmax/) : son dénominateur est une somme sur **tous** les scores de la ligne, qu'on ne connaît qu'à la fin. L'astuce : pour une requête, la sortie de l'attention s'écrit comme un rapport de deux sommes, et deux sommes se calculent très bien par morceaux. Si les clés sont coupées en deux blocs $A$ et $B$ :
+
+$$
+\mathbf{o} = \frac{\sum_{j} e^{s_j}\, \mathbf{v}_j}{\sum_{j} e^{s_j}} = \frac{\mathbf{u}_A + \mathbf{u}_B}{\ell_A + \ell_B}
+\qquad \text{avec} \quad \ell_A = \sum_{j \in A} e^{s_j}, \quad \mathbf{u}_A = \sum_{j \in A} e^{s_j}\, \mathbf{v}_j
+$$
+
+où :
+- $s_j$ est le score entre la requête et la clé $j$ ;
+- $\mathbf{v}_j$ est la valeur du token $j$ ;
+- $\ell_A$ est la somme des exponentielles des scores du bloc $A$, et $\mathbf{u}_A$ la somme des valeurs pondérées par ces exponentielles ;
+- $\mathbf{o}$ est la sortie de l'attention pour cette requête.
+
+Exemple à la main, sur une ligne de 4 scores en deux blocs, avec des valeurs réduites à un seul nombre. Supposons que les exponentielles des scores valent $1, 2 \,|\, 3, 4$ et les valeurs $10, 20 \,|\, 30, 40$. Calcul complet : $\mathbf{o} = \dfrac{10 + 40 + 90 + 160}{1 + 2 + 3 + 4} = \dfrac{300}{10} = 30$. Par blocs : $\ell_A = 3$, $u_A = 50$, puis $\ell_B = 7$, $u_B = 250$, et $\dfrac{50 + 250}{3 + 7} = 30$. Même résultat, sans jamais avoir besoin des quatre scores en même temps. Fais défiler.
+
+<PasAPas rendu="flash-tuiles" label="Une ligne d'attention calculée par blocs">
+  <Etape etat="initial">
+    **L'attention classique** écrit toute la matrice des scores en HBM, la relit pour la softmax, puis encore pour multiplier par $V$. Pour de longs textes, ces allers-retours dominent le temps de calcul.
+  </Etape>
+  <Etape etat="bloc1">
+    **Premier bloc.** On charge en SRAM les clés et valeurs du bloc 1. On y calcule $\ell = 1 + 2 = 3$ et $u = 1 \times 10 + 2 \times 20 = 50$. Une sortie provisoire vaudrait $50 / 3 \approx 16{,}7$, mais on ne l'écrit nulle part.
+  </Etape>
+  <Etape etat="bloc2">
+    **Deuxième bloc.** Le bloc 1 est libéré, le bloc 2 prend sa place. On **ajoute** : $\ell = 3 + 7 = 10$ et $u = 50 + 250 = 300$. La sortie vaut $300 / 10 = 30$.
+  </Etape>
+  <Etape etat="fin">
+    **Fin.** Seule la sortie, un vecteur par requête, retourne en HBM. La matrice $n \times n$ n'a jamais existé : la mémoire utilisée ne grandit plus qu'avec $n$, pas avec $n^2$.
+  </Etape>
+</PasAPas>
+
+Il reste l'entraînement. La rétropropagation a normalement besoin de la matrice des poids d'attention, que l'on n'a pas gardée. FlashAttention la **recalcule** bloc par bloc pendant la passe arrière, à partir des statistiques de la softmax conservées. C'est le **recalcul** (*recomputation*) : on fait un peu plus d'opérations, mais on économise tant d'accès mémoire que l'ensemble va plus vite.
+
+Les auteurs le démontrent : l'attention standard fait de l'ordre de $Nd + N^2$ accès à la HBM, FlashAttention de l'ordre de $N^2 d^2 / M$, où $N$ est la longueur, $d$ la dimension d'une tête et $M$ la taille de la SRAM. Comme $d^2$ est bien plus petit que $M$, le gain est important.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le calcul par blocs donne exactement le même résultat, même avec le maximum">
+
+**Le rapport de deux sommes.** La softmax donne au token $j$ le poids $p_j = e^{s_j} / \sum_k e^{s_k}$. La sortie est $\mathbf{o} = \sum_j p_j \mathbf{v}_j$ :
+
+$$
+\begin{aligned}
+\mathbf{o} &= \sum_j \frac{e^{s_j}}{\sum_k e^{s_k}}\, \mathbf{v}_j && \text{définition de la softmax} \\
+&= \frac{\sum_j e^{s_j}\, \mathbf{v}_j}{\sum_k e^{s_k}} && \text{le dénominateur ne dépend pas de } j \\
+&= \frac{\mathbf{u}_A + \mathbf{u}_B}{\ell_A + \ell_B} && \text{on coupe chaque somme en deux blocs}
+\end{aligned}
+$$
+
+**La stabilité.** Avec des scores de l'ordre de 100, $e^{100}$ dépasse ce que les nombres en précision réduite savent représenter. On soustrait donc le plus grand score : c'est sans effet sur la softmax, puisque $e^{s_j - m} / \sum_k e^{s_k - m}$ vaut $e^{s_j}/\sum_k e^{s_k}$ en simplifiant par $e^{-m}$. Par blocs, chaque bloc calcule ses sommes avec son propre maximum $m_A$ ou $m_B$. Pour les combiner, on les ramène au maximum commun $m = \max(m_A, m_B)$ en multipliant par $e^{m_A - m}$ ou $e^{m_B - m}$ :
+
+$$
+\mathbf{o} = \frac{e^{m_A - m}\, \mathbf{u}_A + e^{m_B - m}\, \mathbf{u}_B}{e^{m_A - m}\, \ell_A + e^{m_B - m}\, \ell_B}
+$$
+
+Tous les facteurs sont inférieurs ou égaux à 1 : plus de dépassement, et le résultat est toujours exactement $\mathbf{o}$. Avec plus de deux blocs, on applique la même règle de proche en proche, en gardant seulement trois choses : le maximum courant, la somme $\ell$ et la somme $\mathbf{u}$.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Combien plus rapide, la SRAM ?" niveau="facile" reponse={9.5} tolerance={0.01} unite="fois">
+
+D'après les chiffres du paper pour l'A100, la SRAM débite environ 19 To/s et la HBM jusqu'à 2,0 To/s. Combien de fois plus de données la SRAM peut-elle débiter par seconde ?
+
+<div slot="solution">
+
+$19 / 2{,}0 = 9{,}5$ : environ dix fois plus. Mais la SRAM ne fait que 192 Ko par multiprocesseur, contre 40 à 80 Go pour la HBM. Tout l'art de FlashAttention est de faire tenir le calcul dans ce petit espace rapide.
+
+</div>
+</Exercice>
+
+<Exercice titre="Deux blocs, un seul résultat" niveau="moyen" reponse={17.5} tolerance={0.001}>
+
+Une requête a quatre scores dont les exponentielles valent $2, 2$ (bloc $A$) et $1, 3$ (bloc $B$). Les valeurs correspondantes sont $5, 15$ puis $10, 30$. Calcule $\ell_A$, $u_A$, $\ell_B$, $u_B$, puis la sortie $o$.
+
+<div slot="indice">
+
+$\ell_A = 2 + 2$ et $u_A = 2 \times 5 + 2 \times 15$. Fais de même pour $B$, puis $o = (u_A + u_B)/(\ell_A + \ell_B)$.
+
+</div>
+<div slot="solution">
+
+$\ell_A = 4$, $u_A = 10 + 30 = 40$ ; $\ell_B = 4$, $u_B = 10 + 90 = 100$. Donc $o = 140 / 8 = 17{,}5$.
+
+Vérification par le calcul complet : les poids de la softmax sont $2/8$, $2/8$, $1/8$ et $3/8$, et $\frac{2 \times 5 + 2 \times 15 + 1 \times 10 + 3 \times 30}{8} = \frac{140}{8} = 17{,}5$. Identique.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le gain en accès mémoire" niveau="defi" reponse={24.4} tolerance={0.01} unite="fois">
+
+Le théorème des auteurs compare les accès à la HBM : de l'ordre de $N^2$ pour l'attention standard (quand $N$ est grand), de l'ordre de $N^2 d^2 / M$ pour FlashAttention. Avec des têtes de dimension $d = 64$ et une SRAM qui contient $M = 100\,000$ nombres, par combien le nombre d'accès est-il divisé, en ordre de grandeur ?
+
+<div slot="indice">
+
+Fais le rapport $\dfrac{N^2}{N^2 d^2 / M}$ : les $N^2$ se simplifient.
+
+</div>
+<div slot="solution">
+
+Le rapport vaut $\dfrac{M}{d^2} = \dfrac{100\,000}{4\,096} \approx 24{,}4$. Environ 24 fois moins d'accès à la mémoire lente, quelle que soit la longueur $N$.
+
+Deux remarques. Ce calcul donne un ordre de grandeur, pas un gain de vitesse exact : les constantes cachées dans les $\Theta(\cdot)$ comptent. Et le gain diminue quand $d$ augmente : avec $d = 128$, $d^2 = 16\,384$ et le rapport tombe à environ 6.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : l'attention d'une requête calculée par blocs, avec maximum courant, comparée au calcul complet.
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+n, d, taille_bloc = 1000, 64, 128
+q = rng.normal(size=d)
+K = rng.normal(size=(n, d))
+V = rng.normal(size=(n, d))
+
+# Calcul complet : tous les scores d'un coup
+s = K @ q / np.sqrt(d)
+p = np.exp(s - s.max()); p /= p.sum()
+o_complet = p @ V
+
+# Calcul par blocs : on ne garde que m (maximum courant), l et u
+m, l, u = -np.inf, 0.0, np.zeros(d)
+for debut in range(0, n, taille_bloc):
+    s_bloc = K[debut:debut + taille_bloc] @ q / np.sqrt(d)
+    m_nouveau = max(m, s_bloc.max())
+    facteur = np.exp(m - m_nouveau)           # remet l'ancien bloc à l'échelle du nouveau maximum
+    e = np.exp(s_bloc - m_nouveau)
+    l = l * facteur + e.sum()
+    u = u * facteur + e @ V[debut:debut + taille_bloc]
+    m = m_nouveau
+o_blocs = u / l
+
+print("écart maximal :", np.abs(o_complet - o_blocs).max())
+print("scores gardés en même temps :", n, "contre", taille_bloc)
+```
+
+L'écart affiché est de l'ordre des erreurs d'arrondi : le résultat est le même. En vrai, FlashAttention est un noyau GPU écrit en CUDA, distribué par ses auteurs dans le paquet `flash-attn` :
+
+```python
+# no-run
+import torch
+from flash_attn import flash_attn_func
+q = k = v = torch.randn(1, 8_000, 32, 128, device="cuda", dtype=torch.float16)   # lots, positions, têtes, d
+sortie = flash_attn_func(q, k, v, causal=True)
+```
+
+## Les pièges classiques
+
+**« FlashAttention est une approximation de l'attention. »** Non : le titre du paper insiste sur *exact attention*. Le résultat est mathématiquement identique ; seul l'ordre des calculs change, et les différences restent au niveau des erreurs d'arrondi.
+
+**« FlashAttention supprime le coût quadratique. »** Le nombre d'opérations reste de l'ordre de $n^2 d$. Ce qui devient linéaire en $n$, c'est la **mémoire** utilisée, et ce qui diminue fortement, ce sont les accès à la mémoire lente.
+
+**« Recalculer pendant la passe arrière fait perdre du temps. »** Cela ajoute des opérations, mais sur un GPU, lire et écrire la mémoire coûte souvent plus cher que calculer. Recalculer dans la SRAM revient moins cher que relire une grande matrice stockée en HBM.
+
+## Dans la vraie vie
+
+Les gains annoncés dans le paper sont nets : 15 % plus rapide de bout en bout pour entraîner BERT-large sur des séquences de 512 tokens, par rapport au record de vitesse MLPerf 1.1 ; 3 fois plus rapide pour GPT-2 avec des séquences de 1K tokens (environ un millier) ; 2,4 fois sur le banc d'essai Long-Range Arena. Parce que la mémoire devient linéaire, des séquences bien plus longues deviennent possibles : FlashAttention a permis aux premiers transformers de faire mieux que le hasard sur la tâche Path-X, avec des séquences de 16K tokens (61,4 % de réussite), et sur Path-256, avec 64K tokens (63,1 %). La leçon dépasse l'attention : sur un GPU, optimiser les mouvements de données compte autant qu'optimiser les calculs.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Qu'est-ce que FlashAttention change au résultat de l'attention ?",
+    choix: ["Il l'approxime pour aller plus vite", "Rien : le résultat est le même, seul l'ordre des calculs change", "Il ignore les tokens lointains", "Il réduit la précision à 4 bits"],
+    bonne: 1,
+    explication: "C'est une attention exacte : on réorganise les calculs, on ne les simplifie pas."
+  },
+  {
+    question: "Pourquoi peut-on calculer la softmax par blocs ?",
+    choix: ["Parce que la softmax est linéaire", "Parce que la sortie est un rapport de deux sommes, et qu'une somme se calcule morceau par morceau", "Parce que les scores sont petits", "On ne peut pas, on l'approxime"],
+    bonne: 1,
+    explication: "o = (somme des e^s·v) / (somme des e^s) : on accumule les deux sommes bloc par bloc."
+  },
+  {
+    question: "Qu'est-ce qui devient linéaire en n avec FlashAttention ?",
+    choix: ["Le nombre de multiplications", "La mémoire utilisée", "Le nombre de couches", "Le vocabulaire"],
+    bonne: 1,
+    explication: "La matrice n × n n'est jamais stockée ; les opérations restent de l'ordre de n²d."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez comment FlashAttention accélère l'attention sans l'approximer.">
+
+L'attention standard est limitée par la mémoire : elle écrit la matrice $n \times n$ des scores dans la HBM, lente, puis la relit pour la softmax et pour le produit avec $V$. FlashAttention découpe $Q$, $K$ et $V$ en blocs qui tiennent dans la SRAM, rapide mais petite, et calcule tout pour un bloc sur la puce. La softmax, qui dépend de toute la ligne, se calcule en ligne : on garde pour chaque requête le maximum courant, la somme des exponentielles et la somme pondérée des valeurs, remises à l'échelle à chaque nouveau bloc ; le rapport final est exactement la softmax complète. Pendant la passe arrière, on recalcule les blocs d'attention au lieu de les stocker. Résultat : mémoire linéaire en $n$, beaucoup moins d'accès à la HBM (de l'ordre de $N^2 d^2 / M$ au lieu de $N^2$), et un résultat identique.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "HBM", en: "high bandwidth memory", definition: "Mémoire principale d'un GPU : grande, mais lente comparée à la mémoire sur la puce." },
+  { fr: "SRAM", en: "static random-access memory", definition: "Petite mémoire rapide située sur la puce, à côté des unités de calcul." },
+  { fr: "tuilage", en: "tiling", definition: "Découper un calcul en blocs qui tiennent dans la mémoire rapide, traités l'un après l'autre." },
+  { fr: "recalcul", en: "recomputation", definition: "Recalculer une valeur au moment où on en a besoin plutôt que de la stocker." }
+]} />
