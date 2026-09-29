@@ -16,7 +16,7 @@ sources:
   - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.1 (LayerNorm(x + Sublayer(x)))"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -113,15 +113,51 @@ Multiplie l'entrée par un facteur et décale-la : regarde ce que deviennent les
   legende="Entrée x = s × (2 ; 4 ; 6 ; 8) + c. Gain γ = 1 et décalage β = 0."
 />
 
-Consigne : fais varier $s$ de 0,2 à 5 avec $c = 0$. Puis remets $s = 1$ et fais varier $c$. Quelle normalisation reste immobile dans chaque cas ?
+<Exercice titre="Qui bouge, qui reste immobile ?" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation, fais varier $s$ de 0,2 à 5 avec $c = 0$. Puis remets $s = 1$ et fais varier $c$. Quelle normalisation reste immobile dans chaque cas ?
+
+<div slot="solution">
 
 Quand seul $s$ change, l'entrée passe de $(0{,}4\,;\,\dots\,;\,1{,}6)$ à $(10\,;\,\dots\,;\,40)$, mais les deux sorties restent figées : LayerNorm à $(-1{,}34\,;\,-0{,}45\,;\,0{,}45\,;\,1{,}34)$ et RMSNorm à $(0{,}37\,;\,0{,}73\,;\,1{,}10\,;\,1{,}46)$.
 
 Quand $c$ change, LayerNorm ne bouge toujours pas, mais RMSNorm si. Avec $c = -5$, l'entrée devient $(-3\,;\,-1\,;\,1\,;\,3)$ et RMSNorm donne $(-1{,}34\,;\,-0{,}45\,;\,0{,}45\,;\,1{,}34)$, les mêmes nombres que LayerNorm, puisque la moyenne est alors nulle. RMSNorm fait le pari que recentrer n'est pas nécessaire ; ses auteurs le vérifient expérimentalement.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Normaliser trois activations à la main" niveau="moyen" reponse={3.22} tolerance={0.01}>
+
+Une couche produit les activations $\mathbf{x} = (1\,;\,3\,;\,8)$. Applique la LayerNorm avec un gain appris $\gamma = 2$ et un décalage $\beta = 0{,}5$, les mêmes pour les trois neurones, en négligeant $\epsilon$. Que vaut la sortie du troisième neurone ?
+
+<div slot="indice">
+
+Calcule d'abord $\mu$, puis la variance $\sigma^2$ (moyenne des carrés des écarts), puis $\hat{x}_3 = (x_3 - \mu)/\sigma$. Termine par $\gamma\,\hat{x}_3 + \beta$.
+
+</div>
+<div slot="solution">
+
+$\mu = 12/3 = 4$. Les écarts sont $(-3\,;\,-1\,;\,4)$, leurs carrés $(9\,;\,1\,;\,16)$, donc $\sigma^2 = 26/3 \approx 8{,}667$ et $\sigma \approx 2{,}944$. Les activations normalisées valent $(-1{,}019\,;\,-0{,}340\,;\,1{,}359)$.
+
+Avec le gain et le décalage : $2 \times 1{,}359 + 0{,}5 \approx 3{,}22$. La sortie complète est $(-1{,}54\,;\,-0{,}18\,;\,3{,}22)$ : de moyenne $\beta = 0{,}5$ et d'écart type $\gamma = 2$. Ce sont les paramètres appris, et non plus les couches du dessous, qui fixent l'échelle.
+
+</div>
+</Exercice>
+
+<Exercice titre="BatchNorm avec un lot d'un seul exemple" niveau="defi" reponse={0} tolerance={0.001}>
+
+Un téléphone fait tourner un modèle sur une seule photo à la fois. Imagine qu'on utilise BatchNorm en calculant la moyenne et la variance **sur le lot du moment**, ici un seul exemple. Un neurone vaut 7 pour cette photo. Que renvoie la normalisation, avant $\gamma$ et $\beta$ ? Compare avec un lot de deux photos où ce neurone vaut 3 et 7, puis avec la LayerNorm.
+
+<div slot="solution">
+
+Avec un seul exemple, la moyenne du neurone sur le lot vaut 7 et l'écart vaut $7 - 7 = 0$ : la sortie est **0**, quelle que soit la photo. Toute l'information portée par ce neurone disparaît.
+
+Avec deux photos (3 et 7), la moyenne vaut 5 et l'écart type 2 : les sorties sont $-1$ et $1$. Le résultat pour une photo dépend donc des autres photos du lot. C'est pourquoi BatchNorm garde, pour le test, des moyennes et des variances calculées pendant l'entraînement.
+
+La LayerNorm n'a pas ce problème : elle normalise les neurones **d'un même exemple** entre eux, et donne le même résultat quelle que soit la taille du lot, à l'entraînement comme au test.
+
+</div>
+</Exercice>
 
 ## En code
 
