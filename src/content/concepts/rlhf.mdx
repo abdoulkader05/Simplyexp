@@ -1,0 +1,253 @@
+---
+id: rlhf
+type: concept
+titre: "Le RLHF : apprendre de ce que les humains préfèrent"
+sous_titre: "Reinforcement Learning from Human Feedback et modèle de récompense"
+domaine: llm
+niveau: 5
+prerequis: [instruction-tuning, apprentissage-renforcement, divergence-kl]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Christiano et al., « Deep reinforcement learning from human preferences », 2017 — https://arxiv.org/abs/1706.03741 — résumé (objectif défini par des préférences humaines entre paires de segments ; jeux Atari et locomotion simulée ; retour humain sur moins de 1 % des interactions ; environ une heure de temps humain)"
+  - "Ouyang et al., « Training language models to follow instructions with human feedback », 2022 — https://arxiv.org/abs/2203.02155 — résumé (démonstrations puis classements de sorties, RLHF ; InstructGPT 1,3B préféré à GPT-3 175B) et section 3.5 (perte du modèle de récompense −log σ(r(x, y_w) − r(x, y_l)) sur les paires tirées de K = 4 à 9 réponses classées ; modèle de récompense de 6B ; objectif r(x, y) − β log(π^RL(y|x) / π^SFT(y|x)), avec un terme optionnel de pré-entraînement γ)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Après l'[instruction tuning](/concepts/instruction-tuning/), le modèle répond aux consignes. Mais ses réponses ne sont pas forcément celles qu'on préfère : trop longues, trop sûres d'elles, parfois inexactes ou inappropriées. Pour aller plus loin, il faudrait écrire la réponse idéale à chaque consigne possible, ce qui est impossible. En revanche, un humain sait très bien **comparer** : entre deux réponses à la même question, il voit vite laquelle est meilleure. Comment transformer ces comparaisons en un signal d'apprentissage ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+On entraîne un modèle de récompense à prédire laquelle de deux réponses un humain préfère, puis on optimise le modèle de langage par apprentissage par renforcement pour obtenir de bonnes notes, sans le laisser trop s'éloigner de son comportement de départ.
+</PhraseCle>
+
+## En image
+
+Pense à un apprenti cuisinier et à un jury de dégustation.
+
+- D'abord, un chef lui montre quelques plats bien faits : il apprend les bases en imitant.
+- Ensuite, un jury goûte ses plats deux par deux et dit lequel il préfère. À force, on peut former un **dégustateur**, qui prédit les goûts du jury.
+- L'apprenti cuisine alors des centaines de plats, notés par ce dégustateur, et s'améliore pour obtenir de meilleures notes.
+- Un garde-fou : il ne doit pas trop s'écarter des recettes apprises, sinon il trouverait les failles du dégustateur, par exemple saler énormément si le dégustateur adore le sel.
+
+Là où l'image s'arrête : le dégustateur est lui-même un modèle, entraîné sur un nombre limité d'avis. Ses notes sont une approximation des goûts humains, pas la vérité.
+
+## Comment ça marche
+
+L'apprentissage par renforcement à partir de retours humains (*Reinforcement Learning from Human Feedback*, RLHF) a été présenté en 2017 par Christiano et ses coauteurs, sur des jeux Atari et des robots simulés : les buts y étaient définis par des préférences humaines entre paires de courtes séquences. InstructGPT (Ouyang et ses coauteurs, 2022) l'applique aux modèles de langage en trois étapes.
+
+1. **Démonstrations.** Des annotateurs écrivent de bonnes réponses ; on ajuste le modèle dessus. On obtient un modèle de départ, noté $\pi^{\text{SFT}}$.
+2. **Comparaisons.** Pour une consigne, le modèle produit plusieurs réponses ; des annotateurs les classent. On entraîne sur ces classements un **modèle de récompense** (*reward model*) $r(x, y)$, qui donne un score à la réponse $y$ pour la consigne $x$.
+3. **Renforcement.** Le modèle de langage devient l'agent de l'[apprentissage par renforcement](/concepts/apprentissage-renforcement/) : son action est la réponse produite, sa récompense est le score du modèle de récompense, diminué d'une pénalité s'il s'éloigne trop de $\pi^{\text{SFT}}$.
+
+Fais défiler : scores et probabilités sont inventés pour l'illustration.
+
+<PasAPas rendu="rlhf-etapes" label="Les trois étapes du RLHF et l'effet de la pénalité">
+  <Etape etat="initial">
+    **Étape 1, les démonstrations.** C'est l'instruction tuning : on obtient $\pi^{\text{SFT}}$, qui sert de point de départ et de référence.
+  </Etape>
+  <Etape etat="comparaison">
+    **Étape 2, les comparaisons.** L'annotateur n'écrit rien : il choisit. Comparer est bien plus rapide et plus fiable que rédiger une réponse parfaite.
+  </Etape>
+  <Etape etat="recompense">
+    **Le modèle de récompense** apprend à reproduire ces choix : il donne 2,0 à A et 0,5 à B, et prédit que A sera préférée avec la probabilité $\sigma(1{,}5) \approx 0{,}82$.
+  </Etape>
+  <Etape etat="rl">
+    **Étape 3, le renforcement.** X obtient la meilleure note, mais le modèle a dû devenir 50 fois plus enclin à la produire que $\pi^{\text{SFT}}$. La pénalité la ramène sous Y, qui reste proche du modèle de départ.
+  </Etape>
+</PasAPas>
+
+Deux formules font tourner l'ensemble. Le **modèle de récompense** suppose que la probabilité qu'un humain préfère la réponse $y_w$ à la réponse $y_l$ dépend de l'écart de leurs scores :
+
+$$
+P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big), \qquad \sigma(z) = \frac{1}{1 + e^{-z}}
+$$
+
+où $y_w$ est la réponse préférée, $y_l$ l'autre, et $\sigma$ la fonction sigmoïde. On entraîne $r$ en minimisant $-\ln \sigma(r_w - r_l)$ sur les paires classées, comme une [régression logistique](/concepts/regression-logistique/) dont l'entrée serait l'écart des scores. Exemple : $r_w = 2{,}0$ et $r_l = 0{,}5$ donnent $\sigma(1{,}5) \approx 0{,}82$ et une perte de $-\ln 0{,}82 \approx 0{,}20$.
+
+Pendant le **renforcement**, la récompense d'une réponse $y$ est :
+
+$$
+R(x, y) = r(x, y) - \beta \ln \frac{\pi(y \mid x)}{\pi^{\text{SFT}}(y \mid x)}
+$$
+
+où $\pi$ est le modèle en cours d'entraînement, $\pi^{\text{SFT}}$ le modèle de départ, et $\beta > 0$ règle la force de la pénalité. Exemple : $r = 3$, un modèle devenu 4 fois plus enclin que $\pi^{\text{SFT}}$ à produire cette réponse, et $\beta = 0{,}5$ : $R = 3 - 0{,}5 \ln 4 \approx 3 - 0{,}69 = 2{,}31$.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où viennent la sigmoïde et la pénalité">
+
+**La sigmoïde.** On modélise la préférence comme un tirage où chaque réponse a une « force » $e^{r}$ : la réponse préférée est tirée avec une probabilité proportionnelle à sa force (modèle de Bradley-Terry).
+
+$$
+\begin{aligned}
+P(y_w \succ y_l) &= \frac{e^{r_w}}{e^{r_w} + e^{r_l}} && \text{proportionnelle à la force} \\
+&= \frac{1}{1 + e^{r_l - r_w}} && \text{on divise haut et bas par } e^{r_w} \\
+&= \sigma(r_w - r_l) && \text{définition de } \sigma
+\end{aligned}
+$$
+
+Seul l'écart des scores compte : ajouter une même constante à tous les scores ne change rien.
+
+**La pénalité.** En moyenne sur les réponses produites par $\pi$, le terme de pénalité vaut :
+
+$$
+\mathbb{E}_{y \sim \pi}\left[\beta \ln \frac{\pi(y \mid x)}{\pi^{\text{SFT}}(y \mid x)}\right] = \beta\, D_{\mathrm{KL}}\big(\pi \,\|\, \pi^{\text{SFT}}\big)
+$$
+
+C'est la définition même de la [divergence de Kullback-Leibler](/maths/divergence-kl/). Maximiser $R$ en moyenne revient donc à chercher de bonnes notes **tout en restant proche** du modèle de départ. Sans ce terme, le modèle exploiterait les défauts du modèle de récompense, qui n'a vu qu'un nombre limité de comparaisons.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Remettre les étapes dans l'ordre" niveau="facile">
+
+Remets dans l'ordre les étapes d'un RLHF à la manière d'InstructGPT, et dis ce qu'apporte chaque étape.
+
+- (a) Optimiser le modèle de langage par renforcement.
+- (b) Des annotateurs classent plusieurs réponses du modèle.
+- (c) Ajuster le modèle sur des réponses écrites par des annotateurs.
+- (d) Entraîner le modèle de récompense.
+
+<div slot="solution">
+
+**(c) → (b) → (d) → (a).** (c) donne un modèle qui répond déjà aux consignes, $\pi^{\text{SFT}}$ ; (b) collecte des préférences ; (d) transforme ces préférences en un juge automatique ; (a) améliore le modèle grâce à ce juge, en le gardant proche de $\pi^{\text{SFT}}$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Ce que prédit le juge" niveau="moyen" reponse={0.731} tolerance={0.002}>
+
+Le modèle de récompense donne $1{,}2$ à la réponse A et $0{,}2$ à la réponse B. Avec quelle probabilité prédit-il qu'un humain préférera A ? Quelle est sa perte si l'humain a effectivement choisi A ?
+
+<div slot="solution">
+
+$\sigma(1{,}2 - 0{,}2) = \sigma(1) = 1 / (1 + e^{-1}) \approx 0{,}731$. Perte : $-\ln 0{,}731 \approx 0{,}313$.
+
+Si l'humain avait choisi B, la perte serait $-\ln(1 - 0{,}731) \approx 1{,}31$ : le modèle de récompense serait fortement corrigé.
+
+</div>
+</Exercice>
+
+<Exercice titre="La réponse trop flatteuse" niveau="defi" reponse={3.04} tolerance={0.01}>
+
+Deux réponses candidates, avec $\beta = 0{,}5$. La réponse X, très flatteuse, obtient $r = 5$, mais le modèle est devenu 50 fois plus enclin que $\pi^{\text{SFT}}$ à la produire. La réponse Y obtient $r = 4$, avec un rapport de 2 seulement. Calcule la récompense pénalisée $R$ de X. Laquelle des deux l'entraînement favorisera-t-il ?
+
+<div slot="indice">
+
+$R = r - \beta \ln(\text{rapport})$. Il te faut $\ln 50 \approx 3{,}91$ et $\ln 2 \approx 0{,}69$.
+
+</div>
+<div slot="solution">
+
+X : $5 - 0{,}5 \times 3{,}91 \approx 3{,}04$. Y : $4 - 0{,}5 \times 0{,}69 \approx 3{,}65$. L'entraînement favorise **Y**.
+
+La meilleure note brute de X vient peut-être d'un défaut du modèle de récompense, qui aime les compliments. La pénalité empêche le modèle de foncer vers ce genre de réponse, très éloignée de son comportement de départ. Avec $\beta = 0{,}1$, en revanche, X gagnerait ($5 - 0{,}39 = 4{,}61$ contre $4 - 0{,}07 = 3{,}93$) : le réglage de $\beta$ est un vrai compromis.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : entraîner un tout petit modèle de récompense sur des préférences, puis calculer des récompenses pénalisées.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+sigma = lambda z: 1 / (1 + np.exp(-z))
+
+# Chaque réponse est décrite par 2 traits : [clarté, longueur excessive]
+# Préférences simulées : les humains aiment la clarté et détestent le remplissage
+vrai_w = np.array([2.0, -1.5])
+reponses = rng.normal(size=(200, 2))
+paires = rng.integers(0, 200, size=(1000, 2))
+prefere_premiere = rng.random(1000) < sigma((reponses[paires[:, 0]] - reponses[paires[:, 1]]) @ vrai_w)
+
+# Modèle de récompense linéaire r(y) = w · y, entraîné par descente de gradient sur −ln σ(r_w − r_l)
+w = np.zeros(2)
+for _ in range(500):
+    diff = reponses[paires[:, 0]] - reponses[paires[:, 1]]
+    signe = np.where(prefere_premiere, 1.0, -1.0)
+    p = sigma(signe * (diff @ w))
+    gradient = -((1 - p) * signe) @ diff / len(diff)
+    w -= 0.5 * gradient
+print("poids appris :", w.round(2), "(vrais :", vrai_w, ")")
+
+# Récompense pénalisée : r − β ln(π / π_SFT)
+def recompense(r, rapport, beta):
+    return r - beta * np.log(rapport)
+
+for beta in (0.1, 0.5):
+    print(f"beta = {beta} : X = {recompense(5, 50, beta):.2f}, Y = {recompense(4, 2, beta):.2f}")
+```
+
+En vrai, la bibliothèque `trl` de Hugging Face fournit l'entraînement du modèle de récompense et l'étape de renforcement ; l'essentiel du travail reste la collecte de comparaisons de qualité.
+
+```python
+# no-run
+from trl import RewardTrainer, RewardConfig
+# jeu de données : colonnes « chosen » et « rejected » (réponse préférée, réponse rejetée)
+entraineur = RewardTrainer(model=modele_recompense, args=RewardConfig(output_dir="rm"),
+                           train_dataset=preferences, processing_class=tokenizer)
+entraineur.train()
+```
+
+## Les pièges classiques
+
+**« Le modèle de récompense connaît les vraies préférences humaines. »** Il n'a vu qu'un échantillon de comparaisons, faites par quelques annotateurs avec leurs propres consignes. Il approxime ces jugements-là, avec leurs biais.
+
+**« Plus la récompense monte, mieux c'est. »** Un modèle optimisé trop fort contre un juge imparfait trouve ses failles : réponses flatteuses, verbeuses, qui plaisent au juge sans être meilleures. C'est le rôle de la pénalité KL, et d'une surveillance par de vraies évaluations humaines.
+
+**« Le RLHF apprend de nouvelles connaissances. »** Il oriente le comportement : ton, format, prudence, utilité. Les connaissances viennent du pré-entraînement.
+
+## Dans la vraie vie
+
+Dans InstructGPT, le modèle de récompense compte 6 milliards de paramètres, et chaque consigne donne lieu au classement de 4 à 9 réponses. Résultat marquant du paper : les réponses du modèle InstructGPT de 1,3 milliard de paramètres sont préférées par les annotateurs à celles de GPT-3, qui en compte 175 milliards, cent fois plus. Dans le travail fondateur de Christiano et ses coauteurs, des comportements complexes s'apprenaient avec environ une heure de temps humain, le retour humain ne portant que sur moins de 1 % des interactions de l'agent. La lourdeur de l'étape de renforcement a ensuite motivé des méthodes plus directes, comme [DPO](/concepts/dpo/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que font les annotateurs lors de l'étape de comparaison ?",
+    choix: ["Ils écrivent la réponse idéale", "Ils classent plusieurs réponses du modèle", "Ils modifient les poids", "Ils choisissent β"],
+    bonne: 1,
+    explication: "Comparer est plus rapide et plus fiable que rédiger ; ces classements entraînent le modèle de récompense."
+  },
+  {
+    question: "r(A) = r(B). Quelle probabilité le modèle de récompense donne-t-il à « A préférée » ?",
+    choix: ["0", "0,5", "1", "Cela dépend de β"],
+    bonne: 1,
+    explication: "σ(0) = 0,5 : à scores égaux, aucune préférence."
+  },
+  {
+    question: "À quoi sert le terme β ln(π / π_SFT) ?",
+    choix: ["À accélérer l'entraînement", "À empêcher le modèle de trop s'éloigner de son comportement de départ", "À augmenter la récompense", "À choisir la température"],
+    bonne: 1,
+    explication: "En moyenne, c'est β fois la divergence KL entre le modèle et π_SFT : une laisse contre l'exploitation des failles du juge."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : décrivez le pipeline RLHF d'InstructGPT et le rôle de la pénalité KL.">
+
+Trois étapes : un fine-tuning supervisé sur des démonstrations écrites par des annotateurs, qui donne $\pi^{\text{SFT}}$ ; l'entraînement d'un modèle de récompense sur des classements de plusieurs réponses par consigne, avec la perte $-\ln\sigma(r(x,y_w) - r(x,y_l))$ issue du modèle de Bradley-Terry ; puis l'optimisation par renforcement (PPO dans le paper) de la récompense $r(x,y) - \beta \ln(\pi(y|x)/\pi^{\text{SFT}}(y|x))$. En espérance, le second terme vaut $\beta\,D_{\mathrm{KL}}(\pi\,\|\,\pi^{\text{SFT}})$ : il limite la dérive du modèle, préserve la fluidité et les connaissances acquises, et évite qu'il exploite les faiblesses d'un modèle de récompense appris sur des données limitées. $\beta$ règle le compromis entre gain de récompense et fidélité au modèle de départ.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "RLHF", en: "Reinforcement Learning from Human Feedback", definition: "Optimiser un modèle par renforcement, avec une récompense apprise à partir de préférences humaines." },
+  { fr: "modèle de récompense", en: "reward model", definition: "Modèle qui donne un score à une réponse, entraîné à prédire les préférences des annotateurs." },
+  { fr: "modèle de Bradley-Terry", en: "Bradley-Terry model", definition: "Modèle où la probabilité de préférer A à B est la sigmoïde de l'écart de leurs scores." },
+  { fr: "pénalité KL", en: "KL penalty", definition: "Terme qui pénalise l'écart entre le modèle entraîné et le modèle de départ." },
+  { fr: "modèle SFT", en: "SFT policy", definition: "Le modèle obtenu après le fine-tuning supervisé, point de départ et référence du renforcement." }
+]} />
