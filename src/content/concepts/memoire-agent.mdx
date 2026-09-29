@@ -99,7 +99,7 @@ $$
 x' = \frac{x - x_{\min}}{x_{\max} - x_{\min}}
 $$
 
-Exemple : les importances des cinq souvenirs vont de 1 à 9 ; celle du four vaut 6, d'où $x' = (6 - 1)/(9 - 1) \approx 0{,}62$. Après normalisation, chaque critère pèse autant que les autres, et les poids $\alpha$ servent à en favoriser un volontairement.
+Exemple : les importances des cinq souvenirs vont de 1 à 9 ; celle du four vaut 6, d'où $x' = (6 - 1)/(9 - 1) = 0{,}625$. Si tous les souvenirs ont la même valeur ($x_{\max} = x_{\min}$), le dénominateur est nul : ce critère ne départage personne, et on lui donne la même valeur, par exemple 0, pour tous. Après normalisation, chaque critère pèse autant que les autres, et les poids $\alpha$ servent à en favoriser un volontairement.
 
 </Depliable>
 
@@ -180,7 +180,8 @@ def cosinus(u, v):
 
 def minmax(x):
     x = np.array(x, dtype=float)
-    return (x - x.min()) / (x.max() - x.min())
+    etendue = x.max() - x.min()
+    return np.zeros_like(x) if etendue == 0 else (x - x.min()) / etendue
 
 q = embedding(question)
 recence = minmax([0.995 ** h for _, h, _ in souvenirs])
