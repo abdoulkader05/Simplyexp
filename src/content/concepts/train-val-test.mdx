@@ -13,7 +13,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.2 (capacité, erreur d'entraînement et erreur de généralisation) et section 5.3 (hyperparamètres et ensembles de validation, validation croisée)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -98,13 +98,47 @@ Avec 20 essais, on est presque sûr d'avoir un modèle « à plus de 60 % » alo
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : passe de 1 à 100 modèles essayés. Note le meilleur score de validation, puis le score du même modèle sur les questions neuves. L'écart grandit-il ?
+<Exercice titre="La chance du meilleur" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Passe de 1 à 100 modèles essayés. Note le meilleur score de validation, puis le score du même modèle sur les questions neuves. L'écart grandit-il ?
+
+<div slot="solution">
 
 Avec un seul modèle, les deux scores tournent autour de 50 %. En augmentant le nombre d'essais, le meilleur score de validation grimpe : vers 65 % pour une vingtaine de modèles, autour de 70 % pour une centaine, comme le prévoit le calcul. Le score du gagnant sur 1 000 questions neuves, lui, reste collé à 50 %. L'écart entre les deux est entièrement dû au choix : la validation a été « usée » par la sélection. D'où la règle : on a le droit d'user la validation, jamais le test.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Un troisième candidat" niveau="moyen" reponse={500} tolerance={0.001}>
+
+Kofi essaie un modèle C : prix $= 140 \times$ distance, sans biais. Calcule son erreur quadratique moyenne sur les deux trajets de validation (3 km pour 450 F, 6 km pour 850 F). Lequel des trois modèles A, B et C doit-il choisir ?
+
+<div slot="solution">
+
+C prédit 420 et 840 F. Écarts : $-30$ et $-10$. Erreur : $(900 + 100) / 2 = 500$, bien moins que 1 250 pour A et 1 172 pour B. Kofi doit donc choisir C, même si son erreur d'entraînement est un peu plus grande : c'est la validation qui décide.
+
+Il le mesure ensuite, une seule fois, sur le trajet de test (7 km pour 1 000 F) : C prédit 980 F, écart $-20$, erreur 400. Avec deux trajets de validation seulement, ce choix reste fragile ; plus la validation est grande, plus on peut s'y fier.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le filtre qui avait l'air génial" niveau="defi" reponse={10} tolerance={0}>
+
+Une équipe règle un filtre anti-spam. Elle essaie des réglages au hasard et les compare sur les mêmes 40 e-mails de validation. Supposons qu'aucun réglage ne vaille mieux qu'un tirage à pile ou face. À partir de combien de réglages essayés a-t-elle au moins 75 % de chances d'en trouver un qui dépasse 60 % de bonnes réponses ?
+
+<div slot="indice">
+
+Un réglage dépasse 60 % avec la probabilité $p \approx 0{,}134$ (voir la dérivation). Il faut $1 - (1 - p)^k \ge 0{,}75$, soit $0{,}866^k \le 0{,}25$.
+
+</div>
+<div slot="solution">
+
+$k \ge \ln 0{,}25 / \ln 0{,}866 \approx 9{,}6$, donc **10 réglages**. Vérification : $1 - 0{,}866^9 \approx 0{,}73$, et $1 - 0{,}866^{10} \approx 0{,}76$.
+
+Avec seulement dix essais sans aucune valeur, l'équipe a donc trois chances sur quatre d'annoncer un filtre « à plus de 60 % ». Seul un test sur des e-mails jamais utilisés pour choisir révélerait la vérité : autour de 50 %.
+
+</div>
+</Exercice>
 
 ## En code
 
