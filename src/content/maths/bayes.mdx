@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.11 (règle de Bayes)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -121,29 +121,48 @@ Avec un seul indice, « gagnant », elle tombe à environ 0,14 : un seul indice,
 
 ## Entraîne-toi
 
-**Exercice 1.** Un test détecte 95 % des malades et donne un faux positif chez 2 % des personnes saines. La maladie touche 1 % de la population. Quelle est la probabilité d'être malade si le test est positif ?
+<Exercice titre="Raisonner avec les cotes" niveau="facile" reponse={0.75} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Avec les cotes : a priori 1 contre 4, rapport de vraisemblance 12. Quelles sont les cotes et la probabilité a posteriori ? Dans la case, donne la probabilité.
 
-$P(+) = 0{,}95 \times 0{,}01 + 0{,}02 \times 0{,}99 = 0{,}0095 + 0{,}0198 = 0{,}0293$. Donc $P(\text{malade} \mid +) = 0{,}0095 / 0{,}0293 \approx 0{,}32$. Deux positifs sur trois sont de fausses alertes.
-
-</Depliable>
-
-**Exercice 2.** Avec les cotes : a priori 1 contre 4, rapport de vraisemblance 12. Quelles sont les cotes et la probabilité a posteriori ?
-
-<Depliable titre="Corrigé">
+<div slot="solution">
 
 Cotes a posteriori : $12 \times 1/4 = 3$, soit 3 contre 1. Probabilité : $3/(3 + 1) = 0{,}75$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un SMS contient « urgent » ($0{,}5$ contre $0{,}05$) mais pas « gagnant ». Avec l'a priori 0,1 et les indices supposés indépendants, calcule la probabilité d'arnaque. (Absence de « gagnant » : $0{,}2$ chez les arnaques, $0{,}95$ chez les normaux.)
+<Exercice titre="Un test positif" niveau="moyen" reponse={0.324} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Un test détecte 95 % des malades et donne un faux positif chez 2 % des personnes saines. La maladie touche 1 % de la population. Quelle est la probabilité d'être malade si le test est positif ?
+
+<div slot="indice">
+
+Calcule d'abord $P(+)$ en séparant les malades des personnes saines.
+
+</div>
+<div slot="solution">
+
+$P(+) = 0{,}95 \times 0{,}01 + 0{,}02 \times 0{,}99 = 0{,}0095 + 0{,}0198 = 0{,}0293$. Donc $P(\text{malade} \mid +) = 0{,}0095 / 0{,}0293 \approx 0{,}32$. Deux positifs sur trois sont de fausses alertes.
+
+</div>
+</Exercice>
+
+<Exercice titre="« Urgent » mais pas « gagnant »" niveau="defi" reponse={0.19} tolerance={0.01}>
+
+Un SMS contient « urgent » ($0{,}5$ contre $0{,}05$) mais pas « gagnant ». Avec l'a priori 0,1 et les indices supposés indépendants, calcule la probabilité d'arnaque. (Absence de « gagnant » : $0{,}2$ chez les arnaques, $0{,}95$ chez les normaux.)
+
+<div slot="indice">
+
+Multiplie les cotes a priori, $1/9$, par le rapport de vraisemblance de chaque indice.
+
+</div>
+<div slot="solution">
 
 Rapport pour « urgent » : 10. Rapport pour « pas gagnant » : $0{,}2/0{,}95 \approx 0{,}21$. Cotes a posteriori : $(1/9) \times 10 \times 0{,}21 \approx 0{,}234$. Probabilité : $0{,}234 / 1{,}234 \approx 0{,}19$. L'absence d'un indice attendu fait baisser la probabilité.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
