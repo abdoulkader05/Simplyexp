@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), décomposition en éléments propres"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -136,29 +136,48 @@ $\mathbf{A}\mathbf{v}$ est le plus long à 45° et 225°, sur le grand axe de la
 
 ## Entraîne-toi
 
-**Exercice 1.** Vérifie que $(1\,;\,2)$ est un vecteur propre de $\begin{pmatrix} 3 & 0 \\ 4 & 1 \end{pmatrix}$, et donne sa valeur propre.
+<Exercice titre="Vérifier un vecteur propre" niveau="facile" reponse={3} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Vérifie que $(1\,;\,2)$ est un vecteur propre de $\begin{pmatrix} 3 & 0 \\ 4 & 1 \end{pmatrix}$, et saisis sa valeur propre.
+
+<div slot="solution">
 
 $\begin{pmatrix} 3 & 0 \\ 4 & 1 \end{pmatrix}(1\,;\,2) = (3\,;\,4 + 2) = (3\,;\,6) = 3\,(1\,;\,2)$. C'est un vecteur propre, de valeur propre 3.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Trouve les valeurs propres de $\begin{pmatrix} 4 & 1 \\ 2 & 3 \end{pmatrix}$.
+<Exercice titre="Trouver les valeurs propres" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Trouve les valeurs propres de $\begin{pmatrix} 4 & 1 \\ 2 & 3 \end{pmatrix}$.
+
+<div slot="indice">
+
+Résous $\det(\mathbf{A} - \lambda\mathbf{I}) = 0$ : c'est une équation du second degré en $\lambda$.
+
+</div>
+<div slot="solution">
 
 $\det(\mathbf{A} - \lambda\mathbf{I}) = (4 - \lambda)(3 - \lambda) - 2 = \lambda^2 - 7\lambda + 10 = (\lambda - 2)(\lambda - 5)$. Les valeurs propres sont 2 et 5. Vérification : pour $\lambda = 5$, le vecteur $(1\,;\,1)$ donne $(5\,;\,5)$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un réseau récurrent simplifié multiplie son état par $\mathbf{W} = \begin{pmatrix} 0{,}5 & 0 \\ 0 & 1{,}2 \end{pmatrix}$ à chaque pas. Que deviennent les deux coordonnées d'un état $(1\,;\,1)$ après 20 pas ? Lien avec l'apprentissage ?
+<Exercice titre="Une mémoire qui s'efface ou explose" niveau="defi" reponse={38.3} tolerance={0.005}>
 
-<Depliable titre="Corrigé">
+Un réseau récurrent simplifié multiplie son état par $\mathbf{W} = \begin{pmatrix} 0{,}5 & 0 \\ 0 & 1{,}2 \end{pmatrix}$ à chaque pas. Que deviennent les deux coordonnées d'un état $(1\,;\,1)$ après 20 pas ? Saisis la seconde, arrondie à 0,1. Quel lien avec l'apprentissage ?
 
-La matrice est diagonale : $(1\,;\,0)$ est propre de valeur 0,5, et $(0\,;\,1)$ propre de valeur 1,2. Après 20 pas : $0{,}5^{20} \approx 0{,}000\,001$ et $1{,}2^{20} \approx 38{,}3$. La première coordonnée a disparu, la seconde a été multipliée par plus de 38. Les gradients qui remontent le temps subissent le même sort : c'est pourquoi on a inventé les [LSTM](/concepts/lstm/).
+<div slot="indice">
 
-</Depliable>
+La matrice est diagonale : chaque coordonnée est simplement multipliée par son propre nombre, 20 fois de suite.
+
+</div>
+<div slot="solution">
+
+$(1\,;\,0)$ est propre de valeur 0,5, et $(0\,;\,1)$ propre de valeur 1,2. Après 20 pas : $0{,}5^{20} \approx 0{,}000\,001$ et $1{,}2^{20} \approx 38{,}3$. La première coordonnée a disparu, la seconde a été multipliée par plus de 38. Les gradients qui remontent le temps subissent le même sort : c'est pourquoi on a inventé les [LSTM](/concepts/lstm/).
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
