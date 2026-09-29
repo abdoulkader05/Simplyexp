@@ -1,0 +1,239 @@
+---
+id: cout-quadratique
+type: concept
+titre: "Le coût quadratique : pourquoi un long contexte coûte si cher"
+sous_titre: "Complexité O(n²) de l'attention en mémoire et en calcul"
+domaine: transformers
+niveau: 5
+prerequis: [self-attention]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 (version HTML : https://ar5iv.labs.arxiv.org/html/1706.03762) — tableau 1 (complexité par couche : self-attention O(n²·d), récurrente O(n·d²), self-attention restreinte O(r·n·d) ; opérations séquentielles O(1) contre O(n)) et section 4 (la self-attention est plus rapide qu'une couche récurrente quand n est plus petit que d)"
+  - "Dao et al., « FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness », 2022 — https://arxiv.org/abs/2205.14135 — section 2.1 (GPU A100 : 40 à 80 Go de mémoire HBM)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+La [self-attention](/concepts/self-attention/) a un grand avantage : chaque token regarde directement tous les autres, sans devoir faire passer l'information de proche en proche. Mais ce « tous les autres » a un prix. Si le texte fait $n$ tokens, chacun des $n$ tokens calcule un score avec chacun des $n$ tokens. Cela fait $n \times n$ scores. Pour une phrase de 20 tokens, c'est 400 scores : rien du tout. Pour un livre de 100 000 tokens, c'est 10 milliards de scores, dans chaque tête de chaque couche. C'est pour cela qu'un long contexte coûte si cher, et que la longueur de contexte d'un modèle est une caractéristique qu'on affiche en gros.
+
+## L'idée en une phrase
+
+<PhraseCle>
+En self-attention, chaque token se compare à tous les autres : doubler la longueur du texte multiplie par quatre le nombre de scores à calculer et à stocker.
+</PhraseCle>
+
+## En image
+
+Imagine une réunion où chaque participant doit échanger quelques mots en tête-à-tête avec chacun des autres.
+
+- À 4 personnes, cela fait 16 échanges si l'on compte aussi chacun avec lui-même, comme le fait l'attention.
+- À 8 personnes, 64 échanges : deux fois plus de monde, quatre fois plus d'échanges.
+- À 100 personnes, 10 000 échanges : la réunion devient interminable.
+- Le temps de parole de chacun ne change pas ; c'est le nombre de paires qui explose.
+
+Là où l'image s'arrête : dans une réunion, les échanges se font un par un. Sur un GPU, les scores se calculent en parallèle, par milliers à la fois. Le coût quadratique ne se voit donc pas d'abord comme une attente, mais comme une quantité de calcul et, surtout, de mémoire.
+
+## Comment ça marche
+
+Dans une tête d'attention, les requêtes forment une matrice $Q$ de $n$ lignes et $d$ colonnes, les clés une matrice $K$ de même taille, les valeurs une matrice $V$. Le calcul des scores est un [produit matriciel](/maths/produit-matriciel/) :
+
+$$
+S = Q K^\top \quad \text{est une matrice de taille } n \times n
+$$
+
+où :
+- $n$ est le nombre de tokens de la séquence ;
+- $d$ est la dimension des requêtes et des clés ;
+- $S_{ij}$ est le score entre la requête du token $i$ et la clé du token $j$.
+
+On applique ensuite une [softmax](/concepts/softmax/) ligne par ligne, puis on multiplie par $V$. Chaque étape manipule les $n^2$ cases de $S$. Le nombre de multiplications d'une tête est d'environ $2n^2 d$, et la matrice $S$ occupe $n^2$ cases en mémoire. Le tableau 1 du paper du transformer résume la complexité d'une couche de self-attention par $O(n^2 \cdot d)$, où la notation $O(\cdot)$ se lit « de l'ordre de » : ce qui compte, c'est la façon dont le coût grandit avec $n$.
+
+Exemple à la main : pour $n = 1\,000$ tokens, $S$ a $1\,000^2 = 1$ million de cases. Pour $n = 2\,000$, il en a 4 millions. La longueur a doublé, le coût a quadruplé. Fais défiler.
+
+<PasAPas rendu="matrice-attention" label="La matrice des scores quand la séquence s'allonge">
+  <Etape etat="initial">
+    **4 tokens.** Chaque ligne est une requête, chaque colonne une clé : $4 \times 4 = 16$ scores. La diagonale, plus foncée ici, c'est chaque token face à lui-même.
+  </Etape>
+  <Etape etat="n8">
+    **8 tokens.** Deux fois plus de texte, mais $8 \times 8 = 64$ scores : quatre fois plus.
+  </Etape>
+  <Etape etat="n16">
+    **16 tokens.** Encore deux fois plus long : $16 \times 16 = 256$ scores. Les cases deviennent minuscules, alors qu'on n'a que 16 tokens.
+  </Etape>
+  <Etape etat="bilan">
+    **Le bilan.** La barre verte, la longueur, double à chaque fois ; la barre jaune, le nombre de scores, quadruple. C'est la signature d'un coût en $n^2$.
+  </Etape>
+</PasAPas>
+
+**Et en mémoire ?** Prenons un modèle avec 32 têtes par couche, qui stocke chaque score sur 2 octets. Pour un contexte de 32 000 tokens, les matrices de scores d'**une seule couche** représenteraient $32\,000^2 \times 32 \times 2 \approx 65{,}5$ milliards d'octets, soit 65,5 Go, si on les gardait toutes en même temps. Un GPU A100, courant dans les centres de calcul, a entre 40 et 80 Go de mémoire. C'est ce mur que [FlashAttention](/concepts/flash-attention/) contourne, sans rien approximer.
+
+**Pourquoi ne pas revenir aux RNN, alors ?** Une couche récurrente coûte $O(n \cdot d^2)$ : linéaire en $n$, mais quadratique en $d$. Les auteurs du transformer remarquent que la self-attention est plus rapide dès que $n$ est plus petit que $d$, ce qui était le cas des phrases de traduction de l'époque. Surtout, un [RNN](/concepts/rnn/) enchaîne $O(n)$ opérations l'une après l'autre, alors que la self-attention calcule tous ses scores en $O(1)$ étape séquentielle : elle exploite pleinement le parallélisme des GPU.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où viennent n²·d et n·d²">
+
+**Self-attention.** Comptons les multiplications d'une tête :
+
+$$
+\begin{aligned}
+S = QK^\top &: n^2 \text{ cases, chacune un produit scalaire de } d \text{ termes} && \Rightarrow n^2 d \text{ multiplications} \\
+\text{softmax} &: \text{une exponentielle par case} && \Rightarrow n^2 \text{ opérations} \\
+\text{poids} \times V &: n \times n \text{ fois } n \times d && \Rightarrow n \cdot n \cdot d = n^2 d \text{ multiplications}
+\end{aligned}
+$$
+
+Au total, environ $2n^2 d + n^2$ opérations. Quand $n$ devient grand, c'est le terme en $n^2 d$ qui domine : d'où $O(n^2 \cdot d)$.
+
+**Couche récurrente.** À chaque pas de temps, l'état caché de dimension $d$ est multiplié par une matrice $d \times d$ : $d^2$ multiplications. Il y a $n$ pas, d'où $n \cdot d^2$, soit $O(n \cdot d^2)$.
+
+**Qui gagne ?** On compare $n^2 d$ et $n d^2$ en divisant les deux par $nd$ : il reste $n$ contre $d$. La self-attention fait moins de calculs exactement quand $n < d$. Avec $d = 512$, comme dans le modèle de base du transformer : pour 100 tokens, $n^2 d \approx 5{,}1$ millions contre $n d^2 \approx 26{,}2$ millions ; à 512 tokens, égalité ; au-delà, l'attention devient la plus chère.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="La conversation qui s'allonge" niveau="facile" reponse={36} tolerance={0}>
+
+Une conversation avec un assistant passe de 500 tokens à 3 000 tokens. Par combien le nombre de scores d'attention d'une tête est-il multiplié ?
+
+<div slot="solution">
+
+La longueur est multipliée par $3\,000 / 500 = 6$. Le nombre de scores, lui, est multiplié par $6^2 = 36$. C'est l'une des raisons pour lesquelles les longues conversations coûtent plus cher à traiter, et pourquoi certaines applications résument les anciens échanges.
+
+</div>
+</Exercice>
+
+<Exercice titre="La mémoire d'une couche" niveau="moyen" reponse={4.096} tolerance={0.001} unite="Go">
+
+Un modèle a 32 têtes par couche et stocke chaque score sur 2 octets. Combien de gigaoctets (1 Go = $10^9$ octets) occupent les matrices de scores d'une couche pour un contexte de 8 000 tokens, si on les stocke toutes à la fois ?
+
+<div slot="indice">
+
+Une tête : $8\,000^2$ scores. Multiplie par le nombre de têtes, puis par le nombre d'octets par score.
+
+</div>
+<div slot="solution">
+
+$8\,000^2 \times 32 \times 2 = 64 \times 10^6 \times 64 = 4{,}096 \times 10^9$ octets, soit environ 4,1 Go, pour une seule couche. À 32 000 tokens, quatre fois plus long, on passerait à 16 fois plus : 65,5 Go.
+
+</div>
+</Exercice>
+
+<Exercice titre="Attention ou récurrence ?" niveau="defi" reponse={4} tolerance={0}>
+
+Avec $d = 512$, on traite une séquence de $n = 2\,048$ tokens. Combien de fois plus de multiplications une couche de self-attention fait-elle qu'une couche récurrente, d'après les ordres de grandeur $n^2 d$ et $n d^2$ ? Pourquoi utilise-t-on quand même la self-attention ?
+
+<div slot="indice">
+
+Le rapport $\dfrac{n^2 d}{n d^2}$ se simplifie beaucoup.
+
+</div>
+<div slot="solution">
+
+$\dfrac{n^2 d}{n d^2} = \dfrac{n}{d} = \dfrac{2\,048}{512} = 4$ : environ quatre fois plus de multiplications pour l'attention.
+
+On l'utilise quand même parce qu'elle fait tous ces calculs **en même temps** : $O(1)$ opération séquentielle, contre $O(n)$ pour la récurrence, qui doit attendre le pas précédent. Sur un GPU capable de milliers de calculs simultanés, 4 fois plus de calculs parallèles vont souvent plus vite que 2 048 étapes à enchaîner. Et chaque token accède directement à tous les autres, sans que l'information s'use en chemin.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : mesurer comment la taille de la matrice des scores et le temps de calcul grandissent avec $n$.
+
+```python
+import time
+import numpy as np
+
+d = 64
+rng = np.random.default_rng(0)
+
+def attention(Q, K, V):
+    S = Q @ K.T / np.sqrt(Q.shape[1])                  # n × n scores
+    P = np.exp(S - S.max(axis=1, keepdims=True))
+    P /= P.sum(axis=1, keepdims=True)
+    return P @ V, S.size
+
+attention(*(rng.normal(size=(10, d)) for _ in range(3)))   # premier appel « à vide »
+
+for n in (1000, 2000, 4000):
+    Q, K, V = (rng.normal(size=(n, d)) for _ in range(3))
+    debut = time.perf_counter()
+    _, cases = attention(Q, K, V)
+    duree = time.perf_counter() - debut
+    print(f"n = {n:5d} : {cases:>9,} scores, {cases * 2 / 1e6:6.1f} Mo en 2 octets, {duree * 1000:6.1f} ms")
+
+# Mémoire des scores d'une couche : n² × têtes × octets
+for n in (8_000, 32_000, 128_000):
+    print(f"{n:>7,} tokens : {n**2 * 32 * 2 / 1e9:9.1f} Go pour 32 têtes")
+```
+
+Le temps mesuré dépend de ta machine et varie d'un essai à l'autre ; le nombre de scores, lui, est exactement multiplié par 4 à chaque doublement de $n$, et le temps suit à peu près la même tendance.
+
+En vrai, on n'écrit plus ce calcul à la main : PyTorch fournit une fonction d'attention prête à l'emploi. Elle ne change pas la complexité, mais évite d'écrire soi-même les étapes intermédiaires.
+
+```python
+# no-run
+import torch
+import torch.nn.functional as F
+q = k = v = torch.randn(1, 32, 8_000, 128, device="cuda", dtype=torch.float16)
+sortie = F.scaled_dot_product_attention(q, k, v)
+```
+
+## Les pièges classiques
+
+**« Un contexte deux fois plus long coûte deux fois plus cher. »** Pour la partie attention, il coûte environ quatre fois plus. Les autres parties du modèle, qui traitent chaque token séparément, grandissent seulement comme $n$ ; c'est l'attention qui finit par dominer sur les très longs textes.
+
+**« Le coût quadratique vient du nombre de paramètres. »** Les poids de l'attention ne dépendent pas de $n$. Ce qui grandit comme $n^2$, ce sont les scores calculés pour **ce** texte-là : un modèle identique coûte plus cher sur un texte plus long.
+
+**« La self-attention est toujours plus lente qu'un RNN. »** Elle fait plus de calculs quand $n > d$, mais elle les fait en parallèle, alors qu'un RNN doit les enchaîner un par un. Sur un GPU, c'est souvent l'attention qui gagne en temps réel.
+
+## Dans la vraie vie
+
+Le coût quadratique explique plusieurs choix que l'on rencontre partout. Les modèles affichent une longueur de contexte maximale. Les longues conversations coûtent plus cher, et certaines applications résument les échanges anciens. Et toute une famille de travaux cherche à contourner le problème. Le paper du transformer évoque déjà une attention restreinte à un voisinage de taille $r$, de coût $O(r \cdot n \cdot d)$, au prix d'une vue plus locale. FlashAttention, lui, garde l'attention exacte mais réorganise les calculs pour ne jamais stocker la matrice $n \times n$ en entier. Et pendant la génération, le [KV cache](/concepts/kv-cache/) évite de recalculer ce qui l'a déjà été.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un texte passe de 1 000 à 3 000 tokens. Par combien le nombre de scores d'une tête est-il multiplié ?",
+    choix: ["3", "6", "9", "27"],
+    bonne: 2,
+    explication: "Le nombre de scores vaut n² : (3 000 / 1 000)² = 9."
+  },
+  {
+    question: "Qu'est-ce qui grandit comme n² dans une couche d'attention ?",
+    choix: ["Le nombre de poids du modèle", "La matrice des scores entre toutes les paires de tokens", "Le vocabulaire", "Le nombre de couches"],
+    bonne: 1,
+    explication: "Chaque paire (requête, clé) a son score : n × n cases, pour ce texte-là."
+  },
+  {
+    question: "Selon le paper du transformer, quand la self-attention fait-elle moins de calculs qu'une couche récurrente ?",
+    choix: ["Toujours", "Quand la longueur n est plus petite que la dimension d", "Quand n est plus grand que d", "Jamais"],
+    bonne: 1,
+    explication: "On compare n²d et nd² : l'attention est moins chère exactement quand n < d."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi le coût de l'attention est-il quadratique, et quelles pistes existent pour le réduire ?">
+
+Pour $n$ tokens, chaque tête calcule la matrice $QK^\top$ de taille $n \times n$, applique une softmax sur chaque ligne puis multiplie par $V$ : environ $2n^2 d$ opérations et $n^2$ scores en mémoire par tête et par couche. Doubler le contexte quadruple donc ce coût. Pistes : restreindre l'attention à une fenêtre locale ($O(r \cdot n \cdot d)$), rendre l'attention clairsemée ou l'approcher par des méthodes linéaires, au prix d'une approximation ; ou garder l'attention exacte en réorganisant les calculs pour éviter de matérialiser la matrice $n \times n$, comme FlashAttention, ce qui rend la mémoire linéaire sans changer le nombre d'opérations. Pendant la génération, le KV cache évite de recalculer les clés et valeurs passées.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "coût quadratique", en: "quadratic cost", definition: "Coût qui grandit comme le carré de la longueur : doubler n le multiplie par quatre." },
+  { fr: "matrice des scores", en: "attention matrix", definition: "Matrice n × n des scores entre chaque requête et chaque clé d'une séquence." },
+  { fr: "complexité", en: "complexity", definition: "Façon dont le temps ou la mémoire d'un calcul grandit avec la taille des données." },
+  { fr: "longueur de contexte", en: "context length", definition: "Nombre maximal de tokens qu'un modèle peut traiter d'un coup." }
+]} />
