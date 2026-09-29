@@ -1,0 +1,257 @@
+---
+id: protocoles-outils
+type: concept
+titre: "Brancher un agent sur le monde : le protocole MCP"
+sous_titre: "Model Context Protocol et standardisation des outils"
+domaine: agents
+niveau: 5
+prerequis: [appel-outils]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Anthropic, « Introducing the Model Context Protocol », 25 novembre 2024 — https://www.anthropic.com/news/model-context-protocol — standard pour relier les assistants aux systèmes où vivent les données ; chaque nouvelle source demande sa propre implémentation ; serveurs MCP et clients MCP ; serveurs fournis pour Google Drive, Slack, GitHub, Git, Postgres, Puppeteer"
+  - "Spécification MCP, version 2025-06-18, « Server » et « Tools » — https://modelcontextprotocol.io/specification/2025-06-18/server/tools — primitives prompts (contrôle utilisateur), ressources (contrôle application), outils (contrôle modèle) ; messages JSON-RPC tools/list et tools/call ; champs name, description, inputSchema ; un humain SHOULD pouvoir refuser un appel d'outil"
+  - "SDK Python officiel de MCP — https://github.com/modelcontextprotocol/python-sdk — MCPServer et décorateur @mcp.tool() (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+L'[usage d'outils](/concepts/appel-outils/) permet à un modèle de demander une action : lire un agenda, chercher un fichier, interroger une base de données. Mais qui écrit le code qui relie le modèle à l'agenda ? Chaque application d'IA, pour chaque service. Un assistant de bureau veut accéder aux fichiers, à l'agenda et aux e-mails ; un éditeur de code aussi ; un chatbot d'entreprise aussi. Chacun réécrit son propre connecteur, dans son propre format. En annonçant le *Model Context Protocol* (MCP) en novembre 2024, Anthropic résume la difficulté : chaque nouvelle source de données demande sa propre implémentation, ce qui rend les systèmes vraiment connectés difficiles à faire grandir.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un protocole commun fixe une seule façon de décrire et d'appeler des outils : chaque service l'implémente une fois, chaque application aussi, et tout le monde peut parler à tout le monde.
+</PhraseCle>
+
+## En image
+
+Pense aux prises électriques.
+
+- Sans norme, chaque appareil viendrait avec sa propre prise, et chaque maison devrait installer une prise différente pour chaque appareil.
+- Avec une norme, le fabricant de la lampe fabrique **une** prise, l'électricien installe **un** type de prise murale, et n'importe quelle lampe marche dans n'importe quelle maison.
+- Un adaptateur de voyage, c'est ce qui arrive quand deux normes coexistent : ça marche, mais c'est une pièce de plus à gérer.
+
+Là où l'image s'arrête : une prise ne fait passer que du courant. Un protocole comme MCP transporte des descriptions (quels outils existent, quels arguments ils attendent) et des échanges (un appel, un résultat, une erreur). La norme dit comment parler, pas quoi dire.
+
+## Comment ça marche
+
+MCP distingue deux rôles. Un **serveur MCP** expose des capacités : les fichiers d'un disque, un agenda, une base de données. Un **client MCP** est placé dans l'application d'IA et se connecte à des serveurs pour le compte du modèle. Les messages suivent JSON-RPC, un format standard de requêtes et de réponses en JSON.
+
+Un serveur peut offrir trois sortes de choses, que la spécification appelle des primitives. Elles se distinguent par **qui décide** de s'en servir.
+
+<Schema rendu="mcp-primitives" legende="Les trois primitives d'un serveur MCP. Les prompts sont choisis par l'utilisateur, les ressources gérées par l'application, et les outils choisis par le modèle lui-même." />
+
+Pour les outils, l'échange se fait en deux temps. D'abord la **découverte** : le client envoie `tools/list`, le serveur répond par la liste de ses outils, chacun avec un nom (`name`), une description (`description`) et un schéma d'arguments (`inputSchema`), exactement ce dont un modèle a besoin pour [appeler une fonction](/concepts/appel-outils/). Ensuite l'**appel** : quand le modèle choisit un outil, le client envoie `tools/call` avec le nom et les arguments, et le serveur renvoie le résultat. Fais défiler.
+
+<PasAPas rendu="mcp-connexions" label="Trois applications, quatre services, avec et sans protocole commun">
+  <Etape etat="initial">
+    **Trois applications d'IA, quatre services.** Chaque service a sa propre API, avec ses propres conventions.
+  </Etape>
+  <Etape etat="sans">
+    **Sans protocole commun**, chaque application écrit un connecteur pour chaque service : $3 \times 4 = 12$ morceaux de code, à maintenir chaque fois qu'un service change.
+  </Etape>
+  <Etape etat="avec">
+    **Avec MCP**, chaque application implémente un client une fois, chaque service un serveur une fois : $3 + 4 = 7$. Un nouveau service devient utilisable par les trois applications d'un coup.
+  </Etape>
+  <Etape etat="liste">
+    **La découverte.** Le client de l'assistant demande au serveur de l'agenda la liste de ses outils. Il reçoit leurs noms, leurs descriptions et leurs schémas, qu'il place dans le contexte du modèle.
+  </Etape>
+  <Etape etat="appel">
+    **L'appel.** Le modèle choisit `lire_agenda` ; le client transmet `tools/call` au serveur, qui exécute et renvoie le résultat, lui aussi dans un format standard.
+  </Etape>
+</PasAPas>
+
+L'animation illustre une formule simple. Avec $N$ applications et $M$ services, relier chaque paire directement demande
+
+$$
+I_{\text{direct}} = N \times M \qquad \text{contre} \qquad I_{\text{protocole}} = N + M
+$$
+
+où :
+- $N$ est le nombre d'applications (les clients) ;
+- $M$ est le nombre de services (les serveurs) ;
+- $I$ est le nombre d'intégrations à écrire et à maintenir.
+
+Exemple : 5 applications et 20 services demandent $5 \times 20 = 100$ connecteurs sur mesure, contre $5 + 20 = 25$ implémentations du protocole. Le gain est de 75 intégrations, et il grandit à chaque service ajouté.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Compter les connecteurs, et d'où vient le gain">
+
+Sans protocole, il faut un connecteur par couple (application, service). Il y a $N$ choix d'application et, pour chacun, $M$ choix de service : $N \times M$ couples. Avec un protocole, chaque application écrit un client (soit $N$ implémentations) et chaque service un serveur (soit $M$) : $N + M$ au total.
+
+Le gain s'écrit :
+
+$$
+\begin{aligned}
+N M - (N + M) &= NM - N - M + 1 - 1 && \text{on ajoute et retire 1} \\
+&= (N - 1)(M - 1) - 1 && \text{on factorise les trois premiers termes}
+\end{aligned}
+$$
+
+Vérification avec $N = 5$, $M = 20$ : $4 \times 19 - 1 = 75$. La factorisation montre deux choses. Si $N = 1$ (une seule application), le gain vaut $-1$ : le protocole coûte même une intégration de plus qu'une connexion directe, il ne sert à rien. Dès qu'il y a plusieurs applications **et** plusieurs services, le gain croît comme le produit $N \times M$ : c'est un effet de réseau, chaque nouveau serveur profite à tous les clients existants.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Prompt, ressource ou outil ?" niveau="facile">
+
+Un serveur MCP pour un logiciel de gestion de projet expose trois capacités. Pour chacune, dis s'il s'agit d'un prompt, d'une ressource ou d'un outil.
+
+1. Une commande « /bilan-hebdo » que l'utilisateur choisit dans un menu pour lancer un résumé de la semaine.
+2. Le contenu du cahier des charges, que l'application joint au contexte quand on ouvre le projet.
+3. « creer_ticket », qui ajoute une tâche dans le tableau de l'équipe.
+
+<div slot="solution">
+
+1. **Prompt** : un modèle de requête choisi par l'utilisateur.
+2. **Ressource** : une donnée de contexte gérée par l'application.
+3. **Outil** : une action que le modèle peut décider d'appeler. C'est la seule des trois qui modifie le monde, et donc celle qui demande le plus de précautions.
+
+</div>
+</Exercice>
+
+<Exercice titre="L'économie d'intégrations" niveau="moyen" reponse={69} tolerance={0}>
+
+Une entreprise utilise 6 applications d'IA et veut les relier à 15 services internes. Combien d'intégrations économise-t-elle en passant par un protocole commun plutôt que par des connecteurs directs ?
+
+<div slot="solution">
+
+Connecteurs directs : $6 \times 15 = 90$. Avec le protocole : $6 + 15 = 21$. Économie : $90 - 21 = 69$ intégrations. Avec la formule factorisée : $(6-1)(15-1) - 1 = 5 \times 14 - 1 = 69$.
+
+</div>
+</Exercice>
+
+<Exercice titre="À partir de quand ça vaut vraiment le coup ?" niveau="defi" reponse={16} tolerance={0} unite="services">
+
+Une équipe a 8 applications. Elle ajoute des services un par un. À partir de combien de services le protocole commun fait-il économiser **plus de 100** intégrations ?
+
+<div slot="indice">
+
+L'économie vaut $(N-1)(M-1) - 1$. Avec $N = 8$, résous $7(M-1) - 1 > 100$.
+
+</div>
+<div slot="solution">
+
+$7(M - 1) - 1 > 100 \iff 7(M-1) > 101 \iff M - 1 > 14{,}4 \iff M \geq 16$.
+
+Vérification : avec 15 services, $8 \times 15 - 23 = 97$, pas encore ; avec 16 services, $8 \times 16 - 24 = 104$. Réponse : **16 services**. Chaque service de plus fait gagner 7 intégrations d'un coup, une par application moins celle du serveur lui-même.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un serveur jouet qui répond aux deux messages `tools/list` et `tools/call` au format JSON-RPC, et un client qui découvre puis appelle un outil.
+
+```python
+import json
+
+# --- Côté serveur : un agenda exposé par le protocole ---
+AGENDA = {"lundi": ["réunion d'équipe 9 h"], "mardi": ["dentiste 14 h", "sport 18 h"]}
+OUTILS = [{
+    "name": "lire_agenda",
+    "description": "Renvoie les rendez-vous d'un jour donné.",
+    "inputSchema": {"type": "object", "properties": {"jour": {"type": "string"}}, "required": ["jour"]},
+}]
+
+def serveur(requete_json):
+    req = json.loads(requete_json)
+    if req["method"] == "tools/list":
+        resultat = {"tools": OUTILS}
+    elif req["method"] == "tools/call" and req["params"]["name"] == "lire_agenda":
+        jour = req["params"]["arguments"]["jour"]
+        texte = ", ".join(AGENDA.get(jour, [])) or "aucun rendez-vous"
+        resultat = {"content": [{"type": "text", "text": texte}], "isError": False}
+    else:
+        return json.dumps({"jsonrpc": "2.0", "id": req["id"], "error": {"code": -32601, "message": "inconnu"}})
+    return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": resultat})
+
+# --- Côté client : découverte, puis appel ---
+def envoyer(id_, methode, params=None):
+    reponse = serveur(json.dumps({"jsonrpc": "2.0", "id": id_, "method": methode, "params": params or {}}))
+    return json.loads(reponse)
+
+outils = envoyer(1, "tools/list")["result"]["tools"]
+print("outils découverts :", [o["name"] for o in outils])
+res = envoyer(2, "tools/call", {"name": "lire_agenda", "arguments": {"jour": "mardi"}})
+print("résultat :", res["result"]["content"][0]["text"])
+
+# Nombre d'intégrations, sans et avec protocole commun
+for N, M in [(3, 4), (5, 20), (8, 16)]:
+    print(f"N={N}, M={M} : direct {N * M}, protocole {N + M}, gain {N * M - N - M}")
+```
+
+En vrai, avec le SDK Python officiel : le décorateur transforme une fonction typée en outil décrit et appelable par n'importe quel client MCP.
+
+```python
+# no-run
+from mcp.server import MCPServer
+
+mcp = MCPServer("agenda")
+
+@mcp.tool()
+def lire_agenda(jour: str) -> str:
+    """Renvoie les rendez-vous d'un jour donné."""
+    return ", ".join(AGENDA.get(jour, [])) or "aucun rendez-vous"
+
+# Pour tester : uv run mcp dev serveur_agenda.py
+```
+
+## Les pièges classiques
+
+**« MCP, c'est un modèle ou une IA. »** C'est un protocole : une convention de messages entre programmes. Il ne contient aucune intelligence ; le modèle reste celui de l'application cliente.
+
+**« MCP remplace l'usage d'outils. »** Il le standardise. Le modèle continue d'écrire des appels d'outils comme dans la fiche précédente ; MCP fixe seulement comment le client découvre ces outils et transmet ces appels aux services.
+
+**« Un serveur MCP est sûr puisqu'il suit une norme. »** La norme dit comment parler, pas à qui faire confiance. Un serveur malveillant peut décrire un outil de façon trompeuse, et un outil légitime peut renvoyer un contenu piégé. La spécification demande qu'un humain puisse refuser un appel d'outil, et qu'on considère les annotations d'un serveur non fiable comme non fiables : c'est le sujet de l'[injection de prompt](/concepts/securite-agents/).
+
+## Dans la vraie vie
+
+Lors de l'annonce, Anthropic a publié des serveurs prêts à l'emploi pour Google Drive, Slack, GitHub, Git, Postgres et Puppeteer (un navigateur piloté par programme). Depuis, des assistants de programmation, des éditeurs de code et des applications de bureau se connectent à des serveurs MCP pour lire des fichiers, consulter des tickets ou interroger des bases de données. Pour un développeur, écrire un serveur MCP pour son service, c'est le rendre accessible d'un coup à toutes les applications compatibles, sans négocier une intégration avec chacune.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans MCP, qui expose les outils ?",
+    choix: ["Le modèle de langage", "Le serveur MCP", "L'utilisateur", "Le client MCP"],
+    bonne: 1,
+    explication: "Le serveur expose ses capacités ; le client, dans l'application, s'y connecte pour le compte du modèle."
+  },
+  {
+    question: "4 applications et 10 services : combien d'intégrations avec un protocole commun ?",
+    choix: ["40", "14", "6", "36"],
+    bonne: 1,
+    explication: "N + M = 4 + 10 = 14, contre 4 × 10 = 40 connecteurs directs."
+  },
+  {
+    question: "Quel message un client envoie-t-il pour connaître les outils d'un serveur ?",
+    choix: ["tools/call", "tools/list", "resources/delete", "prompts/run"],
+    bonne: 1,
+    explication: "tools/list renvoie les outils, avec leur nom, leur description et leur schéma d'arguments."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quel problème résout un protocole comme MCP, et quels risques reste-t-il à gérer ?">
+
+Il transforme un problème en $N \times M$ (chaque application intègre chaque service à sa façon) en un problème en $N + M$ : chaque application implémente un client, chaque service un serveur, et les deux se comprennent par des messages standard de découverte (`tools/list`) et d'appel (`tools/call`). Les descriptions d'outils suivent le même format que l'usage d'outils des modèles, ce qui les rend directement utilisables. Les risques restent du côté de la confiance : un serveur peut être malveillant ou compromis, ses descriptions et ses résultats sont des textes que le modèle lit et peut suivre à tort. Il faut donc des droits minimaux par serveur, la validation des entrées côté serveur, une confirmation humaine pour les actions sensibles, et la journalisation des appels.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "protocole MCP", en: "Model Context Protocol", definition: "Norme ouverte qui fixe comment une application d'IA découvre et appelle les capacités d'un service." },
+  { fr: "serveur MCP", en: "MCP server", definition: "Programme qui expose des prompts, des ressources et des outils selon le protocole." },
+  { fr: "client MCP", en: "MCP client", definition: "Composant de l'application d'IA qui se connecte aux serveurs pour le compte du modèle." },
+  { fr: "primitive", en: "primitive", definition: "Type de capacité offerte par un serveur MCP : prompt, ressource ou outil." }
+]} />
