@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4, section 4.1 (débordement et sous-débordement numériques, softmax stable)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -112,29 +112,61 @@ En descendant vers $a = -2$, $e^a$ tend vers 0 ($e^{-2} \approx 0{,}135$) sans j
 
 ## Entraîne-toi
 
-**Exercice 1.** Simplifie $\ln(e^3) + \ln 1 + e^{\ln 5}$.
+<Exercice titre="Simplifier sans calculer" niveau="facile" reponse={8} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Simplifie $\ln(e^3) + \ln 1 + e^{\ln 5}$.
+
+<div slot="solution">
 
 $\ln(e^3) = 3$, $\ln 1 = 0$ et $e^{\ln 5} = 5$. Total : $3 + 0 + 5 = 8$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Sachant $\ln 2 \approx 0{,}693$ et $\ln 3 \approx 1{,}099$, calcule $\ln 6$, $\ln 8$ et $\ln 1{,}5$ sans calculatrice.
+<Exercice titre="Des logarithmes à partir de deux valeurs" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Sachant $\ln 2 \approx 0{,}693$ et $\ln 3 \approx 1{,}099$, calcule $\ln 6$, $\ln 8$ et $\ln 1{,}5$ sans calculatrice.
+
+<div slot="indice">
+
+$6 = 2 \times 3$, $8 = 2^3$ et $1{,}5 = 3 / 2$.
+
+</div>
+<div slot="solution">
 
 $\ln 6 = \ln 2 + \ln 3 \approx 1{,}792$. $\ln 8 = 3 \ln 2 \approx 2{,}079$. $\ln 1{,}5 = \ln 3 - \ln 2 \approx 0{,}406$ (le logarithme d'un quotient est la différence des logarithmes).
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un modèle donne aux trois mots d'une phrase les probabilités 0,5, 0,2 et 0,1. Calcule la probabilité de la phrase, puis la somme des $-\ln p$. Quelle est la moyenne de $-\ln p$ par mot ?
+<Exercice titre="La surprise moyenne d'un modèle" niveau="moyen" reponse={1.535} tolerance={0.002}>
 
-<Depliable titre="Corrigé">
+Un modèle donne aux trois mots d'une phrase les probabilités 0,5, 0,2 et 0,1. Calcule la probabilité de la phrase, puis la somme des $-\ln p$. Saisis la moyenne de $-\ln p$ par mot.
+
+<div slot="solution">
 
 Probabilité : $0{,}5 \times 0{,}2 \times 0{,}1 = 0{,}01$. Somme des $-\ln p$ : $0{,}693 + 1{,}609 + 2{,}303 = 4{,}605$, qui vaut bien $-\ln 0{,}01$. Moyenne : environ 1,535 par mot. C'est exactement ce qu'on appelle la perte d'entropie croisée d'un modèle de langage sur cette phrase.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Quand l'épargne double-t-elle ?" niveau="defi" reponse={15} tolerance={0} unite="années">
+
+Tu places une somme sur un compte qui rapporte 5 % par an, intérêts compris dans le calcul de l'année suivante : après $n$ années, le capital est multiplié par $1{,}05^n$. Au bout de combien d'années entières le capital a-t-il au moins doublé ?
+
+<div slot="indice">
+
+Il faut $1{,}05^n \geq 2$. Prends le logarithme des deux côtés : $\ln(1{,}05^n) = n \ln 1{,}05$.
+
+</div>
+<div slot="solution">
+
+$1{,}05^n \geq 2 \iff n \ln 1{,}05 \geq \ln 2 \iff n \geq \frac{\ln 2}{\ln 1{,}05} \approx \frac{0{,}693}{0{,}048\,8} \approx 14{,}2$.
+
+Il faut donc **15 années** entières. Vérification : $1{,}05^{14} \approx 1{,}98$, pas encore le double ; $1{,}05^{15} \approx 2{,}08$. Le logarithme a transformé une puissance inconnue en simple division : c'est son rôle principal.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
