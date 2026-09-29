@@ -14,7 +14,7 @@ sources:
   - "Radford et al., « Language Models are Unsupervised Multitask Learners », OpenAI, 2019 — https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf — section 2.2 (BPE au niveau des octets)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape } from '@/components/animations';
 
 ## Le problème de départ
@@ -88,15 +88,51 @@ C'est un choix glouton : il est le meilleur étape par étape, sans garantie d'�
 
 ## Essaie toi-même
 
-Refais l'algorithme à la main sur un autre corpus : « lala » (4 fois) et « lola » (1 fois). Consigne : fais deux fusions, puis tokenise le mot nouveau « lalola ».
+<Exercice titre="Tokeniser « bananas »" niveau="facile" reponse={3} tolerance={0}>
 
-<Depliable titre="Ce que tu devrais observer">
+On garde les cinq fusions apprises plus haut, dans l'ordre : « a n », « b an », « an a », « ban an », « banan e ». Tokenise le mot nouveau « bananas ». Combien de tokens obtiens-tu ?
+
+<div slot="solution">
+
+Lettres : « b a n a n a s ». Fusion 1 : « b an an a s ». Fusion 2 : « ban an a s ». Fusion 3 : le « an » suivi de « a » devient « ana », d'où « ban ana s ». Les fusions 4 et 5 ne s'appliquent plus : « ban » n'est plus suivi de « an ». Résultat : « ban | ana | s », **3 tokens**.
+
+Remarque que « bananas » ne passe pas par « banane » : l'ordre des fusions compte, et la fusion 3 a « consommé » le « an » dont la fusion 4 aurait eu besoin.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un corpus qui chante" niveau="moyen">
+
+Refais l'algorithme à la main sur un autre corpus : « lala » (4 fois) et « lola » (1 fois). Fais deux fusions, puis tokenise le mot nouveau « lalola ».
+
+<div slot="solution">
 
 Paires au départ : « l a » apparaît $2 \times 4 + 1 = 9$ fois, « a l » $4$ fois, « l o » et « o l » 1 fois chacune. Fusion 1 : « la ». Découpages : « la la » et « l o la ». Paires : « la la » 4 fois, « l o » et « o la » 1 fois. Fusion 2 : « lala ».
 
 Pour « lalola » : lettres « l a l o l a » ; la fusion 1 donne « la l o la » ; la fusion 2 ne s'applique pas (il n'y a pas deux « la » voisins). Résultat : « la | l | o | la », 4 tokens. Le mot « lola » n'a pas eu droit à son propre token : il était trop rare.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Combien BPE a-t-il comprimé ?" niveau="defi" reponse={17} tolerance={0}>
+
+Reviens au corpus de l'animation : « banane » ×3, « bandana » ×2, « ananas » ×2, « banc » ×1. Combien de tokens faut-il pour écrire tout le corpus (en comptant chaque apparition) au départ, en lettres ? Et après les cinq fusions ? Quel est le taux de compression ?
+
+<div slot="indice">
+
+Au départ, un token par lettre. À la fin, reprends le découpage final de chaque mot, visible à la dernière étape de l'animation, et multiplie par le nombre d'apparitions.
+
+</div>
+<div slot="solution">
+
+Au départ : $6 \times 3 + 7 \times 2 + 6 \times 2 + 4 \times 1 = 18 + 14 + 12 + 4 = 48$ tokens.
+
+Après les fusions : « banane » est un seul token ($1 \times 3$), « ban | d | ana » en fait 3 ($3 \times 2$), « an | ana | s » aussi ($3 \times 2$), et « ban | c » 2 ($2 \times 1$). Total : $3 + 6 + 6 + 2 = 17$ tokens.
+
+Le corpus est environ $48 / 17 \approx 2{,}8$ fois plus court, au prix de 5 tokens de plus dans le vocabulaire. C'est l'échange que BPE fait à grande échelle : un vocabulaire plus grand contre des suites plus courtes, et donc un modèle moins coûteux à faire tourner.
+
+</div>
+</Exercice>
 
 ## En code
 
