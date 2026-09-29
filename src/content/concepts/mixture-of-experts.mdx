@@ -1,0 +1,247 @@
+---
+id: mixture-of-experts
+type: concept
+titre: "Mixture of Experts : n'appeler que les bons spécialistes"
+sous_titre: "Architectures MoE et activation clairsemée"
+domaine: transformers
+niveau: 5
+prerequis: [bloc-transformer]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Shazeer et al., « Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer », 2017 — https://arxiv.org/abs/1701.06538 (version HTML : https://ar5iv.labs.arxiv.org/html/1701.06538) — résumé (jusqu'à des milliers de sous-réseaux feed-forward, capacité multipliée par plus de 1000 avec de faibles pertes d'efficacité, couche MoE jusqu'à 137 milliards de paramètres entre des couches LSTM empilées), description de la couche (y = Σ G(x)_i E_i(x), calcul évité quand G(x)_i = 0, porte softmax, G(x) = Softmax(KeepTopK(H(x), k)) avec bruit) et équilibrage des experts (déséquilibre qui s'auto-renforce, perte d'importance)"
+  - "Fedus et al., « Switch Transformers: Scaling to Trillion Parameter Models with Simple and Efficient Sparsity », 2021 — https://arxiv.org/abs/2101.03961 — résumé (un seul expert par token, jusqu'à 7 fois plus rapide en pré-entraînement à ressources de calcul égales sur T5-Base et T5-Large, 4 fois plus rapide que T5-XXL, modèles jusqu'à mille milliards de paramètres)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Dans un [bloc transformer](/concepts/bloc-transformer/), chaque token passe par tous les poids du réseau feed-forward. Pour rendre un modèle plus savant, on grossit ce réseau ; mais alors chaque token coûte plus cher à traiter, même les plus banals. Un point, une virgule, un « le » mobilisent autant de calcul qu'un terme technique rare.
+
+En 2017, Shazeer et ses coauteurs proposent une couche de mélange d'experts à très grande échelle : remplacer un gros réseau par de nombreux petits réseaux, les **experts**, et n'en consulter que quelques-uns pour chaque token. Le modèle peut alors avoir énormément de paramètres, sans que chaque token coûte beaucoup plus cher.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Une petite porte choisit, pour chaque token, les deux ou trois experts les plus pertinents parmi des dizaines ; seuls ceux-là calculent, et leurs sorties sont mélangées selon les notes de la porte.
+</PhraseCle>
+
+## En image
+
+Pense à l'accueil d'un grand hôpital.
+
+- L'hôpital emploie des dizaines de spécialistes : cardiologues, dermatologues, pédiatres…
+- À l'accueil, une infirmière écoute chaque patient et l'oriente vers un ou deux spécialistes seulement.
+- L'hôpital peut ainsi réunir énormément de compétences, sans que chaque patient voie tous les médecins.
+- Si l'accueil envoie tout le monde au même cardiologue, il est débordé, et les autres ne servent à rien.
+
+La porte joue le rôle de l'infirmière, et chaque expert celui d'un spécialiste. Là où l'image s'arrête : les experts d'un modèle ne reçoivent aucune spécialité à l'avance. Personne ne décide qu'un expert s'occupera de la grammaire ; leurs rôles émergent pendant l'entraînement, et ne correspondent pas forcément à des thèmes lisibles par un humain.
+
+## Comment ça marche
+
+Une couche de mélange d'experts (*mixture of experts*, MoE) remplace le réseau feed-forward d'un bloc par $N$ experts $E_1, \dots, E_N$, chacun un petit réseau feed-forward, et une **porte** (*gating network*, aussi appelée routeur) $G$. Pour un token $x$ :
+
+$$
+y = \sum_{i=1}^{N} G(x)_i \, E_i(x)
+\qquad
+G(x) = \text{Softmax}\big(\text{KeepTopK}(H(x), k)\big)
+$$
+
+où :
+- $x$ est le vecteur du token qui entre dans la couche, $y$ celui qui en sort ;
+- $E_i(x)$ est la sortie de l'expert numéro $i$ ;
+- $H(x)$ est le vecteur des $N$ scores de la porte, obtenu en multipliant $x$ par une matrice apprise ;
+- $\text{KeepTopK}$ garde les $k$ plus grands scores et remplace les autres par $-\infty$, dont l'exponentielle vaut 0 ;
+- $G(x)_i$ est donc le poids de l'expert $i$ : nul pour les experts écartés, et les poids gardés somment à 1 grâce à la [softmax](/concepts/softmax/).
+
+Le point clé, que soulignent les auteurs : là où $G(x)_i = 0$, on n'a **pas besoin** de calculer $E_i(x)$. Avec $k = 2$ experts sur $N = 64$, chaque token ne fait tourner que 2 experts. C'est l'**activation clairsemée** (*sparse activation*).
+
+Exemple à la main, avec 4 experts et $k = 2$. La porte donne les scores $H(x) = (2 \,;\, 1 \,;\, 0{,}5 \,;\, -0{,}5)$. On garde les deux premiers ; la softmax sur $(2 \,;\, 1)$ donne $\frac{e^2}{e^2 + e^1} \approx 0{,}731$ et $\approx 0{,}269$. Si les experts 1 et 2 sortent (en simplifiant à un seul nombre) $10$ et $4$, alors $y = 0{,}731 \times 10 + 0{,}269 \times 4 \approx 8{,}39$. Fais défiler.
+
+<PasAPas rendu="moe-routage" label="Un token routé vers deux experts sur quatre">
+  <Etape etat="initial">
+    **Un token arrive.** Quatre experts l'attendent, chacun un petit réseau feed-forward avec ses propres poids.
+  </Etape>
+  <Etape etat="scores">
+    **La porte note chaque expert** : $2$, $1$, $0{,}5$ et $-0{,}5$. C'est un calcul minuscule, un produit du token par une matrice.
+  </Etape>
+  <Etape etat="topk">
+    **On garde les 2 meilleurs.** Les experts 3 et 4 sont éteints pour ce token : ils ne calculent rien. Un autre token pourrait choisir d'autres experts.
+  </Etape>
+  <Etape etat="sortie">
+    **On mélange.** La softmax sur les deux scores gardés donne $0{,}731$ et $0{,}269$. La sortie vaut $0{,}731 \times 10 + 0{,}269 \times 4 \approx 8{,}39$.
+  </Etape>
+</PasAPas>
+
+**Le piège de l'équilibre.** Les auteurs observent que la porte tend à converger vers un état où elle favorise toujours les mêmes experts : ceux qui sont choisis s'entraînent davantage, deviennent meilleurs, et sont donc choisis encore plus. Pour casser ce cercle, ils ajoutent du bruit aux scores de la porte et une perte supplémentaire qui pénalise un usage inégal des experts sur un lot de tokens.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Paramètres totaux, paramètres actifs">
+
+Supposons $N$ experts de $P$ paramètres chacun, et $k$ experts consultés par token. La porte est négligeable devant les experts.
+
+$$
+\begin{aligned}
+\text{paramètres de la couche} &= N \times P && \text{tous les experts sont stockés} \\
+\text{paramètres utilisés par token} &= k \times P && \text{seuls } k \text{ experts calculent} \\
+\text{fraction active} &= \frac{k \times P}{N \times P} = \frac{k}{N} && \text{les } P \text{ se simplifient}
+\end{aligned}
+$$
+
+Avec $N = 64$ et $k = 2$, chaque token n'utilise que $2/64 \approx 3{,}1\,\%$ des paramètres des experts. On peut donc multiplier la **capacité** (le nombre de paramètres, donc ce que le modèle peut retenir) par 32 par rapport à un seul expert, pour un coût de calcul par token seulement doublé.
+
+Pourquoi la softmax **après** KeepTopK ? Si l'on appliquait la softmax sur tous les scores puis qu'on gardait les deux plus grands, les poids gardés ne sommeraient plus à 1 : dans l'exemple, $0{,}598 + 0{,}220 = 0{,}818$. En remplaçant d'abord les scores écartés par $-\infty$, leurs exponentielles valent 0, et la softmax répartit tout le poids entre les experts gardés.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Combien d'experts travaillent ?" niveau="facile" reponse={2} tolerance={0}>
+
+Une couche MoE a 16 experts et une porte top-2. Une phrase de 10 tokens la traverse. Combien d'experts calculent pour **chaque** token ?
+
+<div slot="solution">
+
+Deux, pour chaque token, quel que soit le nombre total d'experts. Mais ce ne sont pas forcément les deux mêmes d'un token à l'autre : sur les 10 tokens, la phrase peut solliciter jusqu'à 16 experts différents au total, chacun ne travaillant que pour les tokens qui l'ont choisi.
+
+</div>
+</Exercice>
+
+<Exercice titre="La porte à un seul expert" niveau="moyen" reponse={0.622} tolerance={0.002}>
+
+Une porte top-2 donne les scores $0{,}2$, $1{,}4$ et $0{,}9$ à trois experts. Quels experts sont gardés, et quel poids reçoit le meilleur ?
+
+<div slot="indice">
+
+Garde les deux plus grands scores, puis applique la softmax sur ces deux seuls scores : $\frac{e^{1{,}4}}{e^{1{,}4} + e^{0{,}9}}$.
+
+</div>
+<div slot="solution">
+
+On garde les experts 2 (score 1,4) et 3 (score 0,9). Poids du meilleur : $\frac{e^{1{,}4}}{e^{1{,}4} + e^{0{,}9}} = \frac{1}{1 + e^{-0{,}5}} \approx 0{,}622$ ; l'autre reçoit $0{,}378$. L'expert 1 est éteint.
+
+</div>
+</Exercice>
+
+<Exercice titre="La capacité à coût égal" niveau="defi" reponse={32} tolerance={0} unite="fois">
+
+Un modèle dense a un réseau feed-forward de $P$ paramètres par bloc. On le remplace par une couche MoE de 64 experts de taille $P$, avec une porte top-2. Par combien les paramètres des experts sont-ils multipliés ? Et le calcul par token ? Déduis le gain de capacité à coût de calcul égal.
+
+<div slot="indice">
+
+Paramètres : $64P$ contre $P$. Calcul : $2P$ contre $P$. Compare le rapport des paramètres à celui du calcul.
+
+</div>
+<div slot="solution">
+
+Les paramètres sont multipliés par 64, le calcul par token par 2. À coût de calcul égal, la capacité est donc multipliée par $64 / 2 = 32$.
+
+Le prix, ailleurs : les 64 experts doivent tenir en mémoire, souvent répartis sur plusieurs GPU, et il faut envoyer chaque token au bon endroit. Un modèle MoE est bon marché en calcul, pas en mémoire.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : une couche MoE top-2 sur un lot de tokens, et le compte des experts sollicités.
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+d, N, k = 8, 4, 2
+porte = rng.normal(size=(d, N))                       # matrice de la porte
+experts = [(rng.normal(size=(d, 16)), rng.normal(size=(16, d))) for _ in range(N)]
+
+def expert(i, x):
+    W1, W2 = experts[i]
+    return np.maximum(0, x @ W1) @ W2                 # petit réseau feed-forward
+
+def couche_moe(x):
+    scores = x @ porte
+    gardes = np.argsort(scores)[-k:]                  # KeepTopK
+    e = np.exp(scores[gardes] - scores[gardes].max())
+    poids = e / e.sum()                               # softmax sur les seuls scores gardés
+    y = sum(p * expert(i, x) for p, i in zip(poids, gardes))
+    return y, gardes
+
+# L'exemple de la fiche : scores (2 ; 1 ; 0,5 ; −0,5), sorties 10 et 4
+s = np.array([2, 1, 0.5, -0.5])
+g = np.argsort(s)[-2:]
+p = np.exp(s[g]) / np.exp(s[g]).sum()
+print("poids gardés :", dict(zip(g.tolist(), p.round(3).tolist())), "→ y =", round(p @ np.array([4, 10]), 2))
+
+lot = rng.normal(size=(1000, d))
+compte = np.zeros(N, dtype=int)
+for x in lot:
+    _, gardes = couche_moe(x)
+    compte[gardes] += 1
+print("tokens reçus par expert :", compte, "(porte aléatoire, pas encore entraînée)")
+print("fraction de paramètres actifs par token :", k / N)
+```
+
+En vrai, une porte top-k s'écrit en quelques lignes avec PyTorch ; tout le travail difficile est ailleurs, dans la répartition des experts sur plusieurs GPU :
+
+```python
+# no-run
+import torch
+scores = x @ W_porte                                   # (tokens, N)
+valeurs, indices = scores.topk(k=2, dim=-1)            # KeepTopK
+poids = torch.softmax(valeurs, dim=-1)                 # softmax sur les scores gardés
+```
+
+## Les pièges classiques
+
+**« Un modèle MoE de 100 milliards de paramètres coûte autant qu'un modèle dense de 100 milliards. »** En calcul par token, non : seule la fraction $k/N$ des experts travaille. En mémoire, oui : tous les experts doivent être chargés quelque part.
+
+**« Chaque expert a une spécialité claire, comme la grammaire ou les maths. »** Rien de tel n'est imposé. Les rôles émergent de l'entraînement, et rien ne garantit qu'ils correspondent à des catégories humaines.
+
+**« La porte choisit librement, sans surveillance. »** Laissée seule, elle favorise quelques experts en boucle. Il faut du bruit et une perte d'équilibrage pour que tous les experts servent.
+
+## Dans la vraie vie
+
+Dans le paper de 2017, des couches MoE composées de jusqu'à des milliers de sous-réseaux, avec jusqu'à 137 milliards de paramètres, sont placées entre des couches LSTM empilées ; les auteurs annoncent une capacité multipliée par plus de 1 000 pour de faibles pertes d'efficacité de calcul. En 2021, le Switch Transformer de Fedus et ses coauteurs simplifie le routage à **un seul** expert par token. Les auteurs obtiennent jusqu'à 7 fois plus de vitesse de pré-entraînement à ressources de calcul égales sur des modèles de la famille T5, et pré-entraînent des modèles allant jusqu'à mille milliards de paramètres. Le principe reste le même : beaucoup de paramètres, mais peu de calcul par token.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans une couche MoE top-2 à 32 experts, combien d'experts calculent pour un token ?",
+    choix: ["32", "16", "2", "1"],
+    bonne: 2,
+    explication: "La porte ne garde que les 2 meilleurs scores ; les autres experts ont un poids nul et ne calculent rien."
+  },
+  {
+    question: "Pourquoi applique-t-on la softmax après KeepTopK, et non avant ?",
+    choix: ["Pour aller plus vite", "Pour que les poids des experts gardés somment à 1", "Pour éteindre plus d'experts", "Ça ne change rien"],
+    bonne: 1,
+    explication: "Les scores écartés deviennent −∞, leur exponentielle vaut 0 : tout le poids revient aux experts gardés."
+  },
+  {
+    question: "Quel problème la perte d'équilibrage corrige-t-elle ?",
+    choix: ["Le surapprentissage", "La tendance de la porte à toujours choisir les mêmes experts", "Le coût quadratique", "Les hallucinations"],
+    bonne: 1,
+    explication: "Les experts choisis s'améliorent et sont encore plus choisis : un cercle que l'on casse par du bruit et une pénalité."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : expliquez le principe d'une couche Mixture of Experts et ses compromis.">
+
+On remplace le réseau feed-forward d'un bloc par $N$ experts et une porte qui calcule un score par expert, garde les $k$ meilleurs et normalise leurs poids par une softmax ; la sortie est la somme des sorties des experts gardés, pondérées par ces poids. Seuls $k$ experts calculent pour chaque token, d'où une fraction active de $k/N$ : on augmente fortement le nombre de paramètres, donc la capacité, sans augmenter d'autant le calcul par token. Les compromis : il faut stocker tous les experts, souvent sur plusieurs GPU, et échanger les tokens entre machines ; la porte tend à surcharger quelques experts, ce qu'on corrige avec du bruit et une perte d'équilibrage ; et l'entraînement est plus délicat qu'avec un modèle dense.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "mélange d'experts", en: "mixture of experts, MoE", definition: "Couche composée de nombreux experts, dont seuls quelques-uns sont consultés pour chaque token." },
+  { fr: "expert", en: "expert", definition: "Petit réseau feed-forward, un parmi d'autres dans une couche MoE." },
+  { fr: "porte", en: "gating network, router", definition: "Petit réseau qui note chaque expert pour un token et choisit ceux qui calculent." },
+  { fr: "activation clairsemée", en: "sparse activation", definition: "Le fait que seule une petite partie des paramètres serve pour chaque token." }
+]} />
