@@ -32,7 +32,7 @@ function gabarit() {
     d += `${i ? 'L' : 'M'}${px(lN).toFixed(1)},${py(perte(10 ** lN)).toFixed(1)} `;
   }
   const graduations = [10, 11, 12].map((l) => `<line x1="${px(l)}" y1="${Y0}" x2="${px(l)}" y2="${Y0 + 4}" class="svg-trait-doux" />
-    <text x="${px(l)}" y="${Y0 + 16}" text-anchor="middle" class="svg-doux" font-size="9.5">${['10 Md', '100 Md', '1 000 Md'][l - 10]}</text>`).join('');
+    <text x="${px(l)}" y="${Y0 + 16}" text-anchor="${l === 12 ? 'end' : 'middle'}" class="svg-doux" font-size="9.5">${['10 Md', '100 Md', '1 000 Md'][l - 10]}</text>`).join('');
   const gy = [1.95, 2.0, 2.05].map((L) => `<text x="${X0 - 4}" y="${py(L) + 3}" text-anchor="end" class="svg-doux" font-size="9.5">${fr(L, 2)}</text>`).join('');
   return `<text x="4" y="16" class="svg-doux" font-size="10">perte prédite</text>
     <line x1="${X0}" y1="${Y1 - 6}" x2="${X0}" y2="${Y0}" class="svg-trait-doux" /><line x1="${X0}" y1="${Y0}" x2="${X1}" y2="${Y0}" class="svg-trait-doux" />
