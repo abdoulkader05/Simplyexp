@@ -13,7 +13,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.1 (mauvais conditionnement) et section 8.3.2 (momentum)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -133,29 +133,38 @@ Avec $\beta = 0{,}9$, la boule a trop d'élan : elle dépasse le centre, fait de
 
 ## Entraîne-toi
 
-**Exercice 1.** Avec $\beta = 0{,}9$ et un gradient constant égal à 1, calcule $v_1$, $v_2$, $v_3$ et la limite.
+<Exercice titre="La boule qui prend de l’élan" niveau="facile" reponse={10} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Avec $\beta = 0{,}9$ et un gradient constant égal à 1, calcule $v_1$, $v_2$, $v_3$ et la limite. Entre la limite de $v_t$.
+
+<div slot="solution">
 
 $v_1 = 1$, $v_2 = 1{,}9$, $v_3 = 0{,}9 \times 1{,}9 + 1 = 2{,}71$. La limite est $1 / (1 - 0{,}9) = 10$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Dans la moyenne mobile exponentielle avec $\beta = 0{,}9$, quel poids reçoit le gradient d'il y a 10 pas, par rapport au plus récent ? Au bout de combien de pas un gradient pèse-t-il moins de 1 % du plus récent ?
+<Exercice titre="Combien de temps la mémoire dure-t-elle ?" niveau="moyen" reponse={44} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Dans la moyenne mobile exponentielle avec $\beta = 0{,}9$, quel poids reçoit le gradient d'il y a 10 pas, par rapport au plus récent ? Au bout de combien de pas un gradient pèse-t-il moins de 1 % du plus récent ? Entre le nombre de pas.
+
+<div slot="solution">
 
 Son poids est multiplié par $0{,}9^{10} \approx 0{,}35$. Il faut $0{,}9^k < 0{,}01$, soit $k > \ln 100 / \ln(1/0{,}9) \approx 43{,}7$ : au-delà de 44 pas. En gros, la moyenne « se souvient » d'une dizaine à quelques dizaines de pas, de l'ordre de $1/(1 - \beta) = 10$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une composante du gradient alterne entre $+4$ et $-4$. Avec $\beta = 0{,}8$, vers quelle amplitude tend la vitesse dans cette direction ? Et une composante constante égale à 4 ?
+<Exercice titre="Le ravin étroit" niveau="defi" reponse={2.22} tolerance={0.005}>
 
-<Depliable titre="Corrigé">
+Une composante du gradient alterne entre $+4$ et $-4$. Avec $\beta = 0{,}8$, vers quelle amplitude tend la vitesse dans cette direction ? Et une composante constante égale à 4 ? Entre l’amplitude de la vitesse pour la composante alternée.
+
+<div slot="solution">
 
 Alternée : $4 / (1 + 0{,}8) \approx 2{,}22$. Constante : $4 / (1 - 0{,}8) = 20$. Le rapport entre les deux passe de 1 sans momentum à 9 avec : la direction régulière domine nettement.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
