@@ -60,7 +60,7 @@ où :
 - $p'$ est la probabilité totale du noyau, légèrement supérieure ou égale à $p$ ;
 - $P'(x)$ est la nouvelle loi dans laquelle on tire.
 
-Exemple à la main, avec la loi de l'animation et $p = 0{,}75$ : les probabilités cumulées valent $0{,}50$ puis $0{,}80$. Dès le deuxième token, on dépasse $0{,}75$ : le noyau est {lève, couche}, $p' = 0{,}8$, et l'on tire « lève » avec $0{,}5 / 0{,}8 = 0{,}625$ et « couche » avec $0{,}3 / 0{,}8 = 0{,}375$. Fais défiler.
+Exemple à la main, avec la loi de l'animation et $p = 0{,}75$ : les probabilités cumulées valent $0{,}50$ puis $0{,}80$. Dès le deuxième token, on dépasse $0{,}75$ : le noyau contient « lève » et « couche », $p' = 0{,}8$, et l'on tire « lève » avec $0{,}5 / 0{,}8 = 0{,}625$ et « couche » avec $0{,}3 / 0{,}8 = 0{,}375$. Fais défiler.
 
 <PasAPas rendu="decodage-barres" label="Six façons de choisir le token suivant">
   <Etape etat="initial">
@@ -127,7 +127,7 @@ Additionne les probabilités dans l'ordre décroissant jusqu'à atteindre 0,9.
 </div>
 <div slot="solution">
 
-Cumul : 0,50, puis 0,80, puis 0,90. Le noyau est {lève, couche, voile}, $p' = 0{,}9$. Donc $P'(\text{voile}) = 0{,}1 / 0{,}9 \approx 0{,}111$. Ici top-p et top-k à 3 donnent le même noyau ; avec une loi plus plate, le top-p aurait gardé plus de tokens.
+Cumul : 0,50, puis 0,80, puis 0,90. Le noyau contient « lève », « couche » et « voile », $p' = 0{,}9$. Donc $P'(\text{voile}) = 0{,}1 / 0{,}9 \approx 0{,}111$. Ici top-p et top-k à 3 donnent le même noyau ; avec une loi plus plate, le top-p aurait gardé plus de tokens.
 
 </div>
 </Exercice>
