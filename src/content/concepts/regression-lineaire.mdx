@@ -15,7 +15,7 @@ sources:
   - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 3.4 (transformation linéaire apprise suivie d'un softmax en sortie)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -134,13 +134,52 @@ Règle la pente et la hauteur de la droite. Les traits rouges sont les écarts, 
   legende="Données : 2 km pour 300 F, 4 km pour 500 F, 5 km pour 700 F, 8 km pour 1 100 F."
 />
 
-Consigne : avec $b = 150$, cherche la pente qui donne la plus petite erreur. Descend-elle sous 1 000 ? Puis règle aussi le biais. Peux-tu descendre sous 800 ?
+<Exercice titre="Régler la droite à la main" niveau="facile" reponse={800} tolerance={0.01}>
 
-<Depliable titre="Ce que tu devrais observer">
+Avec $b = 150$, cherche la pente qui donne la plus petite erreur. Descend-elle sous 1 000 ? Puis règle aussi le biais. Quelle est la plus petite erreur que tu arrives à obtenir ?
+
+<div slot="solution">
 
 Avec $b = 150$, la meilleure pente est environ 110, et l'erreur ne descend pas sous 4 467 environ : la droite est coincée trop haut au départ. En réglant les deux curseurs, on atteint 800 exactement pour $w = 136$ et $b = 4$. Impossible de faire moins : c'est le minimum calculé plus haut. Remarque aussi qu'en bougeant $b$, il faut réajuster $w$ : les deux paramètres dépendent l'un de l'autre, parce que la droite optimale doit passer par le point moyen $(4{,}75\,;\,650)$.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le tarif d'un collègue" niveau="moyen" reponse={1025} tolerance={0.001}>
+
+Un collègue de Kofi propose sa propre règle : prix $= 130 \times$ distance $+ 40$. Calcule son erreur quadratique moyenne sur les quatre trajets. Fait-il mieux que le modèle appris ?
+
+<div slot="indice">
+
+Calcule d'abord les quatre prédictions, puis les écarts avec les prix observés, puis la moyenne de leurs carrés.
+
+</div>
+<div slot="solution">
+
+Prédictions : 300, 560, 690 et 1 080 F. Écarts : 0, 60, $-10$ et $-20$. Carrés : 0, 3 600, 100 et 400. Erreur : $4\,100 / 4 = 1\,025$.
+
+C'est plus que 800 : le modèle appris reste meilleur, alors que la règle du collègue tombe pile sur le premier trajet. Une droite qui colle parfaitement à un point peut être moins bonne sur l'ensemble.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le loyer d'un appartement" niveau="defi" reponse={1150} tolerance={0.001} unite="€">
+
+Une agence a relevé trois loyers dans le même quartier : 20 m² pour 500 €, 30 m² pour 650 € et 40 m² pour 950 €. Avec les formules de $w^*$ et $b^*$, trouve la meilleure droite, puis prédis le loyer d'un appartement de 50 m².
+
+<div slot="indice">
+
+Les moyennes valent $\bar{x} = 30$ m² et $\bar{y} = 700$ €. Les écarts à la moyenne sont $(-10\,;\,0\,;\,10)$ et $(-200\,;\,-50\,;\,250)$.
+
+</div>
+<div slot="solution">
+
+Produits des écarts : $2\,000 + 0 + 2\,500 = 4\,500$. Carrés des écarts en $x$ : $100 + 0 + 100 = 200$. Donc $w^* = 4\,500 / 200 = 22{,}5$ € par m², et $b^* = 700 - 22{,}5 \times 30 = 25$ €.
+
+Pour 50 m² : $22{,}5 \times 50 + 25 = 1\,150$ €. Attention : 50 m² sort de la plage observée (20 à 40 m²). Prédire hors des données, c'est parier que la tendance continue ; avec trois points seulement, ce pari est fragile.
+
+</div>
+</Exercice>
 
 ## En code
 
