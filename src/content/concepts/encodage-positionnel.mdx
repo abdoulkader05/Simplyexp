@@ -1,0 +1,275 @@
+---
+id: encodage-positionnel
+type: concept
+titre: "L'encodage positionnel : dire au modèle dans quel ordre sont les mots"
+sous_titre: "Positional encoding sinusoïdal et appris"
+domaine: transformers
+niveau: 5
+prerequis: [self-attention]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 (version HTML : https://ar5iv.labs.arxiv.org/html/1706.03762) — section 3.5 (ni récurrence ni convolution, formules PE(pos, 2i) et PE(pos, 2i+1), longueurs d'onde de 2π à 10000·2π, PE(pos+k) fonction linéaire de PE(pos), essai d'encodages appris), section 3.1 (d_model = 512), tableau 3 ligne (E) (encodage appris : perplexité 4,92, BLEU 25,7 ; modèle de base : 4,92 et 25,8)"
+  - "Touvron et al., « LLaMA: Open and Efficient Foundation Language Models », Meta AI, 2023 — https://arxiv.org/abs/2302.13971 — section 2.2 (encodages positionnels absolus retirés, RoPE ajouté à chaque couche)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+La [self-attention](/concepts/self-attention/) compare chaque token à tous les autres, d'un seul coup. C'est sa force : pas besoin de lire la phrase mot après mot comme un [RNN](/concepts/rnn/). Mais c'est aussi un défaut caché. Le calcul ne dépend que des vecteurs des tokens, jamais de leur rang. Si l'on mélange les mots d'une phrase, chaque token reçoit exactement la même sortie qu'avant, simplement rangée ailleurs. Pour la self-attention seule, « Le chien mord le facteur » et « Le facteur mord le chien » contiennent les mêmes informations.
+
+Les auteurs du transformer le disent sans détour en 2017 : leur modèle n'a ni récurrence ni convolution, il faut donc lui injecter une information sur la position des tokens pour qu'il puisse se servir de l'ordre.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On ajoute au vecteur de chaque token un second vecteur qui ne dépend que de sa position, pour que « premier mot », « deuxième mot »… deviennent des informations que l'attention peut utiliser.
+</PhraseCle>
+
+## En image
+
+Imagine un chariot à trois roues de tailles très différentes : une petite, une moyenne, une grande. Sur chaque roue, une tache de peinture.
+
+- Quand le chariot avance d'un pas, la petite roue tourne beaucoup, la moyenne un peu, la grande presque pas.
+- Au bout de quelques pas, la petite roue a déjà fait un tour complet : sa tache seule ne suffit plus à dire combien de pas ont été faits.
+- Mais la position des **trois** taches ensemble, elle, change à chaque pas et ne se répète pas avant très longtemps.
+- Lire les trois taches, c'est connaître la distance parcourue.
+
+Dans l'encodage sinusoïdal, chaque « roue » est une paire de coordonnées, et la position du token joue le rôle de la distance parcourue. Là où l'image s'arrête : un vrai encodage a des centaines de roues, et le modèle ne « lit » pas les angles directement ; il apprend à s'en servir à travers ses calculs d'attention.
+
+## Comment ça marche
+
+Chaque token a déjà son vecteur, son [embedding](/concepts/embeddings/), de dimension $d_{\text{model}}$. On lui **ajoute**, coordonnée par coordonnée, un vecteur de position de même dimension. Le transformer original utilise des sinus et des cosinus :
+
+$$
+PE_{(pos,\,2i)} = \sin\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
+\qquad
+PE_{(pos,\,2i+1)} = \cos\left(\frac{pos}{10000^{2i/d_{\text{model}}}}\right)
+$$
+
+où :
+- $pos$ est la position du token dans la séquence : 0 pour le premier, 1 pour le deuxième, etc. ;
+- $i$ est le numéro de la paire de coordonnées, de $0$ à $d_{\text{model}}/2 - 1$ ;
+- $d_{\text{model}}$ est la dimension des vecteurs du modèle (512 dans le modèle de base du paper) ;
+- $PE_{(pos,\,2i)}$ et $PE_{(pos,\,2i+1)}$ sont les deux coordonnées de la paire $i$.
+
+Chaque paire $(\sin, \cos)$ est un point sur un cercle, qui tourne de $\omega_i = 1/10000^{2i/d_{\text{model}}}$ radian à chaque position : c'est une des roues du chariot. La paire $i = 0$ tourne d'un radian par position ; les suivantes, de plus en plus lentement. Les auteurs précisent que les longueurs d'onde vont de $2\pi$ à $10000 \cdot 2\pi$.
+
+Exemple à la main, avec $d_{\text{model}} = 4$, donc deux roues de vitesses $\omega_0 = 1$ et $\omega_1 = 1/10000^{2/4} = 0{,}01$ :
+- position 0 : $(\sin 0 \,;\, \cos 0 \,;\, \sin 0 \,;\, \cos 0) = (0 \,;\, 1 \,;\, 0 \,;\, 1)$ ;
+- position 1 : $(\sin 1 \,;\, \cos 1 \,;\, \sin 0{,}01 \,;\, \cos 0{,}01) \approx (0{,}841 \,;\, 0{,}540 \,;\, 0{,}010 \,;\, 1{,}000)$ ;
+- position 2 : $\approx (0{,}909 \,;\, -0{,}416 \,;\, 0{,}020 \,;\, 1{,}000)$.
+
+L'animation montre trois roues d'un encodage de dimension 8 ($\omega = 1$, $0{,}1$ et $0{,}01$). Fais défiler.
+
+<PasAPas rendu="position-roues" label="Trois roues de l'encodage sinusoïdal, de la position 0 à la position 20">
+  <Etape etat="initial">
+    **Position 0.** Toutes les roues sont au repère : chaque paire vaut $(\sin 0 \,;\, \cos 0) = (0 \,;\, 1)$.
+  </Etape>
+  <Etape etat="p1">
+    **Position 1.** La roue rapide tourne d'un radian, environ 57 degrés. La deuxième tourne de 0,1 radian, la troisième de 0,01 : presque rien.
+  </Etape>
+  <Etape etat="p2">
+    **Position 2.** Chaque roue avance à son propre rythme. Aucune roue seule ne suffit, c'est la combinaison des angles qui dit la position.
+  </Etape>
+  <Etape etat="p6">
+    **Position 6.** La roue rapide a tourné de 6 radians, soit environ 344 degrés : elle est presque revenue au repère. Seule, elle confondrait les positions 0 et 6. La deuxième roue, à 34 degrés, les sépare sans hésiter.
+  </Etape>
+  <Etape etat="p20">
+    **Position 20.** La roue lente commence enfin à bouger : ce sont les roues lentes qui distinguent les positions éloignées, les rapides qui distinguent les voisines.
+  </Etape>
+</PasAPas>
+
+Pourquoi des sinus plutôt que de simples numéros ? Ajouter « 1, 2, 3… » à un vecteur donnerait des nombres énormes pour les longs textes, qui écraseraient le sens des mots. Les sinus restent entre $-1$ et $1$. Surtout, les auteurs font l'hypothèse que cette forme aide le modèle à raisonner en **positions relatives** : pour tout décalage $k$ fixé, $PE_{pos+k}$ s'obtient à partir de $PE_{pos}$ par une transformation linéaire, la même quelle que soit la position de départ.
+
+Il existe une autre solution, plus directe : l'**encodage appris** (*learned positional embedding*). On réserve un vecteur par position, de 0 à une longueur maximale, et le modèle les apprend comme n'importe quel poids. Les auteurs ont essayé : résultats presque identiques (BLEU 25,7 contre 25,8, même perplexité de 4,92). Ils ont gardé les sinus, en espérant qu'ils permettent de traiter des séquences plus longues que celles vues à l'entraînement ; un encodage appris, lui, n'a tout simplement pas de vecteur au-delà de sa longueur maximale.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi un décalage de k positions est une rotation">
+
+Prends une seule paire, de vitesse $\omega$. À la position $pos$, elle vaut $(\sin \omega\, pos \,;\, \cos \omega\, pos)$. Décalons de $k$ positions et appliquons les formules d'addition du sinus et du cosinus :
+
+$$
+\begin{aligned}
+\sin \omega(pos + k) &= \sin(\omega\, pos)\cos(\omega k) + \cos(\omega\, pos)\sin(\omega k) && \text{formule d'addition du sinus} \\
+\cos \omega(pos + k) &= \cos(\omega\, pos)\cos(\omega k) - \sin(\omega\, pos)\sin(\omega k) && \text{formule d'addition du cosinus}
+\end{aligned}
+$$
+
+Écrit sous forme de [produit matriciel](/maths/produit-matriciel/) :
+
+$$
+\begin{pmatrix} \sin \omega(pos+k) \\ \cos \omega(pos+k) \end{pmatrix}
+=
+\begin{pmatrix} \cos \omega k & \sin \omega k \\ -\sin \omega k & \cos \omega k \end{pmatrix}
+\begin{pmatrix} \sin \omega\, pos \\ \cos \omega\, pos \end{pmatrix}
+$$
+
+La matrice ne dépend que du décalage $k$, pas de $pos$ : c'est une rotation d'angle $\omega k$. En faisant de même pour chaque paire, $PE_{pos+k}$ est une fonction linéaire de $PE_{pos}$, exactement ce que visaient les auteurs. Vérification avec $\omega = 1$, $pos = 5$, $k = 2$ : $\sin 7 \approx 0{,}657$, et $\cos 2 \sin 5 + \sin 2 \cos 5 \approx 0{,}657$ aussi.
+
+Cette idée de rotation sera poussée jusqu'au bout par [RoPE](/concepts/rope/), qui fait tourner directement les requêtes et les clés.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Combien de phrases confondues ?" niveau="facile" reponse={6} tolerance={0}>
+
+Sans encodage positionnel, la self-attention ne voit pas l'ordre. Combien de phrases différentes peut-on écrire avec les trois mots « Awa », « paie », « Koffi », chacun utilisé une fois, que la self-attention seule ne pourrait pas distinguer ?
+
+<div slot="indice">
+
+Compte les façons de ranger trois objets distincts : 3 choix pour la première place, puis 2, puis 1.
+
+</div>
+<div slot="solution">
+
+$3 \times 2 \times 1 = 6$ ordres : « Awa paie Koffi », « Koffi paie Awa », « paie Awa Koffi »… Deux d'entre elles ont des sens opposés : qui paie qui ? Sans position, le modèle recevrait exactement les mêmes vecteurs, simplement rangés autrement.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le vecteur de la position 3" niveau="moyen" reponse={0.141} tolerance={0.005}>
+
+Avec $d_{\text{model}} = 4$ (vitesses $\omega_0 = 1$ et $\omega_1 = 0{,}01$), calcule le vecteur de position complet de $pos = 3$. Donne sa **première** coordonnée, arrondie au millième. Une calculatrice en radians suffit.
+
+<div slot="solution">
+
+$(\sin 3 \,;\, \cos 3 \,;\, \sin 0{,}03 \,;\, \cos 0{,}03) \approx (0{,}141 \,;\, -0{,}990 \,;\, 0{,}030 \,;\, 1{,}000)$.
+
+La roue rapide a tourné de 3 radians, un peu moins d'un demi-tour ($\pi \approx 3{,}14$) : elle est presque en bas du cercle, d'où le cosinus proche de $-1$. La roue lente n'a tourné que de 0,03 radian.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le roman de 100 000 tokens" niveau="defi" reponse={1.65} tolerance={0.01} unite="tours">
+
+Avec $d_{\text{model}} = 512$, la roue la plus lente est la paire $i = 255$. On encode un roman de 100 000 tokens. Combien de tours cette roue fait-elle entre le premier et le dernier token ? Qu'en déduis-tu ?
+
+<div slot="indice">
+
+La roue tourne de $\omega = 1/10000^{510/512}$ radian par position. Un tour complet vaut $2\pi$ radians : sa période, en positions, est $2\pi \cdot 10000^{510/512}$.
+
+</div>
+<div slot="solution">
+
+La période vaut $2\pi \cdot 10000^{510/512} \approx 60\,611$ positions, proche de la borne $10000 \cdot 2\pi \approx 62\,832$ annoncée par les auteurs. Sur 100 000 tokens, la roue fait $100\,000 / 60\,611 \approx 1{,}65$ tour.
+
+Conséquence : même la roue la plus lente finit par repasser par les mêmes angles. Ce n'est pas grave, car les autres roues sont à des angles différents, mais cela montre que l'encodage sinusoïdal n'a pas été pensé pour des textes aussi longs.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : l'encodage sinusoïdal, et la preuve que la self-attention seule ne voit pas l'ordre.
+
+```python
+import numpy as np
+
+def encodage_positionnel(n, d):
+    """Matrice n × d : une ligne par position, paires (sin, cos) de vitesses décroissantes."""
+    pos = np.arange(n)[:, None]
+    omega = 1 / 10000 ** (np.arange(0, d, 2) / d)
+    pe = np.zeros((n, d))
+    pe[:, 0::2] = np.sin(pos * omega)
+    pe[:, 1::2] = np.cos(pos * omega)
+    return pe
+
+print(np.round(encodage_positionnel(3, 4), 3))
+
+def self_attention(x):
+    """Self-attention minimale : les requêtes, clés et valeurs sont les vecteurs eux-mêmes."""
+    scores = x @ x.T / np.sqrt(x.shape[1])
+    poids = np.exp(scores) / np.exp(scores).sum(axis=1, keepdims=True)
+    return poids @ x
+
+rng = np.random.default_rng(0)
+mots = rng.normal(size=(3, 4))            # « Awa », « paie », « Koffi »
+ordre = [2, 1, 0]                         # « Koffi paie Awa »
+
+sans = self_attention(mots)
+sans_melange = self_attention(mots[ordre])
+print("sans position, mêmes sorties réordonnées :", np.allclose(sans[ordre], sans_melange))
+
+pe = encodage_positionnel(3, 4)
+avec = self_attention(mots + pe)
+avec_melange = self_attention(mots[ordre] + pe)
+print("avec position, mêmes sorties réordonnées :", np.allclose(avec[ordre], avec_melange))
+
+# Un décalage de k positions est une rotation, la même pour toute position de départ
+w, k = 1.0, 2
+rotation = np.array([[np.cos(w * k), np.sin(w * k)], [-np.sin(w * k), np.cos(w * k)]])
+for p in (0, 5, 40):
+    avant = np.array([np.sin(w * p), np.cos(w * p)])
+    apres = np.array([np.sin(w * (p + k)), np.cos(w * (p + k))])
+    print(p, np.allclose(rotation @ avant, apres))
+```
+
+En vrai, un encodage **appris** n'est qu'une table de vecteurs indexée par la position, par exemple en PyTorch :
+
+```python
+# no-run
+import torch
+longueur_max, d_model = 1024, 512
+positions = torch.nn.Embedding(longueur_max, d_model)      # un vecteur appris par position
+tokens = torch.nn.Embedding(50_000, d_model)                # un vecteur appris par token
+ids = torch.tensor([[17, 942, 5]])                          # une phrase de 3 tokens
+x = tokens(ids) + positions(torch.arange(ids.shape[1]))     # ce qui entre dans le premier bloc
+```
+
+## Les pièges classiques
+
+**« Le modèle connaît l'ordre des mots puisqu'ils arrivent dans l'ordre. »** Les tokens arrivent bien dans un tableau ordonné, mais la self-attention traite ce tableau comme un ensemble : permuter les entrées permute seulement les sorties. Sans encodage positionnel, l'ordre est perdu.
+
+**« On concatène la position au vecteur du mot. »** Dans le transformer original, on l'**additionne** : les deux vecteurs ont la même dimension et partagent les mêmes coordonnées. Le modèle apprend à séparer ce qui vient du sens et ce qui vient de la position.
+
+**« Les sinus permettent de traiter des textes de n'importe quelle longueur. »** C'était l'espoir des auteurs, pas une garantie. Les sinus donnent bien un vecteur pour toute position, mais rien n'assure que le modèle sache s'en servir pour des positions qu'il n'a jamais rencontrées à l'entraînement.
+
+## Dans la vraie vie
+
+Le transformer de 2017 utilisait l'encodage sinusoïdal. D'autres modèles utilisent des vecteurs de position appris. Une troisième voie, [RoPE](/concepts/rope/), encode la position par une rotation des requêtes et des clés à l'intérieur de l'attention : LLaMA, publié par Meta en 2023, retire les encodages absolus et applique RoPE à chaque couche. Dans tous les cas, c'est l'encodage positionnel qui permet à un modèle de distinguer « le chien mord le facteur » de l'inverse ; le reste du [bloc transformer](/concepts/bloc-transformer/) s'en sert ensuite.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi la self-attention a-t-elle besoin d'un encodage positionnel ?",
+    choix: ["Pour aller plus vite", "Parce que, seule, elle donne les mêmes sorties quel que soit l'ordre des tokens, simplement réordonnées", "Pour réduire la taille du vocabulaire", "Parce que les embeddings sont trop petits"],
+    bonne: 1,
+    explication: "Le calcul d'attention ne dépend que des vecteurs, pas de leur rang : permuter les entrées permute seulement les sorties."
+  },
+  {
+    question: "Dans l'encodage sinusoïdal, que fait la paire i = 0 quand on passe d'une position à la suivante ?",
+    choix: ["Elle ne bouge pas", "Elle tourne d'un radian", "Elle tourne de 0,01 radian", "Elle double"],
+    bonne: 1,
+    explication: "Sa vitesse vaut 1/10000⁰ = 1 radian par position : c'est la roue la plus rapide."
+  },
+  {
+    question: "Quel est le défaut principal d'un encodage positionnel appris ?",
+    choix: ["Il donne de mauvais résultats", "Il n'a aucun vecteur pour les positions au-delà de sa longueur maximale", "Il est impossible à entraîner", "Il change le sens des mots"],
+    bonne: 1,
+    explication: "On apprend un vecteur par position jusqu'à une longueur fixée ; au-delà, il n'existe tout simplement pas."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comparez l'encodage positionnel sinusoïdal et l'encodage appris.">
+
+Tous deux ajoutent au vecteur de chaque token un vecteur qui ne dépend que de sa position, pour briser l'insensibilité de la self-attention à l'ordre. Le sinusoïdal n'a aucun paramètre : chaque paire de coordonnées est un sinus et un cosinus de fréquence décroissante, et un décalage de $k$ positions s'écrit comme une rotation qui ne dépend que de $k$, ce qui facilite en principe le raisonnement sur les positions relatives et donne des valeurs pour toute position. L'appris est une table de vecteurs entraînée avec le modèle : flexible, mais limitée à la longueur maximale prévue. Dans le paper original, les deux donnaient des résultats presque identiques. Une alternative est d'encoder la position directement dans l'attention, comme RoPE, que LLaMA utilise à la place des encodages absolus.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "encodage positionnel", en: "positional encoding", definition: "Vecteur ajouté à celui de chaque token, qui ne dépend que de sa position dans la séquence." },
+  { fr: "encodage sinusoïdal", en: "sinusoidal encoding", definition: "Encodage positionnel fixe, fait de paires (sinus, cosinus) de fréquences décroissantes." },
+  { fr: "encodage appris", en: "learned positional embedding", definition: "Table d'un vecteur par position, entraînée avec le modèle, limitée à une longueur maximale." },
+  { fr: "position relative", en: "relative position", definition: "Écart entre deux positions, par opposition au rang absolu de chaque token." }
+]} />
