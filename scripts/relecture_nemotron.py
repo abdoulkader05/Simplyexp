@@ -216,8 +216,8 @@ def main():
     resultats = []
     with ThreadPoolExecutor(max_workers=max(1, args.paralleles)) as pool:
         for fid, avis in pool.map(lambda c: relire(client, args.modele, c, concepts), chemins):
-            (SORTIE / f"{fid}.json").write_text(json.dumps(avis, ensure_ascii=False, indent=2), "utf-8")
-            (SORTIE / f"{fid}.md").write_text(en_markdown(avis), "utf-8")
+            (SORTIE / f"{fid}.json").write_text(json.dumps(avis, ensure_ascii=False, indent=2), "utf-8", newline="\n")
+            (SORTIE / f"{fid}.md").write_text(en_markdown(avis), "utf-8", newline="\n")
             resultats.append(avis)
             if "_erreur" in avis:
                 print(f"✗ {fid} : {avis['_erreur'][:120]}")
@@ -226,7 +226,7 @@ def main():
                 print(f"{'✓' if avis.get('verdict') == 'pret' else '•'} {fid} : {avis.get('verdict')} | " + " ".join(f"{k[:5]} {n.get(k)}" for k in CRITERES)
                       + f" | {len(avis.get('erreurs_possibles', []))} erreur(s) possible(s)")
     if len(resultats) > 1:
-        (SORTIE / "synthese.md").write_text(synthese(resultats), "utf-8")
+        (SORTIE / "synthese.md").write_text(synthese(resultats), "utf-8", newline="\n")
         print(f"→ {SORTIE.relative_to(RACINE) / 'synthese.md'}")
     sys.exit(1 if any("_erreur" in a for a in resultats) else 0)
 
