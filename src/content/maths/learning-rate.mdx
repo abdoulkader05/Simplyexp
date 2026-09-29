@@ -14,7 +14,7 @@ sources:
   - "Vaswani et al., « Attention Is All You Need », 2017 — https://arxiv.org/abs/1706.03762 — section 5.3 (formule du pas avec échauffement, warmup_steps = 4000) et section 3 (d_model = 512)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -126,25 +126,33 @@ Avec $\eta = 0{,}5$, le premier pas tombe pile au fond : $w_1 = 0$. Entre 0,05 e
 
 ## Entraîne-toi
 
-**Exercice 1.** Pour $f(w) = 3w^2$ (courbure $c = 6$), quelles valeurs de $\eta$ font converger la descente ? Quelle valeur arrive au fond en un pas ?
+<Exercice titre="Trouver la bonne plage" niveau="facile" reponse={0.1667} tolerance={0.002}>
 
-<Depliable titre="Corrigé">
+Pour $f(w) = 3w^2$ (courbure $c = 6$), quelles valeurs de $\eta$ font converger la descente ? Quelle valeur arrive au fond en un pas ? Entre la valeur de $\eta$ qui arrive au fond en un pas.
+
+<div slot="solution">
 
 Il faut $0 < \eta < 2/6 \approx 0{,}333$. En un pas : $\eta = 1/6 \approx 0{,}167$, car alors $1 - 6\eta = 0$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Avec $f(w) = w^2$, $w_0 = 1{,}5$ et $\eta = 0{,}9$, calcule $w_1$ et $w_2$, puis le nombre de pas pour que $|w_t| < 0{,}01$.
+<Exercice titre="Le zigzag qui traîne" niveau="moyen" reponse={23} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Avec $f(w) = w^2$, $w_0 = 1{,}5$ et $\eta = 0{,}9$, calcule $w_1$ et $w_2$, puis le nombre de pas pour que $|w_t| < 0{,}01$. Entre le nombre de pas.
+
+<div slot="solution">
 
 Facteur $1 - 1{,}8 = -0{,}8$. $w_1 = -1{,}2$ et $w_2 = 0{,}96$. Il faut $1{,}5 \times 0{,}8^t < 0{,}01$, soit $0{,}8^t < 1/150$, donc $t > \ln 150 / \ln 1{,}25 \approx 22{,}5$ : 23 pas. C'est aussi lent qu'avec $\eta = 0{,}1$, dont le facteur 0,8 a la même valeur absolue.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** La formule du Transformer est $\eta = d^{-0{,}5} \min\big(s^{-0{,}5},\ s \cdot 4000^{-1{,}5}\big)$, où $s$ est le numéro du pas et $d = 512$ la dimension du modèle de base. Calcule $\eta$ pour $s = 1\,000$, $s = 4\,000$ et $s = 16\,000$.
+<Exercice titre="Le calendrier du Transformer" niveau="defi" reponse={0.000699} tolerance={0.000005}>
 
-<Depliable titre="Corrigé">
+La formule du Transformer est $\eta = d^{-0{,}5} \min\big(s^{-0{,}5},\ s \cdot 4000^{-1{,}5}\big)$, où $s$ est le numéro du pas et $d = 512$ la dimension du modèle de base. Calcule $\eta$ pour $s = 1\,000$, $s = 4\,000$ et $s = 16\,000$. Entre la valeur de $\eta$ au pas $s = 4\,000$.
+
+<div slot="solution">
 
 $512^{-0{,}5} \approx 0{,}044\,19$ et $4000^{-1{,}5} \approx 3{,}953 \times 10^{-6}$.
 
@@ -152,7 +160,8 @@ $512^{-0{,}5} \approx 0{,}044\,19$ et $4000^{-1{,}5} \approx 3{,}953 \times 10^{
 - $s = 4\,000$ : les deux termes valent $0{,}015\,8$, donc $\eta \approx 6{,}99 \times 10^{-4}$, le maximum.
 - $s = 16\,000$ : $\min(0{,}007\,91\,;\,0{,}063\,2) = 0{,}007\,91$, donc $\eta \approx 3{,}49 \times 10^{-4}$, la moitié du pic.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
