@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.2.5 (dépendances à long terme, puissances d'une matrice) ; chapitre 10, section 10.11.1 (écrêtage du gradient)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -94,15 +94,52 @@ En répétant de $k = L$ jusqu'à $k = 2$, on obtient le produit annoncé.
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : avec le facteur 0,25 (sigmoïde), à partir de combien de couches la première reçoit-elle un gradient mille fois plus petit que la dernière ? Puis règle le facteur à 0,9, à 1 et à 1,1 pour 40 couches.
+<Exercice titre="Le seuil des mille" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Avec le facteur 0,25 (sigmoïde), à partir de combien de couches la première reçoit-elle un gradient mille fois plus petit que la dernière ? Puis règle le facteur à 0,9, à 1 et à 1,1 pour 40 couches.
+
+<div slot="solution">
 
 Avec 0,25, il suffit de 6 couches : $0{,}25^5 \approx 0{,}001$. Au-delà, les barres de gauche passent au rouge. Avec 40 couches, la première reçoit environ $3 \times 10^{-24}$ fois le gradient de la dernière, bien en dessous du bas de l'échelle.
 
 Avec 0,9 et 40 couches, la première couche reçoit encore environ 1,6 % du gradient : c'est faible mais utilisable. Avec 1, toutes les barres sont égales : c'est l'équilibre parfait, que les bonnes méthodes cherchent à approcher. Avec 1,1, le gradient de la première couche est environ 41 fois trop grand. Tout l'enjeu est de garder le facteur proche de 1, couche après couche.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le réseau qui n'apprend plus par le bas" niveau="moyen" reponse={0.0198} tolerance={0.0005}>
+
+Un réseau de 12 couches utilise des ReLU, toutes actives (pente 1), mais ses poids ont été initialisés trop petits : chaque couche multiplie le gradient par $w = 0{,}7$. Quelle fraction du gradient de la dernière couche la première reçoit-elle ? Si toutes les couches ont le même *learning rate*, combien de fois plus lentement la première couche bouge-t-elle ?
+
+<div slot="indice">
+
+Entre la dernière couche et la première, on traverse $L - 1 = 11$ facteurs.
+
+</div>
+<div slot="solution">
+
+$0{,}7^{11} \approx 0{,}019\,8$ : environ 2 % du gradient. La première couche bouge donc environ $1 / 0{,}019\,8 \approx 51$ fois plus lentement que la dernière. Les couches du bas, celles qui voient les données brutes, apprennent à peine : le réseau se comporte comme s'il était beaucoup moins profond. La ReLU ne suffit pas, il faut aussi des poids d'une bonne échelle.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le facteur minimal pour 50 couches" niveau="defi" reponse={0.954} tolerance={0.001}>
+
+Tu veux construire un réseau de 50 couches dans lequel la première couche reçoit **au moins 10 %** du gradient de la dernière. Tous les facteurs sont égaux à $a$, avec $a < 1$. Quelle est la plus petite valeur de $a$ acceptable ? Que t'apprend ce résultat ?
+
+<div slot="indice">
+
+Il faut $a^{49} \geq 0{,}1$. Prends le logarithme, ou la racine 49e.
+
+</div>
+<div slot="solution">
+
+$a^{49} \geq 0{,}1 \iff a \geq 0{,}1^{1/49} = e^{\ln(0{,}1)/49} \approx e^{-0{,}047} \approx 0{,}954$.
+
+Vérification : $0{,}954^{49} \approx 0{,}0995$, juste à la limite, alors que $0{,}95^{49} \approx 0{,}081$ ne suffit déjà plus. Une marge de moins de 5 % sous 1, à chaque couche, suffit à perdre 90 % du signal sur 50 couches. Aucun réglage manuel ne tient une telle précision : c'est pourquoi on a inventé des architectures qui transportent le gradient presque sans le multiplier, comme les [connexions résiduelles](/concepts/connexions-residuelles/).
+
+</div>
+</Exercice>
 
 ## En code
 
