@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), fonctions de perte"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -128,29 +128,38 @@ Pour $w = 110$, la perte vaut 20 225 ; pour $w = 163$, environ 19 655. Les deux 
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule la perte MSE du tarif $w = 125$ sur les quatre trajets.
+<Exercice titre="La perte d’un autre tarif" niveau="facile" reponse={4531.25} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Calcule la perte MSE du tarif $w = 125$ sur les quatre trajets.
+
+<div slot="solution">
 
 Prédictions : 250, 500, 625 et 1 000. Écarts : $-50$, 0, $-75$ et $-100$. Carrés : 2 500, 0, 5 625 et 10 000. Perte : $18\,125 / 4 = 4\,531{,}25$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Kofi ajoute un cinquième trajet : 3 km pour 450 F. Calcule le nouveau meilleur tarif avec la formule $w^* = S_{xy} / S_{xx}$.
+<Exercice titre="Un cinquième trajet" niveau="moyen" reponse={137.7} tolerance={0.002} unite="F par km">
 
-<Depliable titre="Corrigé">
+Kofi ajoute un cinquième trajet : 3 km pour 450 F. Calcule le nouveau meilleur tarif avec la formule $w^* = S_{xy} / S_{xx}$.
+
+<div slot="solution">
 
 $S_{xx} = 109 + 9 = 118$ et $S_{xy} = 14\,900 + 1\,350 = 16\,250$. Donc $w^* = 16\,250 / 118 \approx 137{,}7$ F par km. Le nouveau trajet coûte 150 F par km, un peu plus que la moyenne : le tarif optimal monte légèrement.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** On remplace les carrés par des valeurs absolues : $\frac{1}{n} \sum |\hat{y}_i - y_i|$. Calcule cette perte pour $w = 100$ et $w = 150$. Quel tarif gagne ? Qu'est-ce qui change par rapport à la MSE ?
+<Exercice titre="Et si on comptait en valeur absolue ?" niveau="defi">
 
-<Depliable titre="Corrigé">
+On remplace les carrés par des valeurs absolues : $\frac{1}{n} \sum |\hat{y}_i - y_i|$. Calcule cette perte pour $w = 100$ et $w = 150$. Quel tarif gagne ? Qu'est-ce qui change par rapport à la MSE ?
+
+<div slot="solution">
 
 Pour $w = 100$ : $(100 + 100 + 200 + 300) / 4 = 175$. Pour $w = 150$ : $(0 + 100 + 50 + 100) / 4 = 62{,}5$. Le tarif à 150 gagne encore. Cette perte, l'erreur absolue moyenne, s'exprime en francs et pénalise moins les grosses erreurs : l'écart de 300 compte trois fois un écart de 100, contre neuf fois avec les carrés.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
