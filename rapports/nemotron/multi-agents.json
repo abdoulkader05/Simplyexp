@@ -1,0 +1,86 @@
+{
+  "questions_etudiant": [
+    {
+      "passage": "un coût de coordination c par sous-agent (écrire sa consigne, lire et fusionner son rapport)",
+      "question": "Ce coût c est-il séquentiel ? L'orchestrateur doit-il écrire les consignes les unes après les autres, ou peut-il les envoyer en parallèle ?"
+    },
+    {
+      "passage": "plan = await boucle_agent(systeme=\"Découpe en sous-tâches indépendantes, en JSON.\", tache=demande)",
+      "question": "Quelle structure exacte doit avoir le JSON retourné par l'orchestrateur pour que plan[\"consignes\"] fonctionne ?"
+    },
+    {
+      "passage": "def sous_agent(consigne):\n    time.sleep(0.2)",
+      "question": "Pourquoi le code plante-t-il avec NameError: name 'time' is not defined ?"
+    }
+  ],
+  "notes": {
+    "comprehension": 4,
+    "completude": 4,
+    "exactitude": 3,
+    "exercices": 5,
+    "langue": 5
+  },
+  "verdict": "a_retoucher",
+  "resume": "La fiche est globalement claire et pédagogique, avec de bons exercices et une analogie efficace. Cependant, l'exemple de code contient une erreur (import manquant) et la formule d'accélération gagnerait à expliciter l'hypothèse de coordination séquentielle. Quelques précisions sur la structure du plan JSON et la vérification des rapports seraient utiles.",
+  "points_forts": [
+    "Analogie claire (rédactrice en chef/journalistes)",
+    "Formule d'accélération bien dérivée et illustrée",
+    "Exercices progressifs et corrigés justes",
+    "Exemple concret avec Anthropic"
+  ],
+  "blocages": [
+    {
+      "passage": "from concurrent.futures import ThreadPoolExecutor\n\nFICHES = { ... }\ndef sous_agent(consigne):\n    time.sleep(0.2)",
+      "probleme": "Le module 'time' n'est pas importé, ce qui provoquera une erreur NameError à l'exécution.",
+      "suggestion": "Ajouter 'import time' en haut du script."
+    },
+    {
+      "passage": "un coût de coordination c par sous-agent (écrire sa consigne, lire et fusionner son rapport). L'orchestrateur doit coordonner chaque sous-agent, ce qui ajoute c n",
+      "probleme": "La formule suppose que la coordination est entièrement séquentielle (c n). Or, l'envoi des consignes et la lecture des rapports peuvent être partiellement parallélisés. Cette hypothèse n'est pas explicitée.",
+      "suggestion": "Préciser que c n représente un temps de coordination séquentielle, et noter que dans la pratique une partie peut être chevauchée."
+    },
+    {
+      "passage": "plan = await boucle_agent(systeme=\"Découpe en sous-tâches indépendantes, en JSON.\", tache=demande)\nrapports = await asyncio.gather(*(lancer_sous_agent(c) for c in plan[\"consignes\"]))",
+      "probleme": "La structure attendue du JSON 'plan' (clé 'consignes') n'est pas documentée. Un étudiant ne sait pas quel format produire.",
+      "suggestion": "Donner un exemple de JSON attendu, par ex. {'consignes': [{'produit': 'A', 'format': '...'}, ...]}."
+    }
+  ],
+  "manques": [
+    {
+      "notion": "Mécanisme de vérification et de relance des sous-tâches",
+      "pourquoi": "La fiche mentionne que l'orchestrateur 'vérifie les manques et relance une sous-tâche si besoin', mais ne donne aucune indication sur la façon de détecter un manque ni sur la boucle de correction. C'est pourtant une étape clé du schéma orchestrateur-workers."
+    }
+  ],
+  "erreurs_possibles": [
+    {
+      "passage": "def sous_agent(consigne):\n    time.sleep(0.2)",
+      "probleme": "Import manquant du module time.",
+      "correction": "Ajouter 'import time' avant la fonction."
+    }
+  ],
+  "exercices": [
+    {
+      "exercice": "Paralléliser ou pas ?",
+      "avis": "Excellent exercice d'intuition, énoncé clair, corrigé juste et bien expliqué."
+    },
+    {
+      "exercice": "L'accélération d'une étude de marché",
+      "avis": "Application directe de la formule, nombres simples, corrigé exact. Bon niveau moyen."
+    },
+    {
+      "exercice": "Combien de sous-agents pour aller 4 fois plus vite ?",
+      "avis": "Exercice de défi bien calibré : résolution d'inéquation, vérification, et question sur le plafond. Corrigé complet et rigoureux."
+    }
+  ],
+  "priorites": [
+    "Ajouter 'import time' dans l'exemple de code pour le rendre exécutable.",
+    "Expliciter l'hypothèse de coordination séquentielle dans la dérivation de la formule d'accélération.",
+    "Documenter le format JSON attendu pour le plan de l'orchestrateur dans le pseudo-code asynchrone."
+  ],
+  "_meta": {
+    "fiche": "multi-agents",
+    "modele": "nvidia/nemotron-3-ultra-550b-a55b",
+    "date": "2026-09-29",
+    "duree_s": 280.5
+  }
+}

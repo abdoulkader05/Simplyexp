@@ -1,0 +1,100 @@
+{
+  "questions_etudiant": [
+    {
+      "passage": "Avant 2022, on étudiait deux familles à part. D'un côté le chain-of-thought",
+      "question": "C'est quoi exactement le chain-of-thought ? Le prérequis ne cite que la boucle d'agent, pas cette méthode de raisonnement."
+    },
+    {
+      "passage": "appris en contexte à partir d'un ou deux exemples complets donnés dans le prompt",
+      "question": "Que veut dire « appris en contexte » ? Est-ce du few-shot ? Faut-il avoir vu la fiche sur l'apprentissage en contexte ?"
+    },
+    {
+      "passage": "La formule des probabilités totales, appliquée au secours ... avec la probabilité conditionnelle",
+      "question": "Je ne connais pas la formule des probabilités totales ni la notation P(S|A). Le prérequis ne mentionne pas les maths proba. Est-ce bloquant pour la suite ?"
+    },
+    {
+      "passage": "Le carnet d'un agent ReAct n'est pas une trace de ses « vraies » pensées. C'est du texte qu'il génère parce qu'on lui a montré ce format",
+      "question": "Si ce ne sont pas ses vraies pensées, pourquoi ça marche ? Comment du texte « factice » peut-il guider l'action suivante de façon fiable ?"
+    },
+    {
+      "passage": "modele_factice(trace, tour) ... return SCRIPT[tour]",
+      "question": "La fonction prend `trace` en argument mais ne l'utilise pas. Un vrai modèle lirait la trace pour décider la suite. Pourquoi cet exemple ne le montre-t-il pas ?"
+    },
+    {
+      "passage": "stop_sequences=[\"Observation :\"]",
+      "question": "Pourquoi arrêter *avant* « Observation » ? Si le modèle s'arrête là, qui écrit « Observation : » dans la trace finale ?"
+    }
+  ],
+  "notes": {
+    "comprehension": 3,
+    "completude": 4,
+    "exactitude": 5,
+    "exercices": 4,
+    "langue": 5
+  },
+  "verdict": "a_retoucher",
+  "resume": "La fiche est solide sur le fond (résultats paper exacts, code fonctionnel, exercices progressifs) mais présente des sauts de compréhension par rapport aux prérequis déclarés : chain-of-thought, apprentissage en contexte et probabilités conditionnelles sont utilisés sans être définis ni prérequis. L'analogie du détective introduit une confusion (pensées « pas vraies ») qui n'est résolue que plus loin. Le code factice masque le mécanisme réel d'utilisation de l'historique.",
+  "points_forts": [
+    "Trajectoire ReAct pas à pas (PasAPas) très claire pour visualiser l'alternance pensée/action/observation.",
+    "Analyse d'erreurs du paper (hallucination vs raisonnement) bien exploitée pour justifier la combinaison ReAct + CoT.",
+    "Exercices bien calibrés (facile → défi) avec corrigés explicites et calculs vérifiés."
+  ],
+  "blocages": [
+    {
+      "passage": "appris en contexte à partir d'un ou deux exemples complets donnés dans le prompt",
+      "probleme": "Terme « en contexte » (in-context learning / few-shot) utilisé sans définition ni lien vers fiche prérequise. L'étudiant qui ne connaît que la boucle d'agent ne sait pas comment le modèle « apprend » le format.",
+      "suggestion": "Ajouter une phrase : « Cela s'appelle de l'apprentissage en contexte (few-shot) : on donne 1 ou 2 exemples complets dans le prompt, et le modèle imite le format. » ou lister la fiche correspondante en prérequis."
+    },
+    {
+      "passage": "La formule des probabilités totales, appliquée au secours ... P(S | A) ... probabilité conditionnelle",
+      "probleme": "La démonstration suppose la maîtrise des notations de probabilité conditionnelle et de la formule des probabilités totales, absentes des prérequis (qui ne citent que la boucle d'agent).",
+      "suggestion": "Soit ajouter un prérequis « Notions de base de probabilités conditionnelles », soit déplacer la preuve dans un dépliable « Pour aller plus loin » et garder seulement la formule intuitive P = a + (1-a)b dans le corps principal."
+    },
+    {
+      "passage": "modele_factice(trace, tour) ... return SCRIPT[tour]",
+      "probleme": "Le code montre une fonction qui ignore son argument `trace`, alors que tout le concept ReAct repose sur l'accumulation de l'historique dans le contexte. L'étudiant peut croire que le modèle n'a pas besoin de relire la trace.",
+      "suggestion": "Modifier le commentaire : « Ce modèle factice suit un script prédéfini pour l'exemple ; un vrai LLM lirait `trace` pour décider l'action suivante. » Ou faire une version simplifiée qui concatène `trace` au prompt."
+    },
+    {
+      "passage": "Le carnet d'un agent ReAct n'est pas une trace de ses « vraies » pensées. C'est du texte qu'il génère parce qu'on lui a montré ce format",
+      "probleme": "Affirmation forte (« pas les vraies pensées ») donnée avant d'expliquer *pourquoi* ça aide (structure, décomposition, ancrage). Risque de décrédibiliser la méthode trop tôt.",
+      "suggestion": "Nuancer : « Ce texte n'est pas une fenêtre directe sur les poids du réseau, mais il structure le raisonnement et force l'alternance avec l'extérieur, ce qui améliore la fiabilité. »"
+    }
+  ],
+  "manques": [
+    {
+      "notion": "Chain-of-Thought (CoT)",
+      "pourquoi": "Cité comme méthode de comparaison centrale tout au long de la fiche (résultats, secours, pièges), mais absent des prérequis et non défini dans le texte (seul un lien hypertexte est présent)."
+    },
+    {
+      "notion": "Gestion d'erreur d'outil (action invalide, API down, page introuvable)",
+      "pourquoi": "La boucle `react` suppose que `re.search` trouve toujours l'action et que `chercher` renvoie une chaîne. En vrai, l'agent doit gérer formats invalides, timeouts, résultats vides. C'est indispensable pour la fiche suivante sur la planification/robustesse."
+    }
+  ],
+  "erreurs_possibles": [],
+  "exercices": [
+    {
+      "exercice": "Étiqueter une trace (facile)",
+      "avis": "Bon exercice de classification. Ligne 1 (« Le vol direct est complet... ») suppose une observation antérieure non fournie ; préciser « Après avoir appris que le vol direct est complet » éviterait la question « d'où vient cette info ? »."
+    },
+    {
+      "exercice": "Le bon secours (moyen)",
+      "avis": "Application directe de la formule, nombres choisis pour calcul mental aisé. Indice et solution clairs. Rien à redire."
+    },
+    {
+      "exercice": "Dans quel ordre ? (défi)",
+      "avis": "Excellent exercice de comparaison d'ordres avec asymétrie des taux de rattrapage (b différents). Montre que l'ordre compte et que le coût computationnel est un facteur réel (mentionné en solution)."
+    }
+  ],
+  "priorites": [
+    "Aligner les prérequis : ajouter explicitement Chain-of-Thought et Apprentissage en contexte (few-shot), ou les définir en une phrase dans le texte.",
+    "Rendre la preuve probabiliste optionnelle (dépliable « maths ») ou ajouter un prérequis probabilités, pour ne pas bloquer un étudiant niveau 5/5 en IA mais pas en maths.",
+    "Corriger le code factice pour qu'il utilise visiblement la `trace` (même si c'est un script), ou commenter explicitement la différence avec un vrai LLM."
+  ],
+  "_meta": {
+    "fiche": "react-agent",
+    "modele": "nvidia/nemotron-3-ultra-550b-a55b",
+    "date": "2026-09-29",
+    "duree_s": 755.9
+  }
+}

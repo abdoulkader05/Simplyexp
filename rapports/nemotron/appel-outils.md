@@ -1,0 +1,41 @@
+# Relecture Nemotron — appel-outils
+_nvidia/nemotron-3-ultra-550b-a55b, 2026-09-29. Avis d'un modèle : chaque remarque est à vérifier dans la fiche avant d'agir._
+
+**Verdict : pret** · Compréhension 4/5 · Complétude 5/5 · Exactitude 5/5 · Exercices 5/5 · Langue 5/5
+
+La fiche est excellente : claire, complète, les calculs sont justes, les exercices progressifs et corrigés. Le seul frein à la compréhension est la dérivation de la formule Toolformer, qui suppose l'entropie croisée sur un token acquise ; un rappel d'une ligne la rendrait autonome. Le code jouet utilise `eval`, ce qui est pédagogiquement risqué même avec un avertissement.
+
+## Points forts
+- Analogie de la cheffe de cuisine très parlante pour distinguer modèle / application / outil.
+- Déroulé PasÀPas et code Python minimaliste qui rendent la boucle concrète.
+- Explication du critère Toolformer (L⁻ − L⁺) avec dérivation logarithmique et interprétation en ratio de probabilités.
+- Exercices bien calibrés (choix, calcul, rédaction d'appel) avec solutions chiffrées vérifiées.
+- Section « Pièges classiques » qui anticipe les idées fausses fréquentes.
+
+## Questions qu'un étudiant se poserait
+- « On note $L^+$ la perte, une entropie croisée, sur les tokens qui suivent » : C'est quoi l'entropie croisée pour un seul token ? Pourquoi $-\ln p$ ?
+- « $L^-$ la plus petite des pertes obtenues sans appel, ou avec l'appel mais sans son résultat » : Pourquoi on prend le minimum des deux ? À quoi ça sert de comparer avec « appel sans résultat » ?
+- « def calculatrice(expression): return eval(expression, {"__builtins__": {}}) » : C'est dangereux `eval` même dans un jouet ? Le modèle pourrait-il injecter du code ?
+- « le modèle, entraîné à suivre ce format grâce à l'instruction tuning, écrit un appel structuré » : Concrètement, à quoi ressemblent les données d'instruction tuning pour le function calling ? Y a-t-il des tokens spéciaux ?
+- « Si ce texte est faux ou piégé, elle ne peut pas le savoir. » : Comment l'application peut-elle se protéger contre un résultat d'outil malveillant (injection de prompt) ?
+
+## Où l'apprenant décroche
+- « On note $L^+$ la perte, une entropie croisée, sur les tokens qui suivent » : L'entropie croisée pour un token unique ($-\ln p$) n'est pas rappelée ; l'étudiant qui n'a pas lu la fiche maths associée ne comprendra pas d'où sortent les formules numériques. → Ajouter une phrase entre parenthèses : « (rappel : pour un token unique, l'entropie croisée vaut $-\ln p$ où $p$ est la probabilité du token réel) ».
+- « $L^-$ la plus petite des pertes obtenues sans appel, ou avec l'appel mais sans son résultat » : La justification (vérifier que c'est le résultat qui aide, pas l'écriture de l'appel) est cachée dans un <Depliable> ; beaucoup d'étudiants ne l'ouvriront pas et resteront sur un « pourquoi ? ». → Placer l'explication juste après la formule, ou ajouter un renvoi explicite : « (voir le dépliable « Ce que mesure vraiment L⁻ − L⁺ » pour le détail) ».
+- « def calculatrice(expression): return eval(expression, {"__builtins__": {}}) » : Même en jouet, `eval` sur une chaîne générée par le modèle est une faille de sécurité majeure et ne reflète pas le function calling réel (arguments structurés, pas code arbitraire). → Remplacer par un parseur sûr (ex. `operator` + `ast.literal_eval` pour une expression arithmétique simple) ou par une fonction `calculatrice(a, b, op)` prenant des arguments typés.
+- « Le modèle n'exécute jamais rien lui-même : il écrit des tokens qui décrivent une action. » : L'analogie dit « la cheffe ne voit jamais le marché, seulement le texte du résultat », mais deux lignes plus haut « elle remplit un bon de commande précis ». Le passage du bon de commande (JSON) au texte du résultat pourrait être plus explicite : le modèle émet du JSON, l'application le parse, exécute, et renvoie du texte. → Préciser dans l'analogie : « Le bon de commande est un JSON ; le commis (l'application) le lit, va au marché, et revient avec un ticket de caisse (texte) que la cheffe lit. »
+
+## Ce qui manque
+- **Format des données d'instruction tuning pour le function calling** : La fiche dit « entraîné à suivre ce format grâce à l'instruction tuning » mais ne montre pas à quoi ressemblent les exemples (rôle `tool_use`, tokens spéciaux, etc.). C'est une question naturelle après la section « Comment ça marche ».
+- **Appels d'outils parallèles (plusieurs tools dans un même tour)** : Les API actuelles (OpenAI, Anthropic) permettent plusieurs `tool_use` simultanés ; la fiche ne montre qu'un appel séquentiel. Utile pour la fiche suivante sur les agents.
+- **Gestion des erreurs d'outil (timeout, erreur HTTP, schéma invalide)** : La boucle `while True` du code suppose que l'outil répond toujours correctement. En production, il faut prévoir `try/except`, validation du schéma, et rétroaction d'erreur au modèle.
+
+## Exercices
+- *Outil ou pas outil ?* : Très bon exercice de discrimination. Les quatre cas couvrent connaissance interne, calcul exact, info fraîche, action. Solution claire et justifiée.
+- *Le filtre de Toolformer* : Application directe de la formule. Le calcul $L^- - L^+ = \ln(16) \approx 2,77$ est correct. L'indice guide bien vers le ratio de probabilités.
+- *Le convertisseur de devises* : Exercice complet : rédaction de l'appel JSON (choix des codes ISO) + calcul numérique. Le résultat $32\,797,85$ FCFA est exact. Bonne illustration de la division du travail modèle/outil.
+
+## Priorités
+1. Ajouter le rappel de la formule d'entropie croisée ($-\ln p$) juste avant l'exemple numérique Toolformer.
+1. Remplacer `eval` dans le code jouet par une fonction sûre à arguments structurés (ex. `calculatrice(a, b, op)`).
+1. Sortir l'explication du « minimum pour $L^-$ » du dépliable pour la mettre en vis-à-vis de la définition de $L^-$.

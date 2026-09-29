@@ -1,0 +1,99 @@
+{
+  "questions_etudiant": [
+    {
+      "passage": "les poids α valent tous 1 dans le paper",
+      "question": "Pourquoi introduire des poids α s'ils sont tous fixés à 1 ? Sont-ils censés être modifiés en pratique ?"
+    },
+    {
+      "passage": "x' = (x - x_min) / (x_max - x_min)",
+      "question": "Que se passe-t-il si tous les souvenirs ont la même valeur pour un critère (x_max = x_min) ? La division par zéro n'est-elle pas un problème ?"
+    },
+    {
+      "passage": "Depuis zéro : un flux de souvenirs, des embeddings jouets...",
+      "question": "Le code utilise `np.array`, `np.linalg.norm`, `np.argsort` mais n'importe pas `numpy`. Est-ce une omission ou l'environnement le fournit-il automatiquement ?"
+    },
+    {
+      "passage": "Quelle est sa récence brute, avec le facteur 0,995 par heure ?",
+      "question": "Que signifie « brute » ici ? Est-ce la valeur avant normalisation min-max ?"
+    },
+    {
+      "passage": "L'importance va de 1 à 10, la récence de 0 à 1 : sans normalisation, un critère écraserait les autres.",
+      "question": "La pertinence (cosinus) va de -1 à 1. La normalisation min-max la ramène-t-elle bien entre 0 et 1 ? Que deviennent les similarités négatives ?"
+    }
+  ],
+  "notes": {
+    "comprehension": 4,
+    "completude": 4,
+    "exactitude": 4,
+    "exercices": 5,
+    "langue": 5
+  },
+  "verdict": "a_retoucher",
+  "resume": "La fiche est claire, bien structurée et pédagogiquement solide. Elle tient ses promesses sur la mémoire de travail, la mémoire longue et la récupération. Quelques retouches mineures sont nécessaires : ajouter l'import numpy dans le bloc de code, préciser le rôle des poids α comme hyperparamètres, et gérer le cas limite de la normalisation min-max. Les exercices sont excellents et progressifs.",
+  "points_forts": [
+    "Analogie de l'infirmière très parlante pour distinguer mémoire de travail et mémoire longue.",
+    "Explication détaillée de la formule de score (récence, importance, pertinence) avec normalisation et demi-vie.",
+    "Exercices bien calibrés (facile, moyen, défi) testant la compréhension et non la mémoire, avec corrigés exacts.",
+    "Bloc « Pièges classiques » qui anticipe les idées fausses fréquentes.",
+    "Glossaire et quiz de vérification en fin de fiche."
+  ],
+  "blocages": [
+    {
+      "passage": "Depuis zéro : un flux de souvenirs, des embeddings jouets (des sacs de mots) et le score récence + importance + pertinence avec normalisation min-max. Les valeurs obtenues diffèrent de l'animation, dont les similarités étaient inventées.\n```python\nsouvenirs = [\n    ...\n```",
+      "probleme": "Le code utilise `np.array`, `np.linalg.norm`, `np.argsort` sans importer `numpy`. Un étudiant qui copie-colle le code obtiendra une erreur `NameError`.",
+      "suggestion": "Ajouter `import numpy as np` en première ligne du bloc de code."
+    },
+    {
+      "passage": "où chaque composante est ramenée entre 0 et 1 sur l'ensemble des souvenirs (normalisation min-max), et les poids α valent tous 1 dans le paper.",
+      "probleme": "Les poids α sont présentés comme des constantes fixées à 1, alors qu'ils sont des hyperparamètres qu'on peut régler pour favoriser un critère. L'étudiant pourrait croire qu'ils ne sont pas modifiables.",
+      "suggestion": "Préciser : « Dans le paper original, les α sont tous fixés à 1, mais en pratique ce sont des hyperparamètres qu'on peut ajuster pour donner plus de poids à la récence, à l'importance ou à la pertinence selon l'application. »"
+    },
+    {
+      "passage": "x' = (x - x_min) / (x_max - x_min)",
+      "probleme": "Si tous les souvenirs candidats ont la même valeur pour un critère (x_max = x_min), la formule divise par zéro. Ce cas limite n'est pas mentionné.",
+      "suggestion": "Ajouter une note : « En pratique, si x_max = x_min (tous les souvenirs ont la même valeur), on peut mettre la composante normalisée à 0,5 ou ajouter un epsilon au dénominateur. »"
+    }
+  ],
+  "manques": [
+    {
+      "notion": "Comment l'importance est-elle concrètement demandée au modèle ?",
+      "pourquoi": "La fiche dit « demandée au modèle au moment où le souvenir est écrit » mais ne donne pas d'exemple de prompt ni de méthode. Pour un étudiant qui voudrait implémenter, ce point est flou."
+    },
+    {
+      "notion": "Choix du nombre k de souvenirs rappelés et réglage des α",
+      "pourquoi": "La fiche mentionne que k et α décident de ce que l'agent « sait », mais ne donne aucune heuristique pour les choisir (validation, grille de recherche, métriques). C'est une omission pratique importante."
+    }
+  ],
+  "erreurs_possibles": [
+    {
+      "passage": "Depuis zéro : un flux de souvenirs... ```python\nsouvenirs = [\n    ...\n```",
+      "probleme": "Import manquant : `numpy` n'est pas importé.",
+      "correction": "Ajouter `import numpy as np` au début du bloc."
+    }
+  ],
+  "exercices": [
+    {
+      "exercice": "Quoi retenir, et où ? (facile)",
+      "avis": "Excellent exercice de classification qui fait réfléchir à la durée de vie de l'information et à la sensibilité des données. Le corrigé est clair et pédagogique."
+    },
+    {
+      "exercice": "Un jour plus tard (moyen)",
+      "avis": "Calcul direct d'application de la formule de récence. Le corrigé donne la valeur exacte (0,887) et rappelle la demi-vie. Bien calibré."
+    },
+    {
+      "exercice": "Le rappel et la facture (défi)",
+      "avis": "Exercice complet : calcul de rappel@k et comparaison de coût en tokens. Teste la compréhension du compromis rappel/coût. Corrigé exact et commentaire pertinent sur les leviers d'amélioration."
+    }
+  ],
+  "priorites": [
+    "Ajouter `import numpy as np` dans le bloc de code « Depuis zéro » pour le rendre exécutable.",
+    "Clarifier que les poids α sont des hyperparamètres ajustables, pas des constantes figées à 1.",
+    "Signaler le cas limite de division par zéro dans la normalisation min-max et proposer une parade."
+  ],
+  "_meta": {
+    "fiche": "memoire-agent",
+    "modele": "nvidia/nemotron-3-ultra-550b-a55b",
+    "date": "2026-09-29",
+    "duree_s": 242.4
+  }
+}

@@ -99,7 +99,9 @@ def texte_pour_modele(chemin, concepts):
     brut = chemin.read_text("utf-8")
     _, fm, corps = brut.split("---", 2)
     meta = yaml.safe_load(fm)
-    corps = re.sub(r"^import .*$", "", corps, flags=re.M)
+    # Seules les lignes d'import MDX, avant le premier titre, sont retirées : celles des blocs de code restent.
+    tete, sep, suite = corps.partition("\n## ")
+    corps = re.sub(r"^import .*$", "", tete, flags=re.M) + sep + suite
     # Les listes de questions du quiz sont lisibles telles quelles ; on retire le bruit des slots.
     corps = re.sub(r'<div slot="(indice|solution)">', lambda m: f"[{m.group(1).upper()}]", corps)
     corps = corps.replace("</div>", "")
