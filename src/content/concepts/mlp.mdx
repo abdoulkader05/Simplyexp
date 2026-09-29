@@ -14,7 +14,7 @@ sources:
   - "Kaplan et al., « Scaling Laws for Neural Language Models », 2020 — https://arxiv.org/abs/2001.08361 — section 2.1, équation 2.1 et tableau 1 (paramètres de l'attention et du feed-forward)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -118,15 +118,58 @@ Une seule couche cachée de neurones ReLU essaie d'imiter la courbe de fréquent
   legende="Chaque neurone ReLU ajoute un coude à la ligne brisée."
 />
 
-Consigne : combien de neurones faut-il pour que l'écart descende sous 0,1 ? Sous 0,01 ? L'écart baisse-t-il toujours quand on ajoute un neurone ?
+<Exercice titre="Combien de coudes pour coller à la courbe ?" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation : combien de neurones faut-il pour que l'écart descende sous 0,1 ? Sous 0,01 ? L'écart baisse-t-il toujours quand on ajoute un neurone ?
+
+<div slot="solution">
 
 Avec 1 neurone, la sortie est une droite (écart environ 7,8). Avec 6 neurones, on passe à environ 0,13, avec 8 à 0,07 : sous 0,1. Avec 12, l'écart vaut 0,014, et il faut 24 neurones pour descendre sous 0,01 (environ 0,001).
 
 L'écart ne baisse pas toujours : il vaut 0,95 avec 3 neurones et 1,15 avec 4. Les coudes tombent à des heures régulières, et avec 4 neurones, ils ratent le sommet du pic de 10 h. Placer les coudes au bon endroit, c'est justement ce que l'apprentissage fait, au lieu d'une grille régulière.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le lecteur de chiffres manuscrits" niveau="moyen" reponse={101770} tolerance={0}>
+
+Pour reconnaître un chiffre manuscrit, on découpe l'image en $28 \times 28$ pixels, qu'on range dans un vecteur d'entrée. Le MLP a une couche cachée de 128 neurones et une couche de sortie de 10 neurones, un par chiffre. Combien de paramètres (poids et biais) faut-il apprendre ?
+
+<div slot="indice">
+
+Chaque couche a une matrice de poids (nombre de sorties × nombre d'entrées) et un biais par neurone.
+
+</div>
+<div slot="solution">
+
+L'entrée a $28 \times 28 = 784$ coordonnées. Couche cachée : $\mathbf{W}_1$ a $128 \times 784 = 100\,352$ poids, plus 128 biais. Couche de sortie : $10 \times 128 = 1\,280$ poids, plus 10 biais. Total : $100\,352 + 128 + 1\,280 + 10 = 101\,770$ paramètres.
+
+Presque tout est dans la première couche : chaque neurone caché regarde les 784 pixels. C'est une des raisons pour lesquelles, sur des images plus grandes, on préfère des architectures qui partagent leurs poids.
+
+</div>
+</Exercice>
+
+<Exercice titre="Fabrique une bosse avec trois ReLU" niveau="defi" reponse={0.5} tolerance={0.001}>
+
+On combine trois neurones ReLU en une seule sortie : $g(x) = \mathrm{ReLU}(x) - 2\,\mathrm{ReLU}(x - 1) + \mathrm{ReLU}(x - 2)$. Calcule $g(-1)$, $g(0{,}5)$, $g(1)$, $g(1{,}5)$ et $g(3)$. Quelle forme dessine $g$ ? Indique la valeur de $g(1{,}5)$.
+
+<div slot="indice">
+
+Chaque ReLU vaut 0 tant que son argument est négatif. Découpe l'axe en quatre morceaux : avant 0, entre 0 et 1, entre 1 et 2, après 2.
+
+</div>
+<div slot="solution">
+
+- $g(-1) = 0$ : les trois ReLU sont éteintes.
+- $g(0{,}5) = 0{,}5$ : seule la première est allumée.
+- $g(1) = 1$.
+- $g(1{,}5) = 1{,}5 - 2 \times 0{,}5 + 0 = 0{,}5$.
+- $g(3) = 3 - 2 \times 2 + 1 = 0$ : les pentes $+1$, $-2$ et $+1$ s'annulent.
+
+$g$ dessine un **triangle** de sommet $(1\,;\,1)$, nul en dehors de $[0\,;\,2]$. Avec des triangles décalés et redimensionnés, on peut empiler des bosses où l'on veut : c'est l'idée de la démonstration ci-dessus, vue à la main.
+
+</div>
+</Exercice>
 
 ## En code
 
