@@ -1,0 +1,240 @@
+---
+id: in-context-learning
+type: concept
+titre: "Apprendre sans changer un seul poids : le pouvoir du prompt"
+sous_titre: "In-context learning, zero-shot et few-shot"
+domaine: llm
+niveau: 5
+prerequis: [pretraining]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Brown et al., « Language Models are Few-Shot Learners », 2020 — https://arxiv.org/abs/2005.14165 — résumé (GPT-3, 175 milliards de paramètres ; tâches et démonstrations données uniquement par du texte, sans mise à jour de gradient) et section 2 (définitions zero-shot, one-shot, few-shot ; K typiquement entre 10 et 100, autant que la fenêtre de contexte n_ctx = 2048 peut en contenir)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Après le [pré-entraînement](/concepts/pretraining/), un modèle de langage sait une chose : continuer un texte de façon plausible. Comment lui faire classer des avis clients, traduire une phrase ou extraire une date d'un courriel ? La réponse classique consiste à l'entraîner à nouveau sur des exemples de la tâche, par [fine-tuning](/concepts/fine-tuning/). Cela demande des données étiquetées, du calcul et une copie du modèle par tâche. En 2020, l'équipe d'OpenAI qui présente GPT-3 montre qu'un modèle de 175 milliards de paramètres peut faire beaucoup de ces tâches **sans aucune mise à jour de ses poids** : on lui décrit la tâche, on lui montre quelques exemples, le tout dans le texte d'entrée, et il continue dans le même sens.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On décrit la tâche et on montre quelques exemples résolus dans le prompt ; le modèle, qui ne fait que prédire la suite du texte, reproduit le motif sur la nouvelle question, sans qu'aucun poids ne change.
+</PhraseCle>
+
+## En image
+
+Pense à un stagiaire à qui l'on tend une pile de fiches de réclamation à trier.
+
+- Sans explication, il ne sait pas quoi faire des fiches : c'est le cas sans consigne.
+- Avec une consigne, « range-les en urgent ou pas urgent », il devine, mais son classement reste hésitant.
+- On lui montre trois fiches déjà triées : il voit aussitôt le format attendu et le critère, et il enchaîne.
+- Le soir, on reprend les fiches d'exemple. Le lendemain, avec une autre pile et sans exemples, il est revenu au point de départ.
+
+Là où l'image s'arrête : le stagiaire, lui, se souviendrait un peu de la veille. Le modèle n'apprend rien de durable : dès que les exemples sortent du prompt, il redevient exactement le même.
+
+## Comment ça marche
+
+Le prompt (*prompt*) est le texte donné en entrée au modèle. L'apprentissage en contexte (*in-context learning*) consiste à y placer la description de la tâche, et éventuellement des exemples résolus, avant la vraie question. Le paper de GPT-3 distingue trois cas :
+
+- **zero-shot** : seulement une consigne en langage naturel, sans aucun exemple ;
+- **one-shot** : la consigne et un seul exemple résolu ;
+- **few-shot** : la consigne et quelques exemples, des « démonstrations », le tout sans mise à jour des poids.
+
+Pourquoi est-ce que ça marche ? Le modèle calcule toujours la même chose : la loi du token suivant sachant tout le texte qui précède. Pendant le pré-entraînement, il a vu d'innombrables textes où un motif se répète (listes, tableaux, questions-réponses). Quand le prompt se termine par « Avis : … → », après trois lignes de la forme « Avis : … → étiquette », le token le plus probable est une étiquette du même genre. Fais défiler : les probabilités sont inventées pour l'illustration.
+
+<PasAPas rendu="icl-exemples" label="Le même modèle avec zéro, un et trois exemples dans le prompt">
+  <Etape etat="initial">
+    **Zero-shot.** Seule la consigne précède l'avis à classer. « positif » est le mot le plus probable, mais la moitié de la probabilité part vers d'autres suites : une phrase, un commentaire, une autre ligne.
+  </Etape>
+  <Etape etat="un">
+    **One-shot.** Un exemple résolu montre le format : un avis, une flèche, un seul mot. La probabilité se concentre sur les deux étiquettes.
+  </Etape>
+  <Etape etat="trois">
+    **Few-shot.** Avec trois exemples, le motif est sans ambiguïté. Presque toute la probabilité va à « positif » ou « négatif ».
+  </Etape>
+  <Etape etat="poids">
+    **Rien n'a été appris durablement.** Les poids du modèle sont restés identiques. Tout l'effet vient du texte placé avant la question ; retire-le et le comportement de départ revient.
+  </Etape>
+</PasAPas>
+
+Les exemples occupent de la place. Tout le prompt doit tenir dans la fenêtre de contexte (*context window*), le nombre maximal de tokens que le modèle peut lire d'un coup. Le nombre d'exemples qu'on peut y placer est donc borné :
+
+$$
+k_{\max} = \left\lfloor \frac{C - L_0}{L_e} \right\rfloor
+$$
+
+où :
+- $C$ est la taille de la fenêtre de contexte, en tokens ;
+- $L_0$ est la place réservée au reste : consigne, question et réponse attendue ;
+- $L_e$ est la longueur moyenne d'un exemple ;
+- $\lfloor \cdot \rfloor$ désigne la partie entière : on arrondit vers le bas.
+
+Exemple : GPT-3 lisait au plus 2 048 tokens. Avec 150 tokens pour la consigne, la question et la réponse, et des exemples de 40 tokens, $k_{\max} = \lfloor 1\,898 / 40 \rfloor = \lfloor 47{,}45 \rfloor = 47$ exemples. Le paper indique justement des valeurs de $K$ typiquement comprises entre 10 et 100, « autant que la fenêtre de contexte peut en contenir ».
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient la borne, et ce qu'elle coûte">
+
+Avec $k$ exemples, le prompt complet fait $L_0 + k L_e$ tokens. Il doit tenir dans la fenêtre :
+
+$$
+\begin{aligned}
+L_0 + k L_e &\leq C && \text{tout doit tenir dans la fenêtre} \\
+k &\leq \frac{C - L_0}{L_e} && \text{on isole } k \text{ (} L_e > 0 \text{)} \\
+k_{\max} &= \left\lfloor \frac{C - L_0}{L_e} \right\rfloor && k \text{ est un entier}
+\end{aligned}
+$$
+
+La même expression donne le coût. Les exemples ne sont pas mémorisés : ils sont relus à **chaque** requête. Pour $n$ requêtes, le modèle lit $n (L_0 + k L_e)$ tokens, contre $n L_0$ sans exemple. Le supplément, $n k L_e$, grandit avec le nombre de requêtes : c'est la contrepartie de ne pas réentraîner le modèle.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Zero, one ou few ?" niveau="facile">
+
+Pour chaque prompt, dis s'il s'agit de zero-shot, one-shot ou few-shot.
+
+1. « Traduis en anglais : Il pleut depuis ce matin. »
+2. « chat → cat ; chien → dog ; oiseau → bird ; cheval → »
+3. « Donne la capitale du pays. France : Paris. Sénégal : »
+
+<div slot="solution">
+
+1. **Zero-shot** : une consigne, aucun exemple résolu.
+2. **Few-shot** : trois exemples, puis la question. Il n'y a même pas de consigne : les exemples suffisent à montrer la tâche.
+3. **One-shot** : une consigne et un seul exemple, « France : Paris », avant la question.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien d'exemples tiennent ?" niveau="moyen" reponse={50} tolerance={0}>
+
+Un modèle lit au plus 4 096 tokens. Ta consigne, la question et la place réservée à la réponse occupent 300 tokens. Chaque exemple fait en moyenne 75 tokens. Combien d'exemples au maximum peux-tu mettre dans le prompt ?
+
+<div slot="solution">
+
+$k_{\max} = \lfloor (4\,096 - 300) / 75 \rfloor = \lfloor 3\,796 / 75 \rfloor = \lfloor 50{,}6 \rfloor = 50$.
+
+Vérification : $300 + 50 \times 75 = 4\,050 \leq 4\,096$, alors que 51 exemples donneraient $4\,125$ tokens, trop pour la fenêtre.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix des exemples" niveau="defi" reponse={6} tolerance={0.001} unite="euros par jour">
+
+Une boutique en ligne classe 10 000 avis clients par jour. Sans exemple, chaque requête fait 100 tokens. En few-shot, on ajoute 20 exemples de 60 tokens chacun. On suppose que le fournisseur facture 0,50 euro par million de tokens lus. Combien le few-shot coûte-t-il **de plus** par jour ?
+
+<div slot="indice">
+
+Le supplément ne vient que des exemples, relus à chaque requête : $n \times k \times L_e$ tokens.
+
+</div>
+<div slot="solution">
+
+Supplément de tokens : $10\,000 \times 20 \times 60 = 12\,000\,000$ tokens par jour, soit 12 millions. Coût : $12 \times 0{,}50 = 6$ euros de plus par jour.
+
+Au total, on lit 13 millions de tokens (6,50 euros) au lieu de 1 million (0,50 euro) : treize fois plus. Si le few-shot améliore nettement la qualité, cela peut valoir le coup ; sinon, un fine-tuning ou des exemples moins nombreux et plus courts reviendraient moins cher.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : construire un prompt few-shot et vérifier qu'il tient dans la fenêtre. On compte ici les tokens grossièrement, un mot valant un token.
+
+```python
+exemples = [
+    ("Colis abîmé.", "négatif"),
+    ("Parfait, merci !", "positif"),
+    ("Jamais reçu.", "négatif"),
+]
+consigne = "Classe l'avis : positif ou négatif."
+
+def prompt_few_shot(question, k):
+    lignes = [consigne]
+    lignes += [f"Avis : « {avis} » → {etiquette}" for avis, etiquette in exemples[:k]]
+    lignes.append(f"Avis : « {question} » →")
+    return "\n".join(lignes)
+
+def nb_tokens(texte):
+    return len(texte.split())            # approximation grossière
+
+for k in (0, 1, 3):
+    p = prompt_few_shot("Livraison rapide.", k)
+    print(f"--- {k} exemple(s), environ {nb_tokens(p)} tokens\n{p}")
+
+def k_max(C, L0, Le):
+    return (C - L0) // Le
+
+print("k_max (GPT-3) :", k_max(2048, 150, 40))
+print("k_max (4 096 tokens) :", k_max(4096, 300, 75))
+```
+
+En vrai, avec un petit modèle ouvert et la bibliothèque `transformers` : le même prompt est simplement donné en entrée, sans aucun entraînement.
+
+```python
+# no-run
+from transformers import pipeline
+generateur = pipeline("text-generation", model="gpt2")
+prompt = "chat => cat\nchien => dog\noiseau => bird\ncheval =>"
+print(generateur(prompt, max_new_tokens=3, do_sample=False)[0]["generated_text"])
+```
+
+## Les pièges classiques
+
+**« Le modèle apprend pendant la conversation. »** Rien ne change dans ses poids. Il se sert du texte présent dans son contexte ; si ce texte disparaît, par exemple dans une nouvelle conversation, l'effet disparaît aussi.
+
+**« Plus il y a d'exemples, mieux c'est. »** Chaque exemple prend de la place dans la fenêtre et se paie à chaque requête. Au-delà de quelques exemples bien choisis, le gain peut devenir faible alors que le coût continue de croître.
+
+**« Les exemples n'ont pas besoin d'être bons. »** Le modèle imite le motif qu'on lui montre, erreurs comprises. Des exemples mal étiquetés, ou tous de la même classe, orientent la réponse. Une bonne habitude : tester plusieurs jeux d'exemples, et plusieurs ordres, sur quelques cas dont on connaît la réponse.
+
+## Dans la vraie vie
+
+Presque tous les usages quotidiens des assistants reposent sur l'apprentissage en contexte : une consigne détaillée, parfois accompagnée d'exemples du format attendu, remplace un entraînement spécifique. Dans le paper de GPT-3, un seul modèle de 175 milliards de paramètres est évalué en zero-shot, one-shot et few-shot sur des tâches de traduction, de questions-réponses et de raisonnement, sans jamais être réentraîné. Le même principe sert à décrire des outils au modèle pour l'[usage d'outils](/concepts/appel-outils/), à lui montrer des raisonnements détaillés avec le [chain-of-thought](/concepts/chain-of-thought/), et à lui fournir des documents avec le [RAG](/concepts/rag/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que modifie l'apprentissage en contexte ?",
+    choix: ["Les poids du modèle", "Uniquement le texte donné en entrée", "Le vocabulaire du modèle", "La fenêtre de contexte"],
+    bonne: 1,
+    explication: "Les poids restent identiques : tout passe par le prompt, relu à chaque requête."
+  },
+  {
+    question: "Un prompt contient une consigne et deux exemples résolus. C'est :",
+    choix: ["du zero-shot", "du one-shot", "du few-shot", "du fine-tuning"],
+    bonne: 2,
+    explication: "Plusieurs démonstrations dans le prompt, sans mise à jour des poids : c'est du few-shot."
+  },
+  {
+    question: "Fenêtre de 1 000 tokens, 200 tokens pour le reste, exemples de 50 tokens. Combien d'exemples au plus ?",
+    choix: ["20", "16", "4", "15"],
+    bonne: 1,
+    explication: "(1 000 − 200) / 50 = 16."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quand préférer le few-shot au fine-tuning, et inversement ?">
+
+Le few-shot est immédiat : aucune donnée à préparer en masse, aucun entraînement, un seul modèle pour toutes les tâches, et on change le comportement en éditant le prompt. Il convient pour prototyper, pour des tâches variées ou peu fréquentes, ou quand on a très peu d'exemples. Ses limites : les exemples sont relus à chaque requête (coût et latence), ils sont bornés par la fenêtre de contexte, et le résultat est sensible au choix et à l'ordre des exemples. Le fine-tuning demande des données et du calcul au départ, mais il grave le comportement dans les poids : prompts plus courts, coût par requête plus faible, comportement plus stable. On le préfère pour une tâche fixe, à fort volume, ou quand le few-shot plafonne en qualité.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "prompt", en: "prompt", definition: "Texte donné en entrée au modèle : consigne, exemples éventuels et question." },
+  { fr: "apprentissage en contexte", en: "in-context learning", definition: "Faire réaliser une tâche au modèle en la décrivant et en l'illustrant dans le prompt, sans modifier ses poids." },
+  { fr: "zero-shot, one-shot, few-shot", en: "zero-shot, one-shot, few-shot", definition: "Prompt sans exemple, avec un exemple, ou avec quelques exemples résolus." },
+  { fr: "démonstration", en: "demonstration", definition: "Exemple résolu de la tâche placé dans le prompt." },
+  { fr: "fenêtre de contexte", en: "context window", definition: "Nombre maximal de tokens que le modèle peut lire en une fois." }
+]} />
