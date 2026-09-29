@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), scalaires, vecteurs, matrices et transposée"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -163,9 +163,11 @@ Il n'y a que trois paires à tester : $a_{12} = 2$ contre $a_{21} = 3$, $a_{13} 
 
 ## Entraîne-toi
 
-**Exercice 1.** Soit $\mathbf{M} = \begin{pmatrix} 1 & -2 & 0 \\ 4 & 3 & 5 \end{pmatrix}$. Donne sa taille, $m_{21}$, $m_{13}$ et $\mathbf{M}^\top$.
+<Exercice titre="Taille, cases et transposée" niveau="facile">
 
-<Depliable titre="Corrigé">
+Soit $\mathbf{M} = \begin{pmatrix} 1 & -2 & 0 \\ 4 & 3 & 5 \end{pmatrix}$. Donne sa taille, $m_{21}$, $m_{13}$ et $\mathbf{M}^\top$.
+
+<div slot="solution">
 
 $\mathbf{M}$ a 2 lignes et 3 colonnes : taille $2 \times 3$. $m_{21} = 4$ (ligne 2, colonne 1) et $m_{13} = 0$.
 
@@ -175,11 +177,14 @@ $$
 
 de taille $3 \times 2$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Calcule $2\,\mathbf{A} - \mathbf{B}$ pour $\mathbf{A} = \begin{pmatrix} 1 & 2 \\ 0 & 3 \end{pmatrix}$ et $\mathbf{B} = \begin{pmatrix} 2 & 2 \\ 1 & 5 \end{pmatrix}$.
+<Exercice titre="Combiner deux matrices" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Calcule $2\,\mathbf{A} - \mathbf{B}$ pour $\mathbf{A} = \begin{pmatrix} 1 & 2 \\ 0 & 3 \end{pmatrix}$ et $\mathbf{B} = \begin{pmatrix} 2 & 2 \\ 1 & 5 \end{pmatrix}$.
+
+<div slot="solution">
 
 $2\,\mathbf{A} = \begin{pmatrix} 2 & 4 \\ 0 & 6 \end{pmatrix}$, puis on soustrait case par case :
 
@@ -187,15 +192,45 @@ $$
 2\,\mathbf{A} - \mathbf{B} = \begin{pmatrix} 2 - 2 & 4 - 2 \\ 0 - 1 & 6 - 5 \end{pmatrix} = \begin{pmatrix} 0 & 2 \\ -1 & 1 \end{pmatrix}
 $$
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une agence mobile money enregistre, pour 500 clients, 4 nombres : âge, nombre de transferts du mois, montant moyen, ancienneté. Quelle est la taille de la matrice des données ? Que représente une colonne ? Quelle est la taille de sa transposée ?
+<Exercice titre="Ranger 500 clients" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Une agence mobile money enregistre, pour 500 clients, 4 nombres : âge, nombre de transferts du mois, montant moyen, ancienneté. Quelle est la taille de la matrice des données ? Que représente une colonne ? Quelle est la taille de sa transposée ?
+
+<div slot="solution">
 
 Une ligne par client, une colonne par caractéristique : la matrice est de taille $500 \times 4$. Une colonne regroupe une même caractéristique pour les 500 clients, par exemple tous les âges. La transposée est de taille $4 \times 500$ : une ligne par caractéristique.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le bulletin de fin d'année" niveau="defi" reponse={12.5} tolerance={0}>
+
+Deux élèves ont des notes en maths, français et sciences, rangées dans une matrice par semestre (une ligne par élève, une colonne par matière) :
+
+$$
+\mathbf{S}_1 = \begin{pmatrix} 12 & 14 & 9 \\ 15 & 11 & 13 \end{pmatrix} \qquad \mathbf{S}_2 = \begin{pmatrix} 14 & 10 & 11 \\ 13 & 15 & 12 \end{pmatrix}
+$$
+
+Écris la matrice des moyennes annuelles $\mathbf{M} = \frac{1}{2}(\mathbf{S}_1 + \mathbf{S}_2)$, puis saisis $m_{23}$. Que signifie ce nombre ? Que contient la première ligne de $\mathbf{M}^\top$ ?
+
+<div slot="indice">
+
+Additionne case par case, puis multiplie chaque case par $\frac{1}{2}$. $m_{23}$ est à la ligne 2, colonne 3.
+
+</div>
+<div slot="solution">
+
+$$
+\mathbf{M} = \frac{1}{2}\begin{pmatrix} 26 & 24 & 20 \\ 28 & 26 & 25 \end{pmatrix} = \begin{pmatrix} 13 & 12 & 10 \\ 14 & 13 & 12{,}5 \end{pmatrix}
+$$
+
+$m_{23} = 12{,}5$ : c'est la moyenne annuelle du deuxième élève en sciences. La première ligne de $\mathbf{M}^\top$ est la première colonne de $\mathbf{M}$, soit $(13\,;\,14)$ : les moyennes des deux élèves en maths. Transposer, c'est passer d'une lecture « par élève » à une lecture « par matière ».
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
