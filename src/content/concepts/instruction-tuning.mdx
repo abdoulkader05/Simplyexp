@@ -1,0 +1,233 @@
+---
+id: instruction-tuning
+type: concept
+titre: "L'instruction tuning : transformer un perroquet en assistant"
+sous_titre: "Entraîner un LLM à suivre des consignes"
+domaine: llm
+niveau: 5
+prerequis: [fine-tuning]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Wei et al., « Finetuned Language Models Are Zero-Shot Learners », 2021 — https://arxiv.org/abs/2109.01652 — résumé (instruction tuning d'un modèle pré-entraîné de 137 milliards de paramètres sur plus de 60 tâches décrites par des modèles de consignes en langage naturel ; FLAN dépasse GPT-3 175B en zero-shot sur 20 des 25 tâches évaluées)"
+  - "Ouyang et al., « Training language models to follow instructions with human feedback », 2022 — https://arxiv.org/abs/2203.02155 — résumé (démonstrations écrites par des annotateurs pour ajuster GPT-3 par apprentissage supervisé, avant l'étape de RLHF ; InstructGPT 1,3B préféré à GPT-3 175B)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Demande à un modèle seulement [pré-entraîné](/concepts/pretraining/) : « Donne trois conseils pour bien dormir. » Il est fort possible qu'il réponde… par d'autres questions : « Donne trois conseils pour bien manger. Donne trois conseils pour réviser. » Il n'a rien de défaillant : sur le web, une question est souvent suivie d'autres questions, dans une liste ou un forum. Il fait exactement ce qu'on lui a appris, continuer le texte de façon plausible. On voudrait autre chose : qu'il lise la consigne comme une demande et y **réponde**. C'est un changement de comportement, pas de connaissances.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On ajuste le modèle pré-entraîné sur de nombreuses paires « consigne → bonne réponse », couvrant des tâches variées, pour qu'il apprenne le rôle d'assistant : lire une demande et y répondre, même pour une tâche qu'il n'a jamais vue.
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui a lu toute une bibliothèque mais n'a jamais travaillé au guichet.
+
+- Il sait énormément de choses, mais quand on lui pose une question, il récite ce qui suit d'habitude cette phrase dans les livres.
+- On le forme au guichet : on lui montre des centaines de demandes réelles et, pour chacune, la bonne façon d'y répondre.
+- Les demandes sont variées : un résumé, une traduction, un calcul, une lettre. Il ne retient pas les réponses une à une ; il apprend le métier.
+- Face à une demande nouvelle, il sait désormais qu'il doit y répondre, et comment.
+
+Là où l'image s'arrête : cette formation n'ajoute presque rien à ce qu'il sait. Si une connaissance manque dans la bibliothèque, la formation au guichet ne la fera pas apparaître.
+
+## Comment ça marche
+
+L'instruction tuning (*instruction tuning*) est un [fine-tuning](/concepts/fine-tuning/) particulier. Trois ingrédients le caractérisent.
+
+1. **Des données au format consigne → réponse.** Chaque exemple associe une consigne en langage naturel à une réponse jugée bonne. Dans FLAN (Wei et ses coauteurs, 2021), plus de 60 jeux de données de tâches existantes sont réécrits en consignes grâce à des modèles de phrases ; dans InstructGPT (Ouyang et ses coauteurs, 2022), des annotateurs écrivent eux-mêmes des démonstrations du comportement voulu.
+2. **Beaucoup de tâches différentes.** C'est la variété qui compte : le modèle doit apprendre à suivre **n'importe quelle** consigne, pas à résoudre une tâche précise.
+3. **Une perte sur la réponse.** L'entraînement reste celui d'un modèle de langage : prédire le token suivant. Une façon de faire consiste à ne compter l'erreur que sur les tokens de la réponse.
+
+Fais défiler : les sorties du modèle sont inventées pour l'illustration.
+
+<PasAPas rendu="instruction-format" label="Un modèle avant et après l'instruction tuning">
+  <Etape etat="initial">
+    **Avant.** Le modèle pré-entraîné prolonge la consigne par d'autres consignes : c'est la suite la plus plausible d'après ce qu'il a lu.
+  </Etape>
+  <Etape etat="donnees">
+    **Les données.** Des paires consigne → réponse, sur des tâches très variées : résumer, traduire, classer, rédiger, calculer.
+  </Etape>
+  <Etape etat="perte">
+    **La perte.** Le modèle lit la consigne, mais on ne corrige que ses prédictions sur la réponse, en jaune. Il apprend à produire des réponses, pas à inventer des consignes.
+  </Etape>
+  <Etape etat="apres">
+    **Après.** Même architecture, mêmes connaissances pour l'essentiel ; mais face à une consigne, le modèle répond.
+  </Etape>
+</PasAPas>
+
+La perte sur la réponse s'écrit, pour un exemple dont la réponse occupe les positions $R$ :
+
+$$
+\mathcal{L} = -\frac{1}{|R|} \sum_{t \in R} \ln P_\theta(x_t \mid x_1, \dots, x_{t-1})
+$$
+
+où :
+- $x_1, x_2, \dots$ sont les tokens de l'exemple, consigne puis réponse ;
+- $R$ est l'ensemble des positions occupées par la réponse, et $|R|$ leur nombre ;
+- $P_\theta(x_t \mid \dots)$ est la probabilité que le modèle, de paramètres $\theta$, donne au vrai token $x_t$ sachant tout ce qui précède, consigne comprise.
+
+C'est l'[entropie croisée](/maths/entropie-croisee/) du pré-entraînement, restreinte aux tokens de la réponse. Exemple : une réponse de deux tokens, auxquels le modèle donne les probabilités $0{,}5$ et $0{,}8$. La perte vaut $-(\ln 0{,}5 + \ln 0{,}8)/2 \approx (0{,}693 + 0{,}223)/2 \approx 0{,}458$.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi ne compter que la réponse">
+
+Partons de la perte du pré-entraînement sur l'exemple entier, de $n$ tokens :
+
+$$
+\begin{aligned}
+\mathcal{L}_{\text{tout}} &= -\frac{1}{n}\sum_{t=1}^{n} \ln P_\theta(x_t \mid x_{<t}) && \text{tous les tokens comptent} \\
+&= -\frac{1}{n}\Big(\sum_{t \in C} \ln P_\theta(x_t \mid x_{<t}) + \sum_{t \in R} \ln P_\theta(x_t \mid x_{<t})\Big) && C \text{ : consigne, } R \text{ : réponse}
+\end{aligned}
+$$
+
+Le premier terme pousse le modèle à mieux prédire les **consignes** elles-mêmes, c'est-à-dire à écrire des demandes. Ce n'est pas le rôle qu'on veut lui apprendre. On garde donc le second terme, divisé par $|R|$ pour obtenir une moyenne par token de réponse. La consigne reste présente dans le contexte : elle conditionne chaque prédiction de la réponse, elle n'est simplement pas une cible.
+
+Le gradient ne vient alors que des positions de la réponse. Le modèle apprend « sachant cette consigne, voici ce qu'il faut écrire », et non « voici à quoi ressemble une consigne ».
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Une bonne paire d'entraînement ?" niveau="facile">
+
+Lequel de ces exemples convient le mieux à l'instruction tuning, et pourquoi pas les autres ?
+
+1. Consigne : « Traduis en anglais : Le marché ouvre à 7 h. » Réponse : « The market opens at 7 a.m. »
+2. Consigne : « Traduis en anglais : Le marché ouvre à 7 h. » Réponse : « Traduis en anglais : La boutique ferme à 19 h. »
+3. Un long article de presse, sans consigne ni réponse.
+
+<div slot="solution">
+
+1. **Le bon exemple** : une consigne claire, une réponse qui la réalise.
+2. Mauvais : la « réponse » est une autre consigne. Entraîner sur ce genre d'exemple apprendrait justement le comportement qu'on veut corriger.
+3. C'est une donnée de pré-entraînement : utile pour les connaissances, mais elle n'apprend pas à répondre à une demande.
+
+</div>
+</Exercice>
+
+<Exercice titre="La perte d'une réponse" niveau="moyen" reponse={1.04} tolerance={0.01}>
+
+Une réponse fait deux tokens. Le modèle leur donne les probabilités $0{,}5$ et $0{,}25$. Calcule la perte $\mathcal{L}$ sur la réponse.
+
+<div slot="solution">
+
+$\mathcal{L} = -(\ln 0{,}5 + \ln 0{,}25)/2 = (0{,}693 + 1{,}386)/2 \approx 1{,}04$.
+
+Le second token, jugé peu probable par le modèle, pèse deux fois plus lourd que le premier dans la perte : c'est lui que l'entraînement corrigera le plus.
+
+</div>
+</Exercice>
+
+<Exercice titre="Et si l'on comptait tout ?" niveau="defi" reponse={1.39} tolerance={0.01}>
+
+Un exemple compte 4 tokens de consigne, auxquels le modèle donne les probabilités $0{,}1$ ; $0{,}2$ ; $0{,}1$ ; $0{,}3$, puis 2 tokens de réponse, à $0{,}5$ et $0{,}8$. Calcule la perte moyenne sur les **six** tokens. Compare-la à la perte sur la réponse seule, et dis ce que chaque version pousse le modèle à améliorer.
+
+<div slot="indice">
+
+Additionne les six valeurs de $-\ln p$, puis divise par 6. Pour la réponse seule, l'exemple de la fiche donne déjà $0{,}458$.
+
+</div>
+<div slot="solution">
+
+$(2{,}303 + 1{,}609 + 2{,}303 + 1{,}204 + 0{,}693 + 0{,}223)/6 = 8{,}335 / 6 \approx 1{,}39$.
+
+C'est trois fois la perte sur la réponse seule (0,458), et presque toute la différence vient de la consigne : le modèle prédit mal les consignes, ce qui est normal, puisque c'est l'utilisateur qui les écrit. Compter tous les tokens dépenserait l'essentiel de l'effort d'entraînement à mieux deviner les consignes ; ne compter que la réponse concentre l'effort sur ce qu'on veut apprendre : bien répondre.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : calculer la perte avec et sans masque de la consigne, à partir des probabilités données par le modèle.
+
+```python
+import numpy as np
+
+# Probabilités données par le modèle au vrai token, position par position
+probas = np.array([0.1, 0.2, 0.1, 0.3, 0.5, 0.8])
+est_reponse = np.array([0, 0, 0, 0, 1, 1], dtype=bool)   # les deux derniers tokens forment la réponse
+
+pertes = -np.log(probas)
+print("perte sur tous les tokens :", round(pertes.mean(), 3))
+print("perte sur la réponse seule :", round(pertes[est_reponse].mean(), 3))
+
+# Mise en forme d'un exemple d'entraînement
+def formater(consigne, reponse):
+    return f"Consigne : {consigne}\nRéponse : {reponse}"
+
+print(formater("Résume en une phrase.", "La saison des pluies arrive plus tôt cette année."))
+```
+
+En vrai, avec PyTorch : on met la cible à `-100` sur les tokens de la consigne, et l'argument `ignore_index=-100` dit à la fonction de perte de les ignorer.
+
+```python
+# no-run
+import torch
+import torch.nn.functional as F
+logits = modele(ids).logits[:, :-1]                    # prédictions pour les positions 2..n
+cibles = ids[:, 1:].clone()
+cibles[:, : longueur_consigne - 1] = -100              # pas de perte sur la consigne
+perte = F.cross_entropy(logits.reshape(-1, logits.size(-1)), cibles.reshape(-1), ignore_index=-100)
+perte.backward()
+```
+
+## Les pièges classiques
+
+**« L'instruction tuning apprend de nouvelles connaissances au modèle. »** Il lui apprend surtout un format et un rôle : lire une demande, y répondre. Les connaissances viennent pour l'essentiel du pré-entraînement.
+
+**« Il faut un exemple pour chaque tâche qu'on voudra faire. »** Le but est justement de généraliser : grâce à la variété des consignes vues, le modèle suit des consignes nouvelles. Dans FLAN, le modèle ajusté dépasse GPT-3 en zero-shot sur 20 des 25 tâches évaluées.
+
+**« Après l'instruction tuning, le modèle répond toujours bien. »** Il répond, mais pas forcément comme on le préférerait : trop long, trop sûr de lui, parfois inexact. Affiner ces préférences est le rôle d'une étape suivante, le [RLHF](/concepts/rlhf/).
+
+## Dans la vraie vie
+
+Dans InstructGPT, l'instruction tuning constitue la première des étapes après le pré-entraînement : des annotateurs écrivent des démonstrations du comportement souhaité, et GPT-3 est ajusté dessus par apprentissage supervisé, avant l'étape d'alignement par préférences. Le modèle final de 1,3 milliard de paramètres a été préféré par les annotateurs au GPT-3 de 175 milliards, cent fois plus gros. Quand un modèle ouvert est publié en deux versions, « de base » et « instruct », c'est la même séparation : la première continue du texte, la seconde répond aux consignes.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que change surtout l'instruction tuning chez le modèle ?",
+    choix: ["Ses connaissances sur le monde", "Son comportement : répondre aux consignes", "Son architecture", "Sa fenêtre de contexte"],
+    bonne: 1,
+    explication: "Il apprend un rôle et un format ; les connaissances viennent surtout du pré-entraînement."
+  },
+  {
+    question: "Pourquoi ne compter la perte que sur la réponse ?",
+    choix: ["Pour aller plus vite", "Pour que le modèle apprenne à répondre plutôt qu'à écrire des consignes", "Parce que la consigne n'est pas lue", "Pour réduire la taille du modèle"],
+    bonne: 1,
+    explication: "La consigne reste dans le contexte, mais n'est pas une cible : l'effort porte sur la réponse."
+  },
+  {
+    question: "Qu'est-ce qui permet de suivre des consignes jamais vues ?",
+    choix: ["Un très grand nombre d'exemples d'une seule tâche", "La variété des tâches vues pendant l'entraînement", "Une température élevée", "Un modèle sans pré-entraînement"],
+    bonne: 1,
+    explication: "Voir de nombreuses tâches différentes pousse le modèle à apprendre à suivre des consignes en général."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quelle différence entre un modèle de base et un modèle instruct, et comment passe-t-on de l'un à l'autre ?">
+
+Un modèle de base est seulement pré-entraîné à prédire le token suivant sur un grand corpus : il continue le texte, sans notion de demande ni de réponse. Un modèle instruct a ensuite subi un fine-tuning supervisé sur des paires consigne → réponse couvrant des tâches variées, avec une perte d'entropie croisée qu'on peut limiter aux tokens de la réponse, et un format de conversation fixe. Il en sort un modèle qui répond aux consignes, y compris sur des tâches jamais vues, grâce à la diversité des données. Cette étape change le comportement plus que les connaissances ; elle est souvent suivie d'un alignement par préférences (RLHF ou DPO) pour rendre les réponses plus utiles et plus sûres.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "instruction tuning", en: "instruction tuning", definition: "Fine-tuning sur des paires consigne → réponse couvrant des tâches variées, pour apprendre à suivre des consignes." },
+  { fr: "démonstration", en: "demonstration", definition: "Exemple de réponse souhaitée, écrit par un humain, qui sert de cible d'entraînement." },
+  { fr: "modèle de base", en: "base model", definition: "Modèle seulement pré-entraîné, qui continue le texte." },
+  { fr: "modèle instruct", en: "instruct model", definition: "Modèle ajusté pour répondre aux consignes." }
+]} />
