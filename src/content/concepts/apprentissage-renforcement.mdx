@@ -1,0 +1,249 @@
+---
+id: apprentissage-renforcement
+type: concept
+titre: "L'apprentissage par renforcement : apprendre à coups de récompenses"
+sous_titre: "Agent, action, récompense et politique"
+domaine: llm
+niveau: 4
+prerequis: [esperance-variance]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Wikipédia (en), « Reinforcement learning » — https://en.wikipedia.org/wiki/Reinforcement_learning — définitions (un agent agit dans un environnement pour maximiser un signal de récompense ; politique π(s, a) = Pr(A_t = a | S_t = s) ; retour actualisé G = Σ γ^t R_{t+1}, 0 ≤ γ < 1 ; dilemme exploration-exploitation, étudié notamment avec le problème du bandit manchot ; référence au manuel de Sutton et Barto, 2018)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Pour apprendre à un modèle à reconnaître un chat, on lui montre des milliers de photos avec la bonne réponse. Mais comment apprendre à choisir le meilleur itinéraire pour aller au travail, à jouer aux échecs, ou à écrire une réponse qui plaît ? Personne ne peut fournir « la » bonne action à chaque instant. En revanche, on sait **juger après coup** : ce trajet a pris 29 minutes, cette partie est gagnée, cette réponse est jugée utile. L'apprentissage par renforcement part de ce seul signal, une note reçue après avoir agi, et en tire une façon d'agir.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un agent essaie des actions, reçoit des récompenses, et ajuste peu à peu sa façon de choisir pour maximiser la récompense totale qu'il peut espérer, en dosant essais nouveaux et choix déjà connus.
+</PhraseCle>
+
+## En image
+
+Pense à quelqu'un qui vient d'emménager dans une ville et doit aller au travail chaque matin.
+
+- Il y a trois itinéraires possibles. Il ne connaît pas leurs durées moyennes.
+- La première semaine, il les essaie tous : c'est **explorer**.
+- Ensuite, il prend surtout celui qui a semblé le plus rapide : c'est **exploiter**.
+- De temps en temps, il retente un autre chemin, au cas où le premier essai aurait été malchanceux.
+
+Là où l'image s'arrête : ici, chaque choix est indépendant du précédent. Dans beaucoup de problèmes, une action change la situation suivante, et une récompense peut n'arriver que bien plus tard, comme le gain d'une partie d'échecs après quarante coups.
+
+## Comment ça marche
+
+L'apprentissage par renforcement (*reinforcement learning*) décrit une boucle entre deux acteurs :
+
+- l'**agent** (*agent*) choisit une **action** (*action*) ;
+- l'**environnement** (*environment*) réagit : il passe dans un nouvel **état** (*state*) et renvoie une **récompense** (*reward*), un nombre, positif ou négatif.
+
+L'agent choisit ses actions selon une **politique** (*policy*), notée $\pi$ : la probabilité de choisir chaque action dans chaque état, $\pi(s, a) = P(A_t = a \mid S_t = s)$. Son but n'est pas de maximiser la prochaine récompense, mais leur somme sur la durée. Comme une récompense lointaine est plus incertaine, on la pèse moins : c'est le **retour actualisé**,
+
+$$
+G = R_1 + \gamma R_2 + \gamma^2 R_3 + \dots = \sum_{t=0}^{\infty} \gamma^{t} R_{t+1}
+$$
+
+où :
+- $R_{t+1}$ est la récompense reçue après la $(t+1)$-ième action ;
+- $\gamma$, le facteur d'actualisation (*discount factor*), vérifie $0 \leq \gamma < 1$ : une récompense reçue $t$ étapes plus tard compte pour $\gamma^t$ fois sa valeur.
+
+Exemple : les récompenses $1$, puis $0$, puis $2$, avec $\gamma = 0{,}9$, donnent $G = 1 + 0{,}9 \times 0 + 0{,}81 \times 2 = 2{,}62$. Comme les récompenses sont aléatoires, l'agent cherche la politique qui maximise l'[espérance](/maths/esperance-variance/) de $G$.
+
+Tout de suite surgit un dilemme. Pour bien estimer ce que rapporte une action, il faut l'essayer ; mais chaque essai d'une action médiocre coûte. C'est le **dilemme exploration-exploitation**, étudié notamment avec le problème du bandit manchot (*multi-armed bandit*) : plusieurs machines à sous, de gains moyens inconnus, et un nombre limité de parties. Notre choix d'itinéraire en est un exemple. Fais défiler : les durées sont inventées, et la récompense vaut moins la durée.
+
+<PasAPas rendu="renforcement-trajets" label="Un agent apprend quel itinéraire est le plus rapide">
+  <Etape etat="initial">
+    **Au départ**, l'agent ne sait rien : trois itinéraires, trois points d'interrogation.
+  </Etape>
+  <Etape etat="explorer">
+    **Il explore** : chacun une fois. B a pris 33 minutes, C 36, A 38. Estimation : B semble le meilleur.
+  </Etape>
+  <Etape etat="exploiter">
+    **Il exploite** : il reprend B, qui prend 29 minutes. L'estimation de B devient la moyenne, 31 minutes.
+  </Etape>
+  <Etape etat="explorer2">
+    **Il explore encore** : C, au cas où. Cette fois, 44 minutes : le premier essai de C était chanceux, son estimation passe à 40.
+  </Etape>
+  <Etape etat="bilan">
+    **Les estimations se précisent.** La politique qui en découle : prendre B presque toujours, et continuer d'explorer un peu.
+  </Etape>
+</PasAPas>
+
+Une règle simple pour doser les deux s'appelle **$\varepsilon$-glouton** (*epsilon-greedy*) : avec la probabilité $1 - \varepsilon$, on prend l'action dont l'estimation est la meilleure ; avec la probabilité $\varepsilon$, on en tire une au hasard.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi γ < 1 garantit un retour fini">
+
+Supposons toutes les récompenses comprises entre 0 et $R_{\max}$. Alors :
+
+$$
+\begin{aligned}
+G = \sum_{t=0}^{\infty} \gamma^{t} R_{t+1} &\leq \sum_{t=0}^{\infty} \gamma^{t} R_{\max} && \text{chaque récompense est au plus } R_{\max} \\
+&= R_{\max} \left(1 + \gamma + \gamma^2 + \dots\right) && \text{on met } R_{\max} \text{ en facteur} \\
+&= \frac{R_{\max}}{1 - \gamma} && \text{série géométrique, car } 0 \leq \gamma < 1
+\end{aligned}
+$$
+
+Sans actualisation ($\gamma = 1$), une tâche sans fin pourrait accumuler une somme infinie, et l'on ne pourrait plus comparer deux politiques. Avec $\gamma = 0{,}9$ et des récompenses d'au plus 1, le retour ne dépasse jamais $1 / 0{,}1 = 10$. La valeur de $\gamma$ règle aussi l'horizon : proche de 0, l'agent est myope ; proche de 1, il voit loin.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Qui est qui ?" niveau="facile">
+
+Un thermostat intelligent règle le chauffage d'une maison. Toutes les dix minutes, il choisit « chauffer » ou « ne pas chauffer ». Il reçoit un bonus quand la température est dans la zone de confort, et un malus proportionnel à l'énergie consommée. Identifie l'agent, les actions, l'état, la récompense et la politique.
+
+<div slot="solution">
+
+- **Agent** : le thermostat.
+- **Actions** : chauffer, ne pas chauffer.
+- **État** : ce qu'il observe, par exemple la température intérieure, la température extérieure et l'heure.
+- **Récompense** : le bonus de confort moins le coût de l'énergie. Elle oblige l'agent à trouver un compromis, pas seulement à chauffer.
+- **Politique** : sa règle de décision, la probabilité de chauffer dans chaque état.
+
+</div>
+</Exercice>
+
+<Exercice titre="Calculer un retour" niveau="moyen" reponse={7} tolerance={0.001}>
+
+Un agent reçoit successivement les récompenses $4$, $2$ et $8$, puis plus rien. Calcule son retour actualisé avec $\gamma = 0{,}5$.
+
+<div slot="solution">
+
+$G = 4 + 0{,}5 \times 2 + 0{,}25 \times 8 = 4 + 1 + 2 = 7$.
+
+Sans actualisation, la somme vaudrait 14. La récompense 8, la plus grosse, ne compte que pour 2, parce qu'elle arrive deux étapes plus tard.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix de la curiosité" niveau="defi" reponse={0.77} tolerance={0.002}>
+
+Trois machines donnent en moyenne $0{,}2$, $0{,}5$ et $0{,}8$ par partie. Un agent a déjà bien estimé ces moyennes et suit une règle $\varepsilon$-glouton avec $\varepsilon = 0{,}1$ : il joue la meilleure machine avec la probabilité $0{,}9$, et une machine tirée au hasard parmi les trois avec la probabilité $0{,}1$. Quelle est l'espérance de sa récompense par partie ?
+
+<div slot="indice">
+
+Deux cas : il exploite, ou il explore. En explorant, chaque machine a la probabilité 1/3. Utilise la linéarité de l'espérance.
+
+</div>
+<div slot="solution">
+
+$E = 0{,}9 \times 0{,}8 + 0{,}1 \times \frac{0{,}2 + 0{,}5 + 0{,}8}{3} = 0{,}72 + 0{,}1 \times 0{,}5 = 0{,}77$.
+
+L'agent parfaitement glouton obtiendrait 0,8 : l'exploration coûte 0,03 par partie. C'est le prix à payer pour ne pas rester bloqué si ses estimations étaient fausses. Une fois les estimations sûres, on peut réduire $\varepsilon$.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un bandit à trois bras et un agent $\varepsilon$-glouton qui met à jour ses estimations par moyenne.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+vraies_moyennes = np.array([0.2, 0.5, 0.8])       # inconnues de l'agent
+
+def jouer(bras):
+    return rng.normal(vraies_moyennes[bras], 0.3)   # récompense bruitée
+
+def agent_epsilon_glouton(epsilon, parties=2000):
+    estimations = np.zeros(3)
+    compteurs = np.zeros(3)
+    total = 0.0
+    for _ in range(parties):
+        if rng.random() < epsilon or compteurs.min() == 0:
+            bras = rng.integers(3)                   # explorer
+        else:
+            bras = int(np.argmax(estimations))       # exploiter
+        r = jouer(bras)
+        compteurs[bras] += 1
+        estimations[bras] += (r - estimations[bras]) / compteurs[bras]   # moyenne incrémentale
+        total += r
+    return total / parties, estimations.round(2)
+
+for eps in (0.0, 0.1, 0.5):
+    moy, est = agent_epsilon_glouton(eps)
+    print(f"epsilon = {eps} : récompense moyenne {moy:.3f}, estimations {est}")
+
+# Retour actualisé
+gamma, recompenses = 0.9, [1, 0, 2]
+print("G =", sum(gamma**t * r for t, r in enumerate(recompenses)))
+```
+
+En vrai, les environnements d'entraînement se décrivent avec la bibliothèque `gymnasium` : l'agent appelle `step(action)` et reçoit l'observation suivante et la récompense.
+
+```python
+# no-run
+import gymnasium as gym
+env = gym.make("CartPole-v1")
+observation, info = env.reset(seed=0)
+for _ in range(200):
+    action = env.action_space.sample()               # politique au hasard, à remplacer
+    observation, recompense, termine, tronque, info = env.step(action)
+    if termine or tronque:
+        observation, info = env.reset()
+```
+
+## Les pièges classiques
+
+**« Il suffit de toujours choisir la meilleure action connue. »** Un agent qui n'explore jamais peut rester bloqué sur une action moyenne, jugée meilleure à cause d'un seul essai chanceux. Sans exploration, ses estimations des autres actions ne s'améliorent jamais.
+
+**« La récompense dit à l'agent quoi faire. »** Elle dit seulement si le résultat était bon, pas quelle action aurait été meilleure. C'est ce qui rend ce type d'apprentissage plus lent que l'apprentissage supervisé, où chaque exemple donne la bonne réponse.
+
+**« L'agent fera ce qu'on veut, du moment qu'il maximise la récompense. »** Il maximisera la récompense **telle qu'elle est définie**, y compris par des moyens imprévus. Un thermostat récompensé seulement pour économiser l'énergie apprendra à ne jamais chauffer. Bien définir la récompense est une grande partie du travail.
+
+## Dans la vraie vie
+
+L'apprentissage par renforcement sert partout où l'on sait évaluer un résultat sans savoir décrire la bonne action : jeux, robotique, réglage de systèmes. Pour les modèles de langage, on peut voir le modèle comme un agent dont l'action est la réponse produite, et dont la récompense est un score de qualité de cette réponse. C'est exactement le cadre du [RLHF](/concepts/rlhf/), où la récompense vient d'un modèle entraîné sur des préférences humaines. Pour aller plus loin, le manuel de Sutton et Barto (2018) présente le domaine en détail.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que cherche à maximiser un agent d'apprentissage par renforcement ?",
+    choix: ["La prochaine récompense", "L'espérance du retour, somme actualisée des récompenses", "Le nombre d'actions", "La variance des récompenses"],
+    bonne: 1,
+    explication: "Il vise la somme des récompenses sur la durée, pondérée par γ, en espérance."
+  },
+  {
+    question: "Récompenses 10 puis 10, avec γ = 0,5. Que vaut le retour ?",
+    choix: ["20", "15", "10", "5"],
+    bonne: 1,
+    explication: "10 + 0,5 × 10 = 15."
+  },
+  {
+    question: "À quoi sert l'exploration ?",
+    choix: ["À gagner plus à chaque partie", "À améliorer les estimations des actions peu essayées", "À réduire γ", "À supprimer les récompenses négatives"],
+    bonne: 1,
+    explication: "Elle coûte un peu à court terme, mais évite de rester bloqué sur une estimation fausse."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quelle différence entre apprentissage supervisé et apprentissage par renforcement ?">
+
+En apprentissage supervisé, chaque exemple vient avec la bonne réponse : l'erreur indique directement dans quelle direction corriger, et les exemples sont indépendants de ce que fait le modèle. En apprentissage par renforcement, l'agent ne reçoit qu'une récompense scalaire, souvent retardée, qui juge le résultat sans dire quelle action aurait été meilleure ; et les données dépendent de la politique elle-même, puisque ce sont les actions de l'agent qui déterminent ce qu'il observe ensuite. D'où deux difficultés propres : le dilemme exploration-exploitation, et l'attribution du mérite, c'est-à-dire savoir quelle action, parmi une longue suite, a causé la récompense.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "apprentissage par renforcement", en: "reinforcement learning", definition: "Apprendre à agir à partir de récompenses reçues après les actions, sans qu'on indique la bonne action." },
+  { fr: "politique", en: "policy", definition: "Règle de choix de l'agent : la probabilité de chaque action dans chaque état." },
+  { fr: "retour actualisé", en: "discounted return", definition: "Somme des récompenses futures, chacune pondérée par γ puissance son retard." },
+  { fr: "facteur d'actualisation", en: "discount factor", definition: "Nombre γ entre 0 et 1 qui diminue le poids des récompenses lointaines." },
+  { fr: "dilemme exploration-exploitation", en: "exploration-exploitation dilemma", definition: "Choisir entre essayer des actions pour mieux les connaître et prendre la meilleure action connue." }
+]} />
