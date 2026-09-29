@@ -1,0 +1,244 @@
+---
+id: modele-masque
+type: concept
+titre: "Le texte à trous : comment BERT apprend à lire"
+sous_titre: "Masked Language Modeling (MLM)"
+domaine: llm
+niveau: 5
+prerequis: [bloc-transformer]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Devlin, Chang, Lee, Toutanova, « BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding », Google AI Language, 2018 — https://arxiv.org/abs/1810.04805 — section 3.1 (15 % des tokens WordPiece tirés au hasard ; règle 80 % [MASK], 10 % token aléatoire, 10 % inchangé ; [MASK] absent au fine-tuning ; un modèle gauche-droite profond ne peut être bidirectionnel car chaque mot pourrait indirectement se voir), données (BooksCorpus 800 M de mots, Wikipédia anglaise 2 500 M), tailles BERT-BASE (12 couches, 768, 12 têtes, 110 M de paramètres) et BERT-LARGE (24 couches, 1 024, 16 têtes, 340 M)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [bloc transformer](/concepts/bloc-transformer/) sait mélanger l'information de tous les tokens d'une phrase. Encore faut-il lui apprendre quelque chose, et sans étiquettes faites à la main, car il en faudrait des milliards. Un [modèle de langage](/concepts/modele-langage/) classique s'entraîne à prédire le token suivant : c'est gratuit, le texte fournit lui-même la réponse. Mais il ne regarde que la gauche. Or, pour comprendre « la banque », il faut souvent lire la suite : « … du fleuve » ou « … a refusé mon prêt ». Comment entraîner un modèle à utiliser **les deux côtés** sans qu'il puisse tricher en lisant directement la réponse ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+On cache au hasard quelques tokens d'un texte et l'on entraîne le modèle à les retrouver en lisant tout ce qui les entoure, à gauche comme à droite.
+</PhraseCle>
+
+## En image
+
+Pense aux textes à trous de l'école : « Le chat ___ sur le canapé. »
+
+- L'élève lit la phrase entière, avant et après le trou.
+- Pour trouver « dort », il doit comprendre qu'on parle d'un chat, d'un canapé, d'une action tranquille.
+- Le corrigé existe déjà : c'est le texte d'origine. Personne n'a eu besoin de l'écrire.
+- Plus on lui fait remplir de textes variés, plus il apprend la langue, et un peu du monde.
+
+Là où l'image s'arrête : un élève sait où sont les trous. BERT, lui, voit parfois un faux mot à la place d'un trou, ou le vrai mot laissé tel quel, sans qu'on lui dise lequel il doit corriger.
+
+## Comment ça marche
+
+La modélisation du langage masqué (*masked language modeling*, MLM) procède ainsi, sur chaque phrase du corpus :
+
+1. **Tirer les cibles.** On choisit au hasard 15 % des tokens. Ce sont eux que le modèle devra retrouver.
+2. **Abîmer l'entrée.** Pour chaque cible : dans 80 % des cas on la remplace par un token spécial `[MASK]`, dans 10 % par un token pris au hasard, et dans 10 % on la laisse telle quelle.
+3. **Tout lire.** La phrase abîmée traverse une pile de blocs transformer **sans** [masque causal](/concepts/masque-causal/) : chaque position voit toutes les autres.
+4. **Prédire.** À chaque position cible, le vecteur de sortie passe dans un [softmax](/concepts/softmax/) sur tout le vocabulaire.
+5. **Corriger.** La perte ne porte que sur les positions cibles.
+
+Pourquoi ne pas toujours mettre `[MASK]` ? Parce que ce token n'apparaît jamais ensuite, quand on adapte le modèle à une vraie tâche. Les 10 % de mots aléatoires et les 10 % de mots inchangés obligent le modèle à garder une bonne représentation de **chaque** token, puisqu'il ne sait jamais lequel est à corriger.
+
+La perte s'écrit :
+
+$$
+\mathcal{L} = -\frac{1}{|M|} \sum_{i \in M} \ln P(x_i \mid \tilde{x})
+$$
+
+où :
+- $M$ est l'ensemble des positions cibles, et $|M|$ leur nombre ;
+- $x_i$ est le vrai token à la position $i$ ;
+- $\tilde{x}$ est la phrase abîmée, que le modèle lit en entier ;
+- $P(x_i \mid \tilde{x})$ est la probabilité que le softmax donne au vrai token.
+
+Exemple à la main, celui de l'animation : le modèle donne 0,40 à « dort » et 0,25 à « salon ». La perte vaut $(-\ln 0{,}40 - \ln 0{,}25)/2 \approx (0{,}916 + 1{,}386)/2 \approx 1{,}15$. Fais défiler.
+
+<PasAPas rendu="masque-trous" label="Entraînement d'un modèle masqué sur une phrase">
+  <Etape etat="initial">
+    **Du texte brut.** Aucune annotation : la phrase est à la fois l'exercice et son corrigé.
+  </Etape>
+  <Etape etat="cibles">
+    **Les cibles.** Environ 15 % des tokens sont tirés. Sur une phrase aussi courte, on en prend deux : « dort » et « salon ».
+  </Etape>
+  <Etape etat="abimer">
+    **L'entrée abîmée.** « dort » tombe dans le cas le plus fréquent et devient `[MASK]`. « salon » tombe dans le cas à 10 % et devient un mot au hasard, « vélo ».
+  </Etape>
+  <Etape etat="predire">
+    **La prédiction.** Pour chaque cible, un softmax sur tout le vocabulaire. « depuis midi » et « canapé » aident à retrouver « dort » ; « canapé du » aide pour « salon », qui arrive pourtant derrière « jardin ». Les probabilités sont inventées pour l'illustration.
+  </Etape>
+  <Etape etat="perte">
+    **La perte.** La moyenne des $-\ln$ des bonnes réponses, soit environ 1,15. La descente de gradient va pousser ces deux probabilités vers le haut.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi ne pas simplement lire dans les deux sens ?">
+
+Idée naïve : prendre un modèle qui prédit le token suivant et lui donner accès à toute la phrase. Problème : pour prédire $x_i$, il suffirait alors de recopier $x_i$, qu'il voit. La perte tomberait à zéro sans rien apprendre. Les auteurs de BERT le disent ainsi : dans un modèle profond, chaque mot pourrait indirectement se voir lui-même.
+
+Le masque règle le problème : la position $i$ ne contient plus $x_i$ mais `[MASK]` (ou un autre token). La perte
+
+$$
+\begin{aligned}
+\mathcal{L} &= -\frac{1}{|M|} \sum_{i \in M} \ln P(x_i \mid \tilde{x}) && \text{moyenne sur les seules cibles} \\
+&= \frac{1}{|M|} \sum_{i \in M} H(\text{vrai token}_i, P_i) && \text{une entropie croisée par cible}
+\end{aligned}
+$$
+
+est une moyenne d'[entropies croisées](/maths/entropie-croisee/) : pour chaque cible, la vraie loi met toute sa masse sur $x_i$, donc l'entropie croisée se réduit à $-\ln P(x_i \mid \tilde{x})$. On moyenne sur $M$ et non sur toute la phrase, car les autres positions n'ont rien à deviner.
+
+Le prix : à chaque passage, seuls 15 % des tokens produisent un signal d'apprentissage, contre 100 % pour un modèle qui prédit le token suivant.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Une page de roman" niveau="facile" reponse={61.44} tolerance={0.01} unite="tokens">
+
+Une séquence d'entraînement compte 512 tokens. En moyenne, combien de tokens deviennent `[MASK]` ?
+
+<div slot="solution">
+
+$512 \times 0{,}15 = 76{,}8$ cibles en moyenne, dont 80 % deviennent `[MASK]` : $76{,}8 \times 0{,}8 = 61{,}44$. Les autres cibles, environ 15, sont remplacées par un mot au hasard ou laissées intactes.
+
+</div>
+</Exercice>
+
+<Exercice titre="Deux trous, une note" niveau="moyen" reponse={0.458} tolerance={0.01}>
+
+Une phrase a deux cibles. Le modèle donne la probabilité 0,8 à la première et 0,5 à la seconde. Quelle est la perte ?
+
+<div slot="solution">
+
+$\mathcal{L} = (-\ln 0{,}8 - \ln 0{,}5)/2 \approx (0{,}223 + 0{,}693)/2 \approx 0{,}458$. La seconde cible, plus incertaine, pèse trois fois plus que la première dans la perte.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le faux mot invisible" niveau="defi" reponse={0.034} tolerance={0.002}>
+
+Le modèle voit une phrase abîmée. Il repère facilement les `[MASK]`. Mais parmi les tokens qui ne sont **pas** `[MASK]`, quelle proportion est en fait une cible (un mot remplacé au hasard, ou laissé intact mais à prédire) ?
+
+<div slot="indice">
+
+Sur 100 tokens : combien sont des `[MASK]` ? Combien sont des cibles déguisées ? Combien de tokens visibles au total ne sont pas `[MASK]` ?
+
+</div>
+<div slot="solution">
+
+Sur 100 tokens, 15 cibles : 12 deviennent `[MASK]`, 3 restent déguisées (1,5 mot au hasard et 1,5 intact). Tokens qui ne sont pas `[MASK]` : $100 - 12 = 88$. Proportion de cibles cachées parmi eux : $3/88 \approx 0{,}034$.
+
+Environ 3,4 % : c'est peu, mais assez pour que le modèle ne puisse jamais faire aveuglément confiance à un token visible. Il doit construire une représentation utile de chaque position, ce qui sert ensuite pour toutes les tâches.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : le tirage des cibles avec la règle 80/10/10, sur un corpus fictif, et la perte.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+vocab = ["le", "chat", "dort", "sur", "canapé", "du", "salon", "depuis", "midi", "vélo", "jardin"]
+phrase = ["le", "chat", "dort", "sur", "le", "canapé", "du", "salon", "depuis", "midi"]
+
+def abimer(tokens, taux=0.15):
+    entree, cibles = list(tokens), []
+    for i in range(len(tokens)):
+        if rng.random() < taux:
+            cibles.append(i)
+            u = rng.random()
+            if u < 0.8:
+                entree[i] = "[MASK]"
+            elif u < 0.9:
+                entree[i] = str(rng.choice(vocab))   # token au hasard
+            # sinon : on laisse le token tel quel
+    return entree, cibles
+
+# Vérifions les proportions sur un grand nombre de tokens
+compte = {"cible": 0, "mask": 0}
+for _ in range(20_000):
+    entree, cibles = abimer(phrase)
+    compte["cible"] += len(cibles)
+    compte["mask"] += entree.count("[MASK]")
+n = 20_000 * len(phrase)
+print(f"cibles : {compte['cible'] / n:.3f}   [MASK] : {compte['mask'] / n:.3f}")
+
+# Perte sur l'exemple de l'animation
+probas_vrais_tokens = np.array([0.40, 0.25])
+print("perte :", round(float(-np.log(probas_vrais_tokens).mean()), 3))
+```
+
+En vrai, avec la bibliothèque `transformers`, un modèle BERT remplit les trous :
+
+```python
+# no-run
+from transformers import pipeline
+remplir = pipeline("fill-mask", model="bert-base-uncased")
+print(remplir("The cat is sleeping on the [MASK]."))
+```
+
+## Les pièges classiques
+
+**« BERT génère du texte comme ChatGPT. »** Il est entraîné à remplir des trous au milieu d'un texte déjà écrit, pas à continuer une phrase token après token. Il sert surtout à **représenter** un texte : classification, recherche, extraction.
+
+**« On masque 15 % des tokens, donc 15 % des tokens deviennent `[MASK]`. »** 15 % deviennent des cibles ; seuls 80 % d'entre elles, soit 12 % des tokens, deviennent `[MASK]`.
+
+**« La perte porte sur toute la phrase. »** Elle ne porte que sur les cibles. Les autres positions ne sont pas notées, même si le modèle les traite.
+
+## Dans la vraie vie
+
+BERT a été entraîné sur des livres (environ 800 millions de mots) et sur Wikipédia en anglais (environ 2,5 milliards de mots), en deux tailles : 110 millions de paramètres pour la version de base (12 couches) et 340 millions pour la grande (24 couches). Ses descendants, des modèles encodeurs entraînés au texte à trous, servent aujourd'hui à la [recherche sémantique](/concepts/recherche-semantique/), à la détection de spam ou au classement de documents. Pour générer du texte, en revanche, on préfère les modèles qui prédisent le token suivant : c'est tout l'objet de la fiche [BERT vs GPT](/concepts/bert-vs-gpt/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Sur quelles positions porte la perte d'un modèle masqué ?",
+    choix: ["Sur toutes les positions", "Sur les seules positions cibles", "Sur le dernier token", "Sur les tokens [MASK] uniquement, pas sur les cibles déguisées"],
+    bonne: 1,
+    explication: "Toutes les cibles comptent, qu'elles soient devenues [MASK], un mot au hasard ou soient restées intactes."
+  },
+  {
+    question: "Pourquoi un modèle masqué n'utilise-t-il pas de masque causal ?",
+    choix: ["Pour aller plus vite", "Parce qu'il doit lire le contexte des deux côtés du trou", "Parce qu'il n'a pas d'attention", "Parce que BERT n'utilise pas de softmax"],
+    bonne: 1,
+    explication: "Le trou empêche déjà de tricher ; le modèle peut donc regarder à gauche et à droite."
+  },
+  {
+    question: "Pourquoi 10 % des cibles restent-elles inchangées ?",
+    choix: ["Par erreur", "Pour que le modèle ne sache jamais quel token visible est à prédire, comme lorsqu'il n'y aura plus de [MASK]", "Pour réduire la perte", "Pour économiser du calcul"],
+    bonne: 1,
+    explication: "Le token [MASK] n'existe pas lors de l'usage réel : il faut apprendre à bien représenter aussi les tokens visibles."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : quels sont les avantages et les inconvénients de l'objectif masqué par rapport à la prédiction du token suivant ?">
+
+Avantage : chaque représentation profite du contexte des deux côtés, ce qui donne de très bonnes représentations pour comprendre un texte (classification, recherche, extraction d'entités). Inconvénients : seuls 15 % des tokens fournissent un signal à chaque passage, donc l'apprentissage est moins efficace par token lu ; le token [MASK] crée un décalage entre entraînement et usage, que la règle 80/10/10 atténue sans le supprimer ; et le modèle n'apprend pas à générer du texte de gauche à droite. C'est pourquoi les LLM génératifs utilisent la prédiction du token suivant, et les encodeurs de type BERT restent utilisés pour la représentation.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "modélisation du langage masqué", en: "masked language modeling, MLM", definition: "Objectif d'entraînement : retrouver des tokens cachés à partir du contexte des deux côtés." },
+  { fr: "token de masque", en: "[MASK] token", definition: "Token spécial qui remplace une cible dans 80 % des cas." },
+  { fr: "cible", en: "target", definition: "Token tiré au hasard (15 %) que le modèle doit retrouver, et seul à entrer dans la perte." },
+  { fr: "bidirectionnel", en: "bidirectional", definition: "Se dit d'un modèle dont chaque position voit le contexte à gauche et à droite." }
+]} />
