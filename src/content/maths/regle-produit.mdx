@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.6 (règle de la chaîne des probabilités conditionnelles)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -129,29 +129,43 @@ Remarque que la phrase la plus longue est désavantagée : chaque mot supplémen
 
 ## Entraîne-toi
 
-**Exercice 1.** Une urne contient 3 boules rouges et 2 bleues. On tire deux boules sans remise. Quelle est la probabilité de tirer rouge puis rouge ?
+<Exercice titre="Deux boules sans remise" niveau="facile" reponse={0.3} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Une urne contient 3 boules rouges et 2 bleues. On tire deux boules sans remise. Quelle est la probabilité de tirer rouge puis rouge ?
+
+<div slot="indice">
+
+Après le premier tirage rouge, il ne reste que 4 boules, dont 2 rouges.
+
+</div>
+<div slot="solution">
 
 $P(R_1) = 3/5$ et $P(R_2 \mid R_1) = 2/4$. Donc $P(R_1 \cap R_2) = 3/5 \times 1/2 = 3/10$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Écris $P(x_1, x_2, x_3, x_4)$ avec la règle du produit.
+<Exercice titre="Quatre éléments à la suite" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Écris $P(x_1, x_2, x_3, x_4)$ avec la règle du produit.
+
+<div slot="solution">
 
 $P(x_1)\,P(x_2 \mid x_1)\,P(x_3 \mid x_1, x_2)\,P(x_4 \mid x_1, x_2, x_3)$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un modèle donne à chaque mot d'une phrase de 10 mots la probabilité 0,2, sachant les précédents. Quelle est la probabilité de la phrase ? La moyenne des $-\ln p$ par mot ?
+<Exercice titre="Une phrase de dix mots" niveau="defi" reponse={1.61} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Un modèle donne à chaque mot d'une phrase de 10 mots la probabilité 0,2, sachant les précédents. Quelle est la probabilité de la phrase ? La moyenne des $-\ln p$ par mot ? Dans la case, donne la moyenne.
+
+<div slot="solution">
 
 $0{,}2^{10} \approx 1{,}0 \times 10^{-7}$. Moyenne des $-\ln p$ : $-\ln 0{,}2 \approx 1{,}61$ par mot. Ce nombre ne dépend pas de la longueur de la phrase, contrairement à la probabilité totale.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
