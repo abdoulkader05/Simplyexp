@@ -1,0 +1,261 @@
+---
+id: multi-head
+type: concept
+titre: "Multi-head attention : plusieurs regards sur la même phrase"
+sous_titre: "Attention multi-têtes et sous-espaces de représentation"
+domaine: transformers
+niveau: 5
+prerequis: [self-attention]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Vaswani et al., « Attention Is All You Need », NeurIPS 2017 — https://arxiv.org/abs/1706.03762 (version HTML consultée : https://arxiv.org/html/1706.03762v7) — section 3.2.2 (MultiHead(Q, K, V) = Concat(head₁, …, head_h)W^O, head_i = Attention(QW_i^Q, KW_i^K, VW_i^V), dimensions des matrices de projection, h = 8, d_k = d_v = d_model/h = 64, coût total semblable à une tête de pleine dimension, « with a single attention head, averaging inhibits this »)"
+  - "Documentation PyTorch, torch.nn.MultiheadAttention — https://docs.pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html — paramètres embed_dim et num_heads (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Dans la phrase « Awa range sa chambre », le mot « sa » a besoin de deux informations à la fois : **à qui** appartient la chambre (Awa) et **quoi** lui appartient (la chambre). Une [self-attention](/concepts/self-attention/) donne à chaque mot un seul jeu de poids, donc un seul mélange. Si « sa » partage son attention entre Awa et chambre, il obtient une moyenne des deux, où les deux informations se brouillent.
+
+Les auteurs de l'article de 2017 décrivent exactement ce défaut : avec une seule tête d'attention, la moyenne empêche de prêter attention à plusieurs choses à la fois. Leur remède est de faire tourner plusieurs attentions en parallèle, chacune avec ses propres projections.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On découpe l'attention en plusieurs têtes, chacune avec ses propres projections plus petites ; chaque tête calcule son propre mélange, puis on colle les résultats côte à côte et on les recombine par une dernière projection.
+</PhraseCle>
+
+## En image
+
+Pense à un jury de trois personnes qui écoute un candidat à un oral.
+
+- L'une écoute surtout **le fond** : les idées sont-elles justes ?
+- L'autre écoute surtout **la forme** : la présentation est-elle claire ?
+- La troisième écoute surtout **la gestion du temps**.
+- Chacune prend ses notes de son côté, puis on met les trois fiches côte à côte pour rédiger l'avis final.
+
+Un seul examinateur qui essaierait de tout suivre à la fois ferait une impression moyenne ; trois regards spécialisés donnent un avis plus riche.
+
+Là où l'image s'arrête : dans un jury, on attribue les rôles à l'avance. Les têtes d'attention, elles, ne reçoivent aucun rôle : ce que chacune regarde émerge de l'entraînement, et rien ne garantit qu'on puisse le décrire avec des mots.
+
+## Comment ça marche
+
+Une attention à $h$ têtes (*multi-head attention*) calcule $h$ attentions indépendantes, chacune avec ses propres matrices de projection, puis les recombine :
+
+$$
+\begin{aligned}
+\mathrm{head}_i &= \mathrm{Attention}\big(Q\,W_i^Q,\; K\,W_i^K,\; V\,W_i^V\big) \\
+\mathrm{MultiHead}(Q, K, V) &= \mathrm{Concat}(\mathrm{head}_1, \dots, \mathrm{head}_h)\; W^O
+\end{aligned}
+$$
+
+où :
+- $h$ est le nombre de têtes ;
+- $W_i^Q$, $W_i^K$ sont de taille $d_{\text{model}} \times d_k$ et $W_i^V$ de taille $d_{\text{model}} \times d_v$ : chaque tête projette les vecteurs dans un espace plus petit ;
+- $d_{\text{model}}$ est la dimension des vecteurs du modèle, $d_k$ et $d_v$ celles des clés et des valeurs d'une tête ;
+- $\mathrm{Attention}$ est la formule $\mathrm{softmax}(QK^\top/\sqrt{d_k})\,V$ de la fiche [Query, Key, Value](/concepts/qkv/) ;
+- $\mathrm{Concat}$ colle les sorties des têtes côte à côte, ligne par ligne ;
+- $W^O$, de taille $h\,d_v \times d_{\text{model}}$, recombine le tout.
+
+En self-attention, $Q$, $K$ et $V$ sont la même matrice $X$ des vecteurs de la phrase. Dans l'article, le modèle de base a $d_{\text{model}} = 512$ et $h = 8$ têtes, avec $d_k = d_v = d_{\text{model}} / h = 64$.
+
+Revenons à « sa ». On ne garde que trois mots, avec des vecteurs inventés : la première coordonnée dit « c'est une personne », la seconde « c'est un objet ». Awa $= (2\,;\,0)$, chambre $= (0\,;\,2)$, sa $= (1\,;\,1)$. Pour une seule tête, on prend les projections égales à l'identité, avec $d_k = 2$. Pour deux têtes, on prend $d_k = 1$ : la tête 1 ne garde que la première coordonnée, la tête 2 que la seconde, et la racine de $d_k$ vaut alors 1. Fais défiler.
+
+<PasAPas rendu="multi-tetes" label="Une tête d'attention contre deux têtes, pour le mot sa">
+  <Etape etat="initial">
+    « sa » doit récupérer deux choses différentes : le possesseur, Awa, et l'objet possédé, la chambre.
+  </Etape>
+  <Etape etat="unetete">
+    **Une seule tête.** Les scores de « sa » valent $(1\,;\,1)\cdot(2\,;\,0) = 2$, puis $2$ avec chambre et $2$ avec lui-même : trois scores égaux, donc trois poids de $1/3$. La sortie vaut $(1\,;\,1)$ : exactement le vecteur de départ.
+  </Etape>
+  <Etape etat="tete1">
+    **Tête 1.** Elle ne voit que la première coordonnée : la requête de « sa » vaut 1, les clés valent $(2\,;\,0\,;\,1)$. Les poids $\frac{e^2}{e^2 + e^0 + e^1} \approx 0{,}67$ vont à Awa. La sortie vaut $0{,}67 \times 2 + 0{,}09 \times 0 + 0{,}24 \times 1 \approx 1{,}58$.
+  </Etape>
+  <Etape etat="tete2">
+    **Tête 2.** Elle ne voit que la seconde coordonnée : clés $(0\,;\,2\,;\,1)$. Cette fois, $0{,}67$ va à la chambre. Sortie : $\approx 1{,}58$.
+  </Etape>
+  <Etape etat="concat">
+    **Concaténation.** On colle les deux sorties : $(1{,}58\,;\,1{,}58)$, puis on multiplie par $W^O$, ici l'identité. Chaque coordonnée vient d'un regard qui s'est concentré sur un mot différent.
+  </Etape>
+</PasAPas>
+
+Avec une tête, « sa » ne peut que moyenner ; avec deux, chacune se spécialise sur un **sous-espace** différent des vecteurs. Les auteurs résument : les têtes permettent de s'intéresser conjointement à des informations venues de différents sous-espaces de représentation, à différentes positions.
+
+<Schema rendu="multi-head-schema" legende="Dans le modèle de base de l'article, 8 têtes travaillent en parallèle sur des projections de dimension 64 ; leur concaténation redonne 512 coordonnées, recombinées par W_O." />
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Plusieurs têtes pour le prix d'une">
+
+On compare $h$ têtes de dimension $d_k = d_v = d_{\text{model}}/h$ à une seule tête de dimension pleine $d_k = d_v = d_{\text{model}}$.
+
+**Les paramètres.** Chaque tête a trois matrices de taille $d_{\text{model}} \times d_k$. On y ajoute $W^O$, de taille $h\,d_v \times d_{\text{model}}$ :
+
+$$
+\begin{aligned}
+h \times 3\,d_{\text{model}}\,d_k + h\,d_v\,d_{\text{model}}
+&= 3\,d_{\text{model}}\,(h\,d_k) + (h\,d_v)\,d_{\text{model}} && \text{on regroupe} \\
+&= 3\,d_{\text{model}}^2 + d_{\text{model}}^2 && h\,d_k = h\,d_v = d_{\text{model}} \\
+&= 4\,d_{\text{model}}^2
+\end{aligned}
+$$
+
+C'est exactement le compte d'une tête unique de pleine dimension, avec ses trois projections $d_{\text{model}} \times d_{\text{model}}$ et sa projection de sortie. Avec $d_{\text{model}} = 512$ : $4 \times 512^2 = 1\,048\,576$ poids dans les deux cas.
+
+**Le calcul des scores.** Pour $n$ mots, une tête de dimension $d_k$ calcule $n^2$ produits scalaires de $d_k$ termes, soit $n^2 d_k$ multiplications. Pour $h$ têtes :
+
+$$
+h \times n^2\,d_k = n^2\,(h\,d_k) = n^2\,d_{\text{model}}
+$$
+
+C'est encore le coût d'une seule tête de pleine dimension. Les auteurs le notent : grâce à la dimension réduite de chaque tête, le coût total est semblable à celui d'une attention à une tête de pleine dimension. On gagne plusieurs regards sans payer davantage ; on paie seulement un peu de précision par tête, puisque chacune travaille dans un espace plus petit.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Couper en têtes" niveau="facile" reponse={64} tolerance={0}>
+
+Un modèle a des vecteurs de $d_{\text{model}} = 768$ coordonnées et utilise $h = 12$ têtes, en suivant la règle $d_k = d_{\text{model}} / h$. Quelle est la dimension des requêtes et des clés de chaque tête ? Et la dimension de la concaténation des 12 sorties, si $d_v = d_k$ ?
+
+<div slot="solution">
+
+$d_k = 768 / 12 = 64$. La concaténation a $12 \times 64 = 768$ coordonnées : on retrouve $d_{\text{model}}$, ce qui permet à $W^O$ d'être une matrice carrée $768 \times 768$ et à la sortie d'avoir la même forme que l'entrée.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le budget en poids" niveau="moyen" reponse={1048576} tolerance={0}>
+
+Compte les poids des matrices $W_i^Q$, $W_i^K$, $W_i^V$ (pour les 8 têtes) et $W^O$ dans le modèle de base de l'article : $d_{\text{model}} = 512$, $h = 8$, $d_k = d_v = 64$. On ignore les biais.
+
+<div slot="indice">
+
+Une tête a trois matrices $512 \times 64$. Multiplie par 8, puis ajoute $W^O$, de taille $(8 \times 64) \times 512$.
+
+</div>
+<div slot="solution">
+
+Projections : $8 \times 3 \times 512 \times 64 = 786\,432$. Sortie : $512 \times 512 = 262\,144$. Total : $1\,048\,576 = 4 \times 512^2$, comme le prévoit la dérivation. Passer de 1 à 8 têtes ne coûte aucun poids supplémentaire.
+
+</div>
+</Exercice>
+
+<Exercice titre="La tête qui trouve Awa" niveau="defi" reponse={0.665} tolerance={0.002}>
+
+Dans l'exemple de l'animation, la tête 1 ne garde que la première coordonnée : la requête de « sa » vaut 1 et les clés de (Awa, chambre, sa) valent $(2\,;\,0\,;\,1)$, avec $d_k = 1$. Calcule le poids qu'elle donne à Awa. Puis explique pourquoi une tête unique à deux coordonnées ne pouvait pas faire ce choix.
+
+<div slot="indice">
+
+Les scores sont $1 \times 2$, $1 \times 0$ et $1 \times 1$. Utilise $e^2 \approx 7{,}389$ et $e \approx 2{,}718$.
+
+</div>
+<div slot="solution">
+
+Poids d'Awa : $\frac{e^2}{e^2 + e^0 + e^1} = \frac{7{,}389}{7{,}389 + 1 + 2{,}718} = \frac{7{,}389}{11{,}107} \approx 0{,}665$.
+
+Avec une tête unique et les vecteurs complets, « sa » $= (1\,;\,1)$ a le même produit scalaire (2) avec Awa, avec chambre et avec lui-même : les poids sont forcément égaux. Seule, la tête ne peut pas séparer « personne » et « objet », puisque « sa » ressemble autant aux deux. En projetant sur des sous-espaces différents, chaque tête voit une ressemblance que l'autre ne voit pas.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro, avec NumPy, sur l'exemple de l'animation :
+
+```python
+import numpy as np
+
+def attention(Q, K, V):
+    s = Q @ K.T / np.sqrt(K.shape[1])
+    p = np.exp(s - s.max(axis=1, keepdims=True))
+    p = p / p.sum(axis=1, keepdims=True)
+    return p, p @ V
+
+X = np.array([[2.0, 0.0], [0.0, 2.0], [1.0, 1.0]])   # Awa, chambre, sa
+
+# Une seule tête, projections identité
+p, _ = attention(X, X, X)
+print("une tête, poids de « sa » :", p[2].round(2))    # [0.33 0.33 0.33]
+
+# Deux têtes : chacune projette sur une coordonnée (d_k = 1)
+tetes = []
+for W in (np.array([[1.0], [0.0]]), np.array([[0.0], [1.0]])):
+    p, sortie = attention(X @ W, X @ W, X @ W)
+    print("tête, poids de « sa » :", p[2].round(2))
+    tetes.append(sortie)
+concat = np.concatenate(tetes, axis=1)               # puis × W_O (ici l'identité)
+print("sortie de « sa » :", concat[2].round(2))       # [1.58 1.58]
+```
+
+En vrai, avec PyTorch : `num_heads` fixe le nombre de têtes, et la bibliothèque découpe `embed_dim` entre elles.
+
+```python
+# no-run
+import torch
+import torch.nn as nn
+
+attention = nn.MultiheadAttention(embed_dim=512, num_heads=8, batch_first=True)
+x = torch.randn(1, 10, 512)
+y, poids = attention(x, x, x, average_attn_weights=False)
+print(y.shape, poids.shape)     # torch.Size([1, 10, 512]) torch.Size([1, 8, 10, 10])
+print(sum(p.numel() for p in attention.parameters()))   # 4 × 512² poids, plus les biais
+```
+
+## Les pièges classiques
+
+**« Plus de têtes, c'est plus de paramètres. »** Non, à $d_{\text{model}}$ fixé : chaque tête devient plus petite, et le total reste $4\,d_{\text{model}}^2$. Ajouter des têtes redistribue les mêmes poids en regards plus nombreux mais plus étroits.
+
+**« Chaque tête a un rôle défini : la syntaxe, le sens, les pronoms… »** On ne donne aucun rôle aux têtes. Certaines se spécialisent de façon lisible, d'autres non, et plusieurs peuvent faire à peu près la même chose. Le jury de l'image est une façon de parler, pas un mécanisme.
+
+**« Les têtes échangent des informations entre elles. »** Elles calculent chacune de leur côté, sans se voir. Leurs résultats ne se rencontrent qu'à la fin, dans la projection $W^O$, puis dans les couches suivantes.
+
+## Dans la vraie vie
+
+Dans l'article de 2017, chaque couche de l'encodeur et du décodeur utilise une attention à 8 têtes de dimension 64. Ce découpage $d_k = d_{\text{model}}/h$ garde le coût d'une tête unique, comme le montre la dérivation : on peut changer le nombre de têtes sans alourdir le modèle.
+
+Dans les bibliothèques, l'attention à plusieurs têtes est la brique standard : en PyTorch, `nn.MultiheadAttention` prend la dimension et le nombre de têtes, et fait le découpage. Il ne reste qu'à l'assembler avec un réseau feed-forward, des connexions résiduelles et une normalisation : c'est le [bloc Transformer](/concepts/bloc-transformer/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Avec d_model = 512 et 8 têtes, quelle est la dimension des clés de chaque tête ?",
+    choix: ["512", "64", "8", "4 096"],
+    bonne: 1,
+    explication: "d_k = d_model / h = 512 / 8 = 64."
+  },
+  {
+    question: "Que fait la matrice W^O ?",
+    choix: ["Elle calcule les scores", "Elle recombine la concaténation des sorties des têtes", "Elle choisit la meilleure tête", "Elle normalise les poids"],
+    bonne: 1,
+    explication: "Les sorties des têtes sont collées côte à côte, puis W^O les mélange pour revenir à la dimension du modèle."
+  },
+  {
+    question: "Pourquoi plusieurs têtes plutôt qu'une grande ?",
+    choix: ["Pour réduire le nombre de paramètres", "Pour que chaque position puisse s'intéresser à plusieurs choses à la fois, dans des sous-espaces différents", "Parce qu'une seule tête ne peut pas utiliser le softmax", "Pour trier les mots"],
+    bonne: 1,
+    explication: "Une seule tête fait une moyenne unique ; plusieurs têtes font plusieurs mélanges spécialisés, pour le même nombre de paramètres."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : que gagne-t-on avec l'attention multi-têtes, et que coûte-t-elle ?">
+
+Une tête unique produit, pour chaque position, une seule distribution de poids : si la position a besoin d'informations venues de plusieurs mots différents, elle doit les moyenner, ce qui les brouille. Avec $h$ têtes, chaque tête projette les vecteurs dans son propre sous-espace de dimension $d_{\text{model}}/h$ et calcule sa propre distribution : une position peut ainsi regarder plusieurs mots pour des raisons différentes. Comme chaque tête est $h$ fois plus petite, le nombre de paramètres ($4\,d_{\text{model}}^2$) et le coût du calcul des scores ($n^2 d_{\text{model}}$) restent ceux d'une tête unique de pleine dimension. La contrepartie : chaque tête travaille dans un espace réduit, et les rôles des têtes ne sont ni imposés ni garantis.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "attention multi-têtes", en: "multi-head attention", definition: "Plusieurs attentions calculées en parallèle, chacune avec ses propres projections, puis concaténées et recombinées." },
+  { fr: "tête d'attention", en: "attention head", definition: "Une des attentions parallèles, qui travaille dans un sous-espace de dimension d_model / h." },
+  { fr: "concaténation", en: "concatenation", definition: "Opération qui colle des vecteurs bout à bout pour en former un plus long." },
+  { fr: "sous-espace de représentation", en: "representation subspace", definition: "Espace plus petit dans lequel une tête projette les vecteurs, et où elle compare les mots." }
+]} />
