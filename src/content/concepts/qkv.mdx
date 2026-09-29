@@ -1,0 +1,271 @@
+---
+id: qkv
+type: concept
+titre: "Query, Key, Value : l'attention comme un moteur de recherche"
+sous_titre: "Les trois projections de l'attention et le facteur √d_k"
+domaine: transformers
+niveau: 4
+prerequis: [attention]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Vaswani et al., « Attention Is All You Need », NeurIPS 2017 — https://arxiv.org/abs/1706.03762 (version HTML consultée : https://arxiv.org/html/1706.03762v7) — section 3.2.1 (formule Attention(Q, K, V) = softmax(QKᵀ/√d_k)V, requêtes et clés de dimension d_k, valeurs de dimension d_v, comparaison avec l'attention additive, justification du facteur 1/√d_k et note 4 : q · k de moyenne 0 et de variance d_k)"
+  - "Documentation PyTorch, torch.nn.functional.scaled_dot_product_attention — https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html — facteur d'échelle par défaut 1/√E (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Dans la fiche sur l'[attention](/concepts/attention/), un même vecteur $\mathbf{h}_j$ jouait deux rôles à la fois. Il servait à **être comparé** à l'état du décodeur, pour calculer un score. Puis il servait à **être mélangé**, pour fabriquer le vecteur de contexte. Et l'état du décodeur $\mathbf{s}$ servait tel quel de point de comparaison.
+
+C'est beaucoup demander à un seul vecteur. Ce qui rend un mot facile à retrouver n'est pas forcément ce qu'il doit transmettre une fois trouvé. En 2017, l'article qui introduit les transformers sépare ces rôles : chaque vecteur est projeté trois fois, en une requête, une clé et une valeur.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On transforme chaque vecteur en trois : une requête qui dit ce qu'on cherche, une clé qui dit sous quel angle on peut être trouvé, une valeur qui dit ce qu'on transmet ; on compare requête et clés, puis on mélange les valeurs.
+</PhraseCle>
+
+## En image
+
+Pense au moteur de recherche d'une médiathèque en ligne.
+
+- Tu tapes « roman policier à Dakar » : c'est ta **requête** (*query*).
+- Chaque livre est indexé par des mots-clés, un genre, un lieu : c'est sa **clé** (*key*). Le moteur compare ta requête à toutes les clés.
+- Ce que tu obtiens au bout, c'est le résumé et la fiche du livre, pas ses mots-clés : c'est sa **valeur** (*value*).
+- Le moteur classe les livres par pertinence et te montre surtout les premiers.
+
+Là où l'image s'arrête : un moteur de recherche te rend une liste, et tu choisis. L'attention, elle, ne choisit pas : elle rend un seul vecteur, un mélange de **toutes** les valeurs, pondéré par la pertinence de chaque clé. Et les requêtes, clés et valeurs ne sont pas écrites par un bibliothécaire : ce sont des projections apprises pendant l'entraînement.
+
+## Comment ça marche
+
+On garde l'exemple de la fiche attention : traduire « Awa paie Koffi », avec les états de l'encodeur $\mathbf{h}_1 = (1\,;\,-1)$, $\mathbf{h}_2 = (1\,;\,1)$, $\mathbf{h}_3 = (-1\,;\,1)$ et l'état du décodeur $\mathbf{s} = (1\,;\,1)$.
+
+On se donne trois [matrices](/maths/matrices/) de projection, apprises avec le reste du modèle. On les choisit ici pour que les calculs restent simples :
+
+$$
+W_Q = \begin{pmatrix} 1 & 1 \\ 0 & 1 \end{pmatrix} \qquad W_K = \begin{pmatrix} 1 & 0 \\ 1 & 1 \end{pmatrix} \qquad W_V = \begin{pmatrix} 1 & 0 \\ 0 & 2 \end{pmatrix}
+$$
+
+où :
+- $W_Q$ fabrique la requête à partir de l'état du décodeur : $\mathbf{q} = \mathbf{s}\,W_Q$ ;
+- $W_K$ fabrique une clé par mot source : $\mathbf{k}_j = \mathbf{h}_j\,W_K$ ;
+- $W_V$ fabrique une valeur par mot source : $\mathbf{v}_j = \mathbf{h}_j\,W_V$.
+
+Les vecteurs sont écrits en ligne et multipliés à gauche de la matrice, comme dans l'article original. Par exemple, $\mathbf{q} = (1\,;\,1)\,W_Q = (1 \times 1 + 1 \times 0\,;\,1 \times 1 + 1 \times 1) = (1\,;\,2)$. Fais défiler.
+
+<PasAPas rendu="qkv-tableau" label="Attention avec requête, clés et valeurs sur la phrase Awa paie Koffi">
+  <Etape etat="initial">
+    On part des mêmes vecteurs que dans la fiche attention. Cette fois, aucun ne sera utilisé tel quel.
+  </Etape>
+  <Etape etat="projections">
+    **Trois projections.** La requête vaut $\mathbf{q} = (1\,;\,2)$. Chaque mot source reçoit une clé et une valeur, deux vecteurs **différents** : pour « paie », la clé vaut $(2\,;\,1)$ et la valeur $(1\,;\,2)$.
+  </Etape>
+  <Etape etat="scores">
+    **On compare la requête aux clés** par un [produit scalaire](/maths/produit-scalaire/). Pour « paie » : $1 \times 2 + 2 \times 1 = 4$. Les trois scores valent $(-2\,;\,4\,;\,2)$.
+  </Etape>
+  <Etape etat="echelle">
+    **On divise par $\sqrt{d_k}$**, où $d_k$ est la dimension des clés, ici 2. Les scores deviennent environ $(-1{,}41\,;\,2{,}83\,;\,1{,}41)$.
+  </Etape>
+  <Etape etat="poids">
+    **Le [softmax](/concepts/softmax/) donne les poids** : environ $(0{,}011\,;\,0{,}795\,;\,0{,}193)$. « paie » l'emporte nettement.
+  </Etape>
+  <Etape etat="sortie">
+    **On mélange les valeurs**, pas les clés : $0{,}011\,\mathbf{v}_1 + 0{,}795\,\mathbf{v}_2 + 0{,}193\,\mathbf{v}_3 \approx (0{,}61\,;\,1{,}95)$.
+  </Etape>
+</PasAPas>
+
+Avec plusieurs requêtes à la fois, rangées en lignes dans une matrice $Q$, et les clés et valeurs rangées dans $K$ et $V$, tout le calcul tient en une ligne :
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+$$
+
+où :
+- $Q$ contient une requête par ligne, $K$ une clé par ligne, $V$ une valeur par ligne ;
+- $Q K^\top$ est le tableau de tous les scores : la case $(i, j)$ vaut le produit scalaire de la requête $i$ et de la clé $j$ ;
+- $d_k$ est la dimension des requêtes et des clés ;
+- le softmax s'applique ligne par ligne, une ligne par requête ;
+- la multiplication par $V$ fait, pour chaque requête, la moyenne des valeurs pondérée par ses poids.
+
+Les requêtes et les clés doivent avoir la même dimension $d_k$, pour qu'on puisse en faire le produit scalaire. Les valeurs peuvent avoir une autre dimension, notée $d_v$. L'article appelle ce calcul *scaled dot-product attention* : l'attention par produit scalaire mis à l'échelle.
+
+**Pourquoi diviser par $\sqrt{d_k}$ ?** Selon les auteurs, quand $d_k$ est grand, les produits scalaires deviennent grands en valeur absolue et poussent le softmax dans des zones où ses gradients sont extrêmement petits. Un softmax saturé donne presque tout le poids à un seul mot : les autres ne reçoivent plus de signal d'apprentissage. Sans la division, notre exemple donnerait déjà 0,88 à « paie » au lieu de 0,80, avec seulement deux dimensions.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où vient le facteur √d_k">
+
+L'article justifie ce facteur dans une note. Supposons que les $d_k$ coordonnées de $\mathbf{q}$ et de $\mathbf{k}$ soient des variables aléatoires indépendantes, de moyenne 0 et de variance 1. Le produit scalaire est une somme de $d_k$ termes :
+
+$$
+\mathbf{q} \cdot \mathbf{k} = \sum_{i=1}^{d_k} q_i\,k_i
+$$
+
+Chaque terme a une [espérance](/maths/esperance-variance/) nulle et une variance égale à 1 :
+
+$$
+\begin{aligned}
+\mathbb{E}[q_i k_i] &= \mathbb{E}[q_i]\,\mathbb{E}[k_i] = 0 \times 0 = 0 && \text{indépendance} \\
+\mathrm{Var}(q_i k_i) &= \mathbb{E}[q_i^2 k_i^2] - 0^2 = \mathbb{E}[q_i^2]\,\mathbb{E}[k_i^2] = 1 \times 1 = 1 && \text{car } \mathbb{E}[q_i^2] = \mathrm{Var}(q_i) + 0^2 = 1
+\end{aligned}
+$$
+
+Les termes sont indépendants entre eux, donc les variances s'additionnent :
+
+$$
+\mathrm{Var}(\mathbf{q} \cdot \mathbf{k}) = \sum_{i=1}^{d_k} \mathrm{Var}(q_i k_i) = d_k
+$$
+
+L'écart-type du score vaut donc $\sqrt{d_k}$ : avec $d_k = 64$, des scores de $\pm 8$ ou $\pm 16$ n'ont rien d'exceptionnel. Diviser par $\sqrt{d_k}$ ramène la variance à $d_k / d_k = 1$, quelle que soit la dimension, puisque diviser une variable par $a$ divise sa variance par $a^2$. Les scores restent dans une zone où le softmax est sensible.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Qui est la requête ?" niveau="facile">
+
+Sur une plateforme de petites annonces, tu cherches « téléphone reconditionné pas cher à Abidjan ». Chaque annonce a un titre, une catégorie et une ville, et elle contient une description complète avec des photos. Associe chaque élément à son rôle : requête, clé ou valeur. Puis dis ce que ferait l'attention à la place du moteur de recherche.
+
+<div slot="solution">
+
+Ta recherche est la **requête**. Le titre, la catégorie et la ville de chaque annonce forment sa **clé** : c'est ce qu'on compare à la requête. La description complète est la **valeur** : c'est ce qu'on récupère.
+
+Un moteur de recherche te rendrait une liste classée. L'attention te rendrait **une seule** description, fabriquée en mélangeant toutes les descriptions, avec beaucoup de poids pour les annonces pertinentes et très peu pour les autres.
+
+</div>
+</Exercice>
+
+<Exercice titre="Remettre un score à l'échelle" niveau="moyen" reponse={3} tolerance={0.001}>
+
+Dans un modèle, les requêtes et les clés ont $d_k = 64$ coordonnées. Un produit scalaire $\mathbf{q} \cdot \mathbf{k}$ vaut 24. Quel score entre dans le softmax ? Et si les coordonnées suivent l'hypothèse de la dérivation, combien d'écarts-types représente ce score brut ?
+
+<div slot="solution">
+
+$\sqrt{64} = 8$, donc le score mis à l'échelle vaut $24 / 8 = 3$.
+
+L'écart-type du score brut vaut $\sqrt{d_k} = 8$ : un score de 24 est à 3 écarts-types de la moyenne. Après division, l'écart-type vaut 1, et le score 3 garde exactement la même position relative. La mise à l'échelle ne change pas quel mot est préféré ; elle évite seulement que les écarts deviennent énormes.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le softmax qui sature" niveau="defi" reponse={0.881} tolerance={0.002}>
+
+Une requête est comparée à deux clés. Les produits scalaires bruts valent 8 et 0, et $d_k = 16$. Calcule le poids du premier mot sans mise à l'échelle, puis avec. Pourquoi la version sans mise à l'échelle gêne-t-elle l'apprentissage ?
+
+<div slot="indice">
+
+Avec deux scores $a$ et $b$, le poids du premier vaut $\frac{e^a}{e^a + e^b} = \frac{1}{1 + e^{b - a}}$.
+
+</div>
+<div slot="solution">
+
+Sans mise à l'échelle : $\frac{1}{1 + e^{-8}} \approx 0{,}999\,7$. Avec : les scores deviennent $8/4 = 2$ et $0$, d'où $\frac{1}{1 + e^{-2}} \approx 0{,}881$.
+
+Sans mise à l'échelle, le second mot ne reçoit que 0,03 % du poids. Le softmax est saturé : ses dérivées sont presque nulles, et un petit changement des vecteurs ne change quasiment plus les poids. Le modèle apprend alors très lentement à mieux répartir son attention. Avec la mise à l'échelle, le second mot garde 12 %, et le signal d'apprentissage circule.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro, avec NumPy, sur l'exemple de la fiche :
+
+```python
+import numpy as np
+
+H = np.array([[1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]])   # Awa, paie, Koffi
+s = np.array([1.0, 1.0])                               # état du décodeur
+
+W_Q = np.array([[1.0, 1.0], [0.0, 1.0]])
+W_K = np.array([[1.0, 0.0], [1.0, 1.0]])
+W_V = np.array([[1.0, 0.0], [0.0, 2.0]])
+
+q = s @ W_Q          # requête  : [1. 2.]
+K = H @ W_K          # une clé par ligne
+V = H @ W_V          # une valeur par ligne
+d_k = K.shape[1]
+
+scores = K @ q / np.sqrt(d_k)
+poids = np.exp(scores - scores.max())
+poids = poids / poids.sum()
+sortie = poids @ V
+
+print("clés     :", K.tolist())
+print("valeurs  :", V.tolist())
+print("poids    :", poids.round(3))    # [0.011 0.795 0.193]
+print("sortie   :", sortie.round(2))   # [0.61 1.95]
+```
+
+En vrai, avec PyTorch : les projections sont des couches linéaires apprises, et la fonction divise par $\sqrt{d_k}$ par défaut.
+
+```python
+# no-run
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+d_modele, d_k = 512, 64
+proj_q, proj_k, proj_v = (nn.Linear(d_modele, d_k) for _ in range(3))
+x_dec = torch.randn(1, 1, d_modele)     # un état du décodeur
+x_enc = torch.randn(1, 20, d_modele)    # 20 états de l'encodeur
+sortie = F.scaled_dot_product_attention(proj_q(x_dec), proj_k(x_enc), proj_v(x_enc))
+print(sortie.shape)                     # torch.Size([1, 1, 64])
+```
+
+## Les pièges classiques
+
+**« Les clés et les valeurs, c'est la même chose. »** Elles viennent du même vecteur, mais par deux projections différentes. Dans l'exemple, « paie » a pour clé $(2\,;\,1)$ et pour valeur $(1\,;\,2)$. Ce qui rend un mot facile à trouver n'est pas ce qu'il transmet.
+
+**« Le facteur $\sqrt{d_k}$ change le mot préféré. »** Diviser tous les scores par le même nombre positif ne change pas leur ordre. Le mot de meilleur score reste le premier ; seule la répartition des poids devient moins tranchée.
+
+**« Les matrices $W_Q$, $W_K$, $W_V$ sont fixées à la main. »** Ici, oui, pour que le calcul tienne sur une ligne. Dans un vrai modèle, ce sont des paramètres appris par [rétropropagation](/concepts/backpropagation/), comme tous les autres poids.
+
+## Dans la vraie vie
+
+La formule $\mathrm{softmax}(QK^\top/\sqrt{d_k})\,V$ est celle de l'article « Attention Is All You Need », publié en 2017. Ses auteurs comparent deux façons de calculer les scores : un petit réseau de neurones, l'attention additive, et le produit scalaire. Ils retiennent le produit scalaire, qu'ils jugent bien plus rapide et économe en mémoire en pratique. La mise à l'échelle corrige son seul défaut : sans elle, l'attention additive fait mieux quand $d_k$ est grand.
+
+Les bibliothèques actuelles reprennent cette formule telle quelle. Dans PyTorch, la fonction `scaled_dot_product_attention` divise par défaut par la racine de la dimension. Et dans un transformer, requêtes, clés et valeurs viennent de la **même** phrase : c'est l'objet de la fiche sur la [self-attention](/concepts/self-attention/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Quels vecteurs sont mélangés pour fabriquer la sortie de l'attention ?",
+    choix: ["Les requêtes", "Les clés", "Les valeurs", "Les scores"],
+    bonne: 2,
+    explication: "Les clés servent à calculer les poids avec la requête ; ce sont les valeurs qu'on moyenne avec ces poids."
+  },
+  {
+    question: "Pourquoi les requêtes et les clés doivent-elles avoir la même dimension ?",
+    choix: ["Pour que le softmax fonctionne", "Pour pouvoir calculer leur produit scalaire", "Pour que la sortie ait la bonne taille", "Ce n'est pas nécessaire"],
+    bonne: 1,
+    explication: "Le score est le produit scalaire d'une requête et d'une clé : il faut deux vecteurs de même dimension d_k."
+  },
+  {
+    question: "Avec d_k = 100, par combien divise-t-on les scores ?",
+    choix: ["100", "10", "50", "1"],
+    bonne: 1,
+    explication: "On divise par √d_k = √100 = 10."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi divise-t-on les scores par √d_k dans l'attention ?">
+
+Si les coordonnées des requêtes et des clés sont indépendantes, de moyenne 0 et de variance 1, leur produit scalaire a une variance égale à $d_k$, donc un écart-type de $\sqrt{d_k}$. Avec $d_k$ grand, les scores s'étalent sur de grandes valeurs, le softmax sature et donne presque tout le poids à une seule position. Ses gradients deviennent alors minuscules et l'apprentissage ralentit. Diviser par $\sqrt{d_k}$ ramène la variance des scores à 1 quelle que soit la dimension, sans changer l'ordre des scores.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "requête", en: "query", definition: "Projection du vecteur qui cherche : elle est comparée à toutes les clés." },
+  { fr: "clé", en: "key", definition: "Projection d'un vecteur source qui sert à le comparer à la requête." },
+  { fr: "valeur", en: "value", definition: "Projection d'un vecteur source qui est transmise, pondérée, dans la sortie." },
+  { fr: "attention par produit scalaire mis à l'échelle", en: "scaled dot-product attention", definition: "softmax(QKᵀ/√d_k)V : scores par produit scalaire, divisés par la racine de la dimension des clés." }
+]} />
