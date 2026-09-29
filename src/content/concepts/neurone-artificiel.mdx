@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.1 (apprendre XOR)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -108,15 +108,56 @@ En additionnant les deux dernières lignes : $w_1 + w_2 + 2b > 0$. En additionna
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : mets le poids de la pluie à 0. Que devient la frontière, et que fait Aminata en B ? Puis donne un poids négatif à la distance : quelle personne décrit ce neurone ?
+<Exercice titre="Et si la pluie ne comptait plus ?" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Mets le poids de la pluie à 0. Que devient la frontière, et que fait Aminata en B ? Puis donne un poids négatif à la distance : quelle personne décrit ce neurone ?
+
+<div slot="solution">
 
 Avec $w_2 = 0$, la pluie ne compte plus : la frontière devient verticale, à $x_1 = 2 / 0{,}8 = 2{,}5$ km. En B (1 km sous l'averse), $z = 0{,}8 - 2 = -1{,}2$ : elle marche sous la pluie.
 
 Avec un poids de distance négatif, par exemple $w_1 = -0{,}5$, plus le trajet est long, moins le neurone veut prendre le gbaka. Avec $w_2 = 1{,}5$, le score ne dépasse jamais $-0{,}5$ : tout le plan reste pâle, il marche toujours. Monte alors $w_2$ à 3 : il prend le gbaka seulement pour les trajets de moins de 2 km sous une forte averse. C'est un comportement étrange, mais parfaitement représentable : c'est l'apprentissage, à partir de vrais exemples, qui choisit des poids sensés.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="À partir de combien de kilomètres ?" niveau="moyen" reponse={1.75} tolerance={0.01} unite="km">
+
+On garde les poids de l'exemple : $w_1 = 0{,}8$, $w_2 = 1{,}5$ et $b = -2$, avec la marche comme activation. Ce matin, il tombe une pluie moyenne, d'intensité $x_2 = 0{,}4$. À partir de quelle distance Aminata prend-elle le gbaka ?
+
+<div slot="indice">
+
+Elle change d'avis exactement sur la frontière, là où $z = 0$. Remplace $x_2$ par 0,4 et résous en $x_1$.
+
+</div>
+<div slot="solution">
+
+$z = 0{,}8\,x_1 + 1{,}5 	imes 0{,}4 - 2 = 0{,}8\,x_1 - 1{,}4$. Il s'annule pour $x_1 = 1{,}4 / 0{,}8 = 1{,}75$ km. Au-delà de 1,75 km, $z > 0$ et elle prend le gbaka ; en deçà, elle marche. Par temps sec, le seuil était de 2,5 km : la pluie le rapproche de 750 mètres.
+
+</div>
+</Exercice>
+
+<Exercice titre="Les portes logiques ET, OU… et le OU exclusif" niveau="defi">
+
+Les entrées $x_1$ et $x_2$ valent 0 ou 1, et l'activation est la marche.
+
+1. Trouve des poids et un biais pour que le neurone calcule le ET : sortie 1 seulement si $x_1 = x_2 = 1$.
+2. Même question pour le OU : sortie 1 si au moins une entrée vaut 1.
+3. Montre qu'**aucun** choix de $w_1$, $w_2$ et $b$ ne donne le OU exclusif : 1 si exactement une entrée vaut 1.
+
+<div slot="indice">
+
+Pour la question 3, écris les quatre conditions, une par couple d'entrées, puis additionne celles des couples $(1\,;\,0)$ et $(0\,;\,1)$.
+
+</div>
+<div slot="solution">
+
+1. $w_1 = w_2 = 1$ et $b = -1{,}5$ : le score vaut $-1{,}5$, $-0{,}5$, $-0{,}5$ puis $0{,}5$. Seul le couple $(1\,;\,1)$ dépasse 0.
+2. $w_1 = w_2 = 1$ et $b = -0{,}5$ : le score vaut $-0{,}5$ pour $(0\,;\,0)$ et au moins $0{,}5$ ailleurs.
+3. Il faudrait : $b \leq 0$ pour $(0\,;\,0)$, $w_1 + b > 0$ et $w_2 + b > 0$ pour les deux couples qui doivent donner 1, et $w_1 + w_2 + b \leq 0$ pour $(1\,;\,1)$. En additionnant les deux conditions du milieu : $w_1 + w_2 + 2b > 0$, donc $w_1 + w_2 + b > -b \geq 0$, ce qui contredit la dernière. Géométriquement, aucune droite ne sépare les coins $(1\,;\,0)$ et $(0\,;\,1)$ des coins $(0\,;\,0)$ et $(1\,;\,1)$. Il faudra plusieurs neurones, organisés en couches.
+
+</div>
+</Exercice>
 
 ## En code
 
