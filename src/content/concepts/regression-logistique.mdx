@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), maximum de vraisemblance"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -125,13 +125,45 @@ Règle le poids et le biais. Les traits rouges relient chaque élève à la prob
   legende="Le trait doré vertical marque le seuil où la probabilité vaut 0,5."
 />
 
-Consigne : augmente fortement $w$ en ajustant $b$ pour garder le seuil vers 4,5 heures (par exemple $w = 4$ et $b = -18$). La courbe devient une marche. La log-loss baisse-t-elle ?
+<Exercice titre="La marche trop sûre d'elle" niveau="facile" reponse={0.53} tolerance={0.01}>
 
-<Depliable titre="Ce que tu devrais observer">
+Augmente fortement $w$ en ajustant $b$ pour garder le seuil vers 4,5 heures : prends $w = 4$ et $b = -18$. La courbe devient une marche. Quelle log-loss obtiens-tu ? Baisse-t-elle par rapport au départ ?
+
+<div slot="solution">
 
 Avec $w = 4$ et $b = -18$, la courbe passe presque d'un coup de 0 à 1 à 4,5 heures. Le modèle devient très sûr de lui, et la log-loss monte à environ 0,53 : il se trompe avec assurance sur les deux élèves « à contre-courant », celui de 4 heures qui a réussi et celui de 5 heures qui a échoué, et chacun coûte environ 2. La log-loss punit la fausse certitude. Le meilleur modèle, vers $w = 1{,}28$ et $b = -5{,}77$, reste prudent autour du seuil.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Un filtre anti-spam" niveau="moyen" reponse={0.731} tolerance={0.002}>
+
+Un filtre anti-spam compte $x$, le nombre de mots suspects dans un e-mail (« gratuit », « urgent », « gagnant »…), et calcule $p = \sigma(0{,}8\,x - 3)$. Quelle probabilité de spam donne-t-il à un e-mail qui contient 5 mots suspects ? À partir de combien de mots suspects passe-t-il le seuil de 0,5 ?
+
+<div slot="solution">
+
+Pour $x = 5$ : $z = 0{,}8 \times 5 - 3 = 1$, et $p = 1 / (1 + e^{-1}) \approx 0{,}731$.
+
+Le seuil $p = 0{,}5$ correspond à $z = 0$, soit $x = 3 / 0{,}8 = 3{,}75$. Comme on compte des mots entiers, le filtre bascule en « spam » à partir de 4 mots suspects.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix d'une fausse certitude" niveau="defi" reponse={4.61} tolerance={0.002}>
+
+Un e-mail tout à fait légitime ($y = 0$) arrive. Un premier filtre, très sûr de lui, lui donne une probabilité de spam $p = 0{,}99$. Un second, plus prudent, lui donne $p = 0{,}7$. Les deux se trompent de décision. Combien chacun coûte-t-il en log-loss ? Entre le coût du premier.
+
+<div slot="solution">
+
+Pour $y = 0$, seul le terme $-\ln(1 - p)$ compte.
+
+- Premier filtre : $-\ln(1 - 0{,}99) = -\ln 0{,}01 \approx 4{,}61$.
+- Second filtre : $-\ln(1 - 0{,}7) = -\ln 0{,}3 \approx 1{,}20$.
+
+Les deux prennent la même mauvaise décision, mais le premier coûte presque quatre fois plus. Et si $p$ tendait vers 1, le coût tendrait vers l'infini. C'est ce qui pousse un modèle entraîné à la log-loss à ne jamais être certain à tort : l'erreur quadratique, elle, plafonnerait à 1.
+
+</div>
+</Exercice>
 
 ## En code
 
