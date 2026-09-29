@@ -14,7 +14,7 @@ sources:
   - "Radford et al., « Improving Language Understanding by Generative Pre-Training », OpenAI, 2018 — https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf — section 3.1 (objectif de modélisation du langage : somme des log P(u_i | contexte))"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -118,29 +118,43 @@ Le modèle trop sûr de lui, $(0{,}8\,;\,0{,}1\,;\,0{,}1)$, obtient environ 1,26
 
 ## Entraîne-toi
 
-**Exercice 1.** Un classifieur à trois classes donne $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne classe est la 2e. Quelle est la perte ?
+<Exercice titre="Une seule prédiction" niveau="facile" reponse={1.61} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Un classifieur à trois classes donne $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne classe est la 2e. Quelle est la perte ?
+
+<div slot="solution">
 
 $-\ln 0{,}2 \approx 1{,}61$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Sur un texte de 4 mots, un modèle a donné aux vrais mots les probabilités 0,5, 0,25, 0,8 et 0,1. Quelle est l'entropie croisée moyenne ?
+<Exercice titre="Un texte de quatre mots" niveau="moyen" reponse={1.15} tolerance={0.01} unite="nat par mot">
 
-<Depliable titre="Corrigé">
+Sur un texte de 4 mots, un modèle a donné aux vrais mots les probabilités 0,5, 0,25, 0,8 et 0,1. Quelle est l'entropie croisée moyenne ?
 
-$(0{,}693 + 1{,}386 + 0{,}223 + 2{,}303)/4 \approx 4{,}605/4 \approx 1{,}15$ nat par mot.
+<div slot="indice">
 
-</Depliable>
+Calcule la surprise $-\ln p$ de chaque mot, puis fais la moyenne.
 
-**Exercice 3.** La vraie loi est $(0{,}5\,;\,0{,}5)$. Calcule $H(p, q)$ pour $q = (0{,}5\,;\,0{,}5)$ et pour $q = (0{,}9\,;\,0{,}1)$.
+</div>
+<div slot="solution">
 
-<Depliable titre="Corrigé">
+$(0{,}693 + 1{,}386 + 0{,}223 + 2{,}303)/4 \approx 4{,}605/4 \approx 1{,}15$ nat par mot. Le quatrième mot, mal prévu, pèse à lui seul la moitié de la perte.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix d'une fausse certitude" niveau="defi" reponse={1.204} tolerance={0.01}>
+
+La vraie loi est $(0{,}5\,;\,0{,}5)$, comme une pièce équilibrée. Calcule $H(p, q)$ pour $q = (0{,}5\,;\,0{,}5)$ et pour $q = (0{,}9\,;\,0{,}1)$. Dans la case, donne la seconde.
+
+<div slot="solution">
 
 Premier : $-\ln 0{,}5 \approx 0{,}693$, égal à l'entropie. Second : $-(0{,}5 \ln 0{,}9 + 0{,}5 \ln 0{,}1) \approx 0{,}053 + 1{,}151 = 1{,}204$. Le second modèle paie cher sa fausse certitude.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
