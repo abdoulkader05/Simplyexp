@@ -1,0 +1,243 @@
+---
+id: masque-causal
+type: concept
+titre: "Le masque causal : interdire au modèle de lire la réponse"
+sous_titre: "Causal masking et attention autorégressive"
+domaine: transformers
+niveau: 5
+prerequis: [self-attention]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Vaswani et al., « Attention Is All You Need », NeurIPS 2017 — https://arxiv.org/abs/1706.03762 (version HTML consultée : https://arxiv.org/html/1706.03762v7) — section 3.1 (le décodeur empêche une position de regarder les positions suivantes ; sorties décalées d'une position), section 3.2.3 (self-attention du décodeur « jusqu'à cette position incluse », masquage en mettant à −∞ les entrées du softmax qui correspondent à des connexions interdites)"
+  - "Documentation PyTorch, torch.nn.functional.scaled_dot_product_attention — https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html — paramètre is_causal (exemple de code)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape } from '@/components/animations';
+
+## Le problème de départ
+
+Un [modèle de langage](/concepts/modele-langage/) apprend à prédire le mot suivant. Pour l'entraîner sur la phrase « Le chat dort . », on lui demande trois prédictions : après « Le », deviner « chat » ; après « Le chat », deviner « dort » ; après « Le chat dort », deviner le point.
+
+Le plus efficace serait de donner la phrase entière d'un coup et de faire les trois prédictions en parallèle, comme la [self-attention](/concepts/self-attention/) sait le faire. Mais la self-attention laisse chaque mot regarder **tous** les autres. La position « Le » verrait « chat », c'est-à-dire la réponse qu'elle doit deviner. Le modèle apprendrait à recopier au lieu d'apprendre à prédire, et il serait perdu au moment de générer un texte, quand la suite n'existe pas encore.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Avant le softmax, on met un score de moins l'infini sur chaque case où un mot regarderait un mot situé après lui ; ces cases reçoivent un poids nul, et chaque position ne voit plus que le passé et elle-même.
+</PhraseCle>
+
+## En image
+
+Pense à une épreuve de dictée où l'on corrige chaque élève mot par mot.
+
+- La correctrice pose une feuille opaque sur le texte et la fait glisser vers la droite, un mot à la fois.
+- À chaque mot, l'élève ne voit que ce qui est déjà découvert, jusqu'au mot en cours.
+- On peut corriger toute la classe en même temps : chaque élève a sa feuille, calée à un endroit différent.
+- Personne ne peut tricher en lisant la suite, puisqu'elle est cachée.
+
+Là où l'image s'arrête : la feuille cache complètement les mots. Le masque, lui, ne supprime rien du calcul : il met des scores à moins l'infini, et c'est le softmax qui transforme ces scores en poids exactement nuls.
+
+## Comment ça marche
+
+On calcule les scores de la self-attention comme d'habitude, puis on leur ajoute une matrice de masque $M$ avant le softmax :
+
+$$
+A = \mathrm{softmax}\left(\frac{Q K^\top}{\sqrt{d_k}} + M\right) \qquad \text{avec} \qquad M_{ij} = \begin{cases} 0 & \text{si } j \leq i \\ -\infty & \text{si } j > i \end{cases}
+$$
+
+où :
+- $A$ est le tableau des poids d'attention, une ligne par position ;
+- $i$ est la position qui regarde, $j$ la position regardée ;
+- $M_{ij} = 0$ laisse le score inchangé quand $j$ est avant $i$, ou égal à $i$ ;
+- $M_{ij} = -\infty$ efface le score quand $j$ est **après** $i$ : ce sont les cases au-dessus de la diagonale.
+
+Le masque est dit **causal** (*causal mask*) parce qu'il respecte l'ordre du temps : une position ne dépend que de ce qui la précède. Voici l'exemple avec « Le chat dort », et des scores déjà divisés par $\sqrt{d_k}$, inventés pour tenir à la main. Fais défiler.
+
+<PasAPas rendu="masque-grille" label="Masque causal sur les scores de la phrase Le chat dort">
+  <Etape etat="initial">
+    Chaque ligne est une position qui doit prédire le mot suivant : « Le » doit prédire « chat », « chat » doit prédire « dort », « dort » doit prédire le point.
+  </Etape>
+  <Etape etat="scores">
+    **Les scores bruts.** Sans précaution, la ligne « Le » donne son meilleur score, 2, à « chat » : elle lirait exactement le mot qu'elle doit deviner.
+  </Etape>
+  <Etape etat="masque">
+    **On ajoute le masque.** Toutes les cases au-dessus de la diagonale deviennent $-\infty$. Les autres gardent leur score.
+  </Etape>
+  <Etape etat="poids">
+    **Le softmax, ligne par ligne.** Comme $e^{-\infty} = 0$, les cases masquées pèsent zéro. La ligne « Le » ne voit qu'elle-même : poids 1. La dernière ligne voit tout : $\frac{e}{2e + 1} \approx 0{,}42$ pour « Le » et « dort », $\frac{1}{2e + 1} \approx 0{,}16$ pour « chat ».
+  </Etape>
+  <Etape etat="ligne">
+    **La ligne « chat ».** Scores permis : 0 et 1. Poids : $\frac{1}{1 + e} \approx 0{,}27$ et $\frac{e}{1 + e} \approx 0{,}73$. Le score 3 donné à « dort » a disparu : la position prédit « dort » sans l'avoir vu.
+  </Etape>
+</PasAPas>
+
+Grâce au masque, une seule passe sur la phrase fournit **toutes** les prédictions à la fois, chacune calculée comme si la suite n'existait pas. Pour l'entraînement, on décale simplement la phrase d'une position : l'entrée est « Le chat dort » et la cible est « chat dort . ». Au moment de générer, le modèle produit un mot, l'ajoute à l'entrée et recommence ; le masque garantit qu'il se comporte exactement comme pendant l'entraînement.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi −∞, et ce que le masque garantit">
+
+**Pourquoi $-\infty$ et pas 0 ?** Un score de 0 donne $e^0 = 1$, un poids bien réel. Il faut un score dont l'exponentielle vaut 0 : c'est la limite $\lim_{s \to -\infty} e^{s} = 0$. En pratique, on utilise $-\infty$ en virgule flottante, ou un nombre très négatif.
+
+**Ce que devient le softmax.** Pour la ligne $i$, notons $s_{ij}$ les scores. Les termes $j > i$ valent $e^{s_{ij} + (-\infty)} = 0$ :
+
+$$
+\begin{aligned}
+A_{ij} &= \frac{e^{s_{ij} + M_{ij}}}{\sum_{k=1}^{n} e^{s_{ik} + M_{ik}}} && \text{softmax de la ligne } i \\
+&= \frac{e^{s_{ij} + M_{ij}}}{\sum_{k=1}^{i} e^{s_{ik}}} && \text{les termes } k > i \text{ sont nuls} \\
+&= \begin{cases} \dfrac{e^{s_{ij}}}{\sum_{k=1}^{i} e^{s_{ik}}} & \text{si } j \leq i \\[2mm] 0 & \text{si } j > i \end{cases}
+\end{aligned}
+$$
+
+C'est exactement le softmax des seuls mots permis : leurs poids somment à 1, comme si les mots suivants n'existaient pas.
+
+**Ce que le masque garantit.** La sortie de la position $i$ est $\mathbf{y}_i = \sum_j A_{ij}\,\mathbf{v}_j = \sum_{j \leq i} A_{ij}\,\mathbf{v}_j$. Elle ne dépend que des valeurs des positions 1 à $i$. Changer un mot situé après $i$ ne change donc rien à $\mathbf{y}_i$. Comme chaque couche respecte cette propriété, tout le modèle la respecte : la prédiction à la position $i$ ne peut s'appuyer que sur le passé.
+
+**Combien de cases restent.** La ligne $i$ garde $i$ cases, donc au total $1 + 2 + \dots + n = \frac{n(n+1)}{2}$ cases sur $n^2$. Pour $n = 3$ : 6 cases sur 9.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Compter les regards permis" niveau="facile" reponse={15} tolerance={0}>
+
+Une phrase de 5 tokens passe dans une self-attention avec masque causal. Combien de paires (position qui regarde, position regardée) reçoivent un poids non nul ? Et combien sont masquées ?
+
+<div slot="solution">
+
+La position 1 voit 1 case, la position 2 en voit 2, et ainsi de suite : $1 + 2 + 3 + 4 + 5 = 15 = \frac{5 \times 6}{2}$. Sur les $5 \times 5 = 25$ cases, 10 sont masquées.
+
+</div>
+</Exercice>
+
+<Exercice titre="La ligne du milieu" niveau="moyen" reponse={0.731} tolerance={0.002}>
+
+Avec les scores de l'animation, la ligne « chat » vaut $(0\,;\,1\,;\,3)$ avant masque. Calcule ses poids **avec** le masque, puis **sans**. Quel poids reçoit « chat » avec le masque ? Et de combien la ligne triche-t-elle sans masque ?
+
+<div slot="indice">
+
+Avec le masque, seuls les deux premiers scores comptent : $\frac{e^1}{e^0 + e^1}$. Sans masque, il faut ajouter $e^3 \approx 20{,}09$ au dénominateur.
+
+</div>
+<div slot="solution">
+
+Avec le masque : $\frac{e}{1 + e} = \frac{2{,}718}{3{,}718} \approx 0{,}731$ pour « chat », $0{,}269$ pour « Le », 0 pour « dort ».
+
+Sans le masque : le dénominateur vaut $1 + 2{,}718 + 20{,}09 = 23{,}80$, et « dort » reçoit $20{,}09 / 23{,}80 \approx 0{,}84$. La position qui doit deviner « dort » en tirerait 84 % de son information : elle lirait la réponse.
+
+</div>
+</Exercice>
+
+<Exercice titre="La moitié du tableau" niveau="defi" reponse={0.4995} tolerance={0.0005}>
+
+Un modèle s'entraîne sur des textes de 1 000 tokens. Quelle fraction des cases du tableau des scores est masquée ? Que suggère ce résultat sur la façon de programmer efficacement l'attention causale ?
+
+<div slot="indice">
+
+Les cases permises sont au nombre de $\frac{n(n+1)}{2}$. Les cases masquées sont celles qui restent.
+
+</div>
+<div slot="solution">
+
+Cases masquées : $n^2 - \frac{n(n+1)}{2} = \frac{n(n-1)}{2} = \frac{1\,000 \times 999}{2} = 499\,500$. Fraction : $\frac{499\,500}{1\,000\,000} = 0{,}499\,5$, presque la moitié.
+
+Calculer ces scores pour les remplacer ensuite par $-\infty$ gaspille près de la moitié du travail. Une implémentation soignée peut donc sauter les blocs du tableau entièrement situés au-dessus de la diagonale, et diviser presque par deux le calcul des scores.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro, avec NumPy, sur l'exemple de l'animation :
+
+```python
+import numpy as np
+
+scores = np.array([[1.0, 2.0, 0.0],
+                   [0.0, 1.0, 3.0],
+                   [1.0, 0.0, 1.0]])          # Le, chat, dort (déjà divisés par √d_k)
+n = scores.shape[0]
+masque = np.triu(np.full((n, n), -np.inf), k=1)    # −∞ strictement au-dessus de la diagonale
+
+def softmax_lignes(s):
+    e = np.exp(s - s.max(axis=1, keepdims=True))
+    return e / e.sum(axis=1, keepdims=True)
+
+print("sans masque :\n", softmax_lignes(scores).round(2))
+print("avec masque :\n", softmax_lignes(scores + masque).round(2))
+
+# Vérification : changer le dernier mot ne change pas les poids des lignes précédentes
+V = np.array([[1.0, 0.0], [0.0, 1.0], [5.0, 5.0]])
+V2 = V.copy(); V2[2] = [-9.0, 9.0]
+A = softmax_lignes(scores + masque)
+print("sorties des deux premières positions inchangées :", np.allclose((A @ V)[:2], (A @ V2)[:2]))
+```
+
+En vrai, avec PyTorch : le paramètre `is_causal` applique le masque sans qu'on ait à le construire.
+
+```python
+# no-run
+import torch
+import torch.nn.functional as F
+
+q = k = v = torch.randn(1, 8, 10, 64)          # lot, têtes, 10 positions, d_k = 64
+y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+print(y.shape)                                 # torch.Size([1, 8, 10, 64])
+```
+
+## Les pièges classiques
+
+**« Pour masquer, on met les scores à zéro. »** Un score nul donne $e^0 = 1$, donc un poids bien réel. Il faut $-\infty$, dont l'exponentielle vaut 0. Mettre à zéro les **poids** après le softmax serait aussi faux : la ligne ne sommerait plus à 1.
+
+**« Le masque ne sert qu'à la génération. »** Il sert surtout à l'entraînement, quand la phrase entière est connue et que le modèle pourrait tricher. Pendant la génération, les mots suivants n'existent pas encore ; le masque garantit que le modèle calcule exactement comme il a appris.
+
+**« Le masque cache les mots précédents. »** C'est l'inverse : il cache les mots **suivants**. Chaque position voit tout le passé et elle-même, jamais l'avenir. La première position ne voit qu'elle-même.
+
+## Dans la vraie vie
+
+Dans l'article de 2017, l'encodeur n'a pas de masque : il lit la phrase source en entier. Le décodeur, lui, en a un. Les auteurs l'écrivent : on empêche chaque position de regarder les positions suivantes, en mettant à $-\infty$ les entrées du softmax qui correspondent à des connexions interdites, et les sorties sont décalées d'une position. Ainsi, la prédiction d'une position ne peut dépendre que des sorties connues avant elle.
+
+Les modèles qui génèrent du texte mot après mot reposent sur ce principe : chaque couche d'attention y est masquée. Cette contrainte a une conséquence pratique : les clés et les valeurs d'un mot déjà écrit ne changent plus jamais, puisqu'elles ne dépendent pas de la suite. On peut donc les garder en mémoire au lieu de les recalculer : c'est le [cache KV](/concepts/kv-cache/). Les modèles qui lisent un texte complet sans le générer peuvent, eux, s'en passer : la fiche [BERT vs GPT](/concepts/bert-vs-gpt/) compare les deux approches.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans une phrase de 4 tokens avec masque causal, quels tokens la 3e position peut-elle regarder ?",
+    choix: ["Seulement le 4e", "Les tokens 1, 2 et 3", "Seulement le 3e", "Les 4 tokens"],
+    bonne: 1,
+    explication: "Une position voit le passé et elle-même : les positions 1 à 3. Le 4e token est masqué."
+  },
+  {
+    question: "Quelle valeur met-on dans le masque pour interdire une case ?",
+    choix: ["0", "1", "−∞", "La moyenne des scores"],
+    bonne: 2,
+    explication: "e^(−∞) = 0 : la case reçoit un poids nul, et les autres poids de la ligne somment encore à 1."
+  },
+  {
+    question: "Pourquoi le masque est-il indispensable pendant l'entraînement ?",
+    choix: ["Pour réduire la mémoire", "Parce que la phrase entière est donnée, et que chaque position pourrait lire le mot qu'elle doit prédire", "Pour accélérer le softmax", "Parce que l'encodeur l'exige"],
+    bonne: 1,
+    explication: "On entraîne toutes les positions en parallèle sur une phrase complète : sans masque, chacune verrait sa propre réponse."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment un transformer décodeur s'entraîne-t-il en parallèle alors qu'il génère un token à la fois ?">
+
+On donne au modèle une séquence entière et on lui demande, à chaque position, de prédire le token suivant : la cible est la même séquence décalée d'une position. Pour que chaque prédiction n'utilise que le passé, on ajoute aux scores d'attention un masque causal, avec $-\infty$ au-dessus de la diagonale : après le softmax, chaque position n'a de poids que sur elle-même et les positions précédentes. Une seule passe calcule ainsi $n$ prédictions indépendantes de la suite, avec les mêmes calculs que lors de la génération. Au moment de générer, on produit un token, on l'ajoute à l'entrée et on recommence ; comme les positions passées ne dépendent pas des nouvelles, on peut garder leurs clés et leurs valeurs en cache.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "masque causal", en: "causal mask", definition: "Matrice ajoutée aux scores d'attention, avec −∞ au-dessus de la diagonale, pour qu'une position ne voie que le passé et elle-même." },
+  { fr: "attention autorégressive", en: "autoregressive attention", definition: "Attention où chaque position ne dépend que des positions précédentes, comme le demande la génération mot après mot." },
+  { fr: "décalage d'une position", en: "shift by one position", definition: "Préparation des données d'entraînement : la cible est l'entrée décalée d'un token." },
+  { fr: "connexion interdite", en: "illegal connection", definition: "Case du tableau des scores où une position regarderait une position suivante." }
+]} />
