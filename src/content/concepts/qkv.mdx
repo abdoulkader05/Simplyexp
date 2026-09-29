@@ -81,7 +81,7 @@ Les vecteurs sont écrits en ligne et multipliés à gauche de la matrice, comme
 Avec plusieurs requêtes à la fois, rangées en lignes dans une matrice $Q$, et les clés et valeurs rangées dans $K$ et $V$, tout le calcul tient en une ligne :
 
 $$
-\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
 $$
 
 où :
