@@ -16,7 +16,7 @@ sources:
   - "Petrov, La Malfa, Torr, Bibi, « Language Model Tokenizers Introduce Unfairness Between Languages », NeurIPS 2023 — https://arxiv.org/abs/2305.15425 — résumé (écarts de longueur de tokenisation jusqu'à 15 fois entre langues)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -68,15 +68,47 @@ Pourquoi la longueur des suites compte-t-elle tant ? Parce que le coût d'un mod
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : compte les tokens pour chaque découpage. Puis imagine qu'on écrive « incompréhensibilité », un mot absent de la liste des mots entiers. Que devient-il dans chaque découpage ?
+<Exercice titre="Le mot que personne n'a prévu" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Compte les tokens pour chaque découpage. Puis imagine qu'on écrive « incompréhensibilité », un mot absent de la liste des mots entiers. Que devient-il dans chaque découpage ?
+
+<div slot="solution">
 
 Caractères : 50 tokens ; sous-mots : 13 ; mots : 7. Plus les tokens sont gros, plus la suite est courte.
 
 Pour « incompréhensibilité », le découpage en caractères marche toujours, mais il ajoute une vingtaine de tokens. Le découpage en mots échoue : le mot n'est pas dans la liste, et il faut le remplacer par un token « inconnu », ce qui perd toute l'information. Le découpage en sous-mots s'en sort en réutilisant des morceaux déjà connus : « in », « compr », « éhens », puis de quoi finir le mot (« ibil », « ité »). C'est pour cette robustesse que les LLM utilisent des sous-mots.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="La facture du service client" niveau="moyen" reponse={0.9} tolerance={0.01} unite="€">
+
+Une boutique en ligne fait résumer par un LLM les 2 000 messages de clients qu'elle reçoit chaque jour. Après tokenisation, un message fait en moyenne 150 tokens. Le fournisseur facture la lecture au nombre de tokens ; prenons un tarif fictif de 3 € par million de tokens lus. Combien coûte la lecture des messages d'une journée ?
+
+<div slot="solution">
+
+$2\,000 \times 150 = 300\,000$ tokens par jour, soit $0{,}3$ million. Coût : $0{,}3 \times 3 = 0{,}9$ € par jour. Remarque que l'unité de facturation n'est ni le mot ni le caractère : c'est le token. Deux textes de même longueur à l'écran peuvent coûter des montants différents s'ils se découpent différemment.
+
+</div>
+</Exercice>
+
+<Exercice titre="Quinze fois plus de tokens" niveau="defi" reponse={225} tolerance={0.001}>
+
+Petrov et ses coauteurs ont mesuré, pour un même texte traduit, des longueurs de tokenisation jusqu'à 15 fois plus grandes selon la langue. Suppose qu'une langue soit dans ce cas extrême. Par combien sont multipliés le coût de l'attention, le prix facturé au token, et combien de fois moins de texte tient dans une fenêtre de 8 000 tokens ?
+
+<div slot="indice">
+
+Le coût de l'attention est proportionnel au carré du nombre de tokens ; le prix et l'occupation de la fenêtre lui sont simplement proportionnels.
+
+</div>
+<div slot="solution">
+
+Attention : $15^2 = 225$ fois plus coûteuse. Prix facturé : 15 fois plus cher. Fenêtre : 15 fois moins de texte, soit l'équivalent d'environ $8\,000 / 15 \approx 533$ tokens de la langue la mieux découpée.
+
+Les locuteurs de cette langue paient plus cher, attendent plus longtemps et donnent moins de contexte au modèle, pour le même contenu. La solution n'est pas dans le modèle mais dans le tokeniseur : l'entraîner sur un corpus qui inclut vraiment cette langue.
+
+</div>
+</Exercice>
 
 ## En code
 
