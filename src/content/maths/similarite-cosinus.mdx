@@ -13,7 +13,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 3 (Analytic Geometry), angles et orthogonalité, inégalité de Cauchy-Schwarz"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -122,17 +122,27 @@ Le cosinus vaut environ $-1$ vers 217°, à l'opposé de $\mathbf{a}$. Il vaut 0
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule $\cos(\mathbf{u}, \mathbf{v})$ pour $\mathbf{u} = (1\,;\,0)$ et $\mathbf{v} = (1\,;\,1)$. Quel angle cela donne-t-il ?
+<Exercice titre="Un angle de 45°" niveau="facile" reponse={0.71} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Calcule $\cos(\mathbf{u}, \mathbf{v})$ pour $\mathbf{u} = (1\,;\,0)$ et $\mathbf{v} = (1\,;\,1)$, en arrondissant à 0,01. Quel angle cela donne-t-il ?
+
+<div slot="solution">
 
 $\mathbf{u} \cdot \mathbf{v} = 1$, $\|\mathbf{u}\| = 1$, $\|\mathbf{v}\| = \sqrt{2}$. Donc $\cos = 1/\sqrt{2} \approx 0{,}71$, ce qui correspond à un angle de 45°.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Montre que $\cos(k\,\mathbf{a}, \mathbf{b}) = \cos(\mathbf{a}, \mathbf{b})$ pour tout nombre $k > 0$. Que se passe-t-il si $k < 0$ ?
+<Exercice titre="Allonger une flèche ne change rien" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Montre que $\cos(k\,\mathbf{a}, \mathbf{b}) = \cos(\mathbf{a}, \mathbf{b})$ pour tout nombre $k > 0$. Que se passe-t-il si $k < 0$ ?
+
+<div slot="indice">
+
+Écris le produit scalaire $(k\,\mathbf{a}) \cdot \mathbf{b}$ et la norme $\|k\,\mathbf{a}\|$ en fonction de $k$.
+
+</div>
+<div slot="solution">
 
 Par distributivité, $(k\,\mathbf{a}) \cdot \mathbf{b} = k\,(\mathbf{a} \cdot \mathbf{b})$. Et $\|k\,\mathbf{a}\| = |k|\,\|\mathbf{a}\|$. Donc :
 
@@ -142,11 +152,14 @@ $$
 
 Si $k > 0$, $k / |k| = 1$ : le cosinus ne change pas. Si $k < 0$, $k / |k| = -1$ : le cosinus change de signe, car la flèche a fait demi-tour.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Trois embeddings en dimension 3 : « payer » $= (2\,;\,1\,;\,0)$, « régler » $= (4\,;\,2\,;\,1)$, « pluie » $= (0\,;\,1\,;\,3)$. Quel mot est le plus similaire à « payer » selon le cosinus ? Selon la distance L2 ?
+<Exercice titre="Quel mot ressemble le plus à « payer » ?" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Trois embeddings en dimension 3 : « payer » $= (2\,;\,1\,;\,0)$, « régler » $= (4\,;\,2\,;\,1)$, « pluie » $= (0\,;\,1\,;\,3)$. Quel mot est le plus similaire à « payer » selon le cosinus ? Selon la distance L2 ?
+
+<div slot="solution">
 
 $\|\text{payer}\| = \sqrt{5} \approx 2{,}24$, $\|\text{régler}\| = \sqrt{21} \approx 4{,}58$, $\|\text{pluie}\| = \sqrt{10} \approx 3{,}16$.
 
@@ -154,7 +167,26 @@ Cosinus : payer et régler, $\frac{8 + 2 + 0}{2{,}24 \times 4{,}58} \approx 0{,}
 
 Distance L2 : payer et régler, $\|(2\,;\,1\,;\,1)\| = \sqrt{6} \approx 2{,}45$ ; payer et pluie, $\|(-2\,;\,0\,;\,3)\| = \sqrt{13} \approx 3{,}61$. « Régler » gagne aussi, mais il en aurait été autrement si son vecteur avait été beaucoup plus long.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Quel film recommander ?" niveau="defi" reponse={0.98} tolerance={0.01}>
+
+Un site décrit les goûts par trois notes : (action ; comédie ; drame). Awa a noté ses préférences $(4\,;\,1\,;\,2)$. Le film F1 est décrit par $(8\,;\,2\,;\,2)$, le film F2 par $(1\,;\,1\,;\,2)$. Quel film recommander à Awa selon la similarité cosinus ? Saisis la plus grande des deux similarités, arrondie à 0,01. La distance L2 donne-t-elle le même choix ?
+
+<div slot="indice">
+
+$\|(4\,;\,1\,;\,2)\| = \sqrt{21}$. Calcule les deux produits scalaires et les deux normes des films.
+
+</div>
+<div slot="solution">
+
+$\cos(\text{Awa}, F1) = \frac{32 + 2 + 4}{\sqrt{21} \times \sqrt{72}} = \frac{38}{38{,}88} \approx 0{,}98$, et $\cos(\text{Awa}, F2) = \frac{4 + 1 + 4}{\sqrt{21} \times \sqrt{6}} = \frac{9}{11{,}22} \approx 0{,}80$. Le cosinus recommande **F1** : c'est un film d'action, comme Awa les aime.
+
+Distances L2 : $\|(4\,;\,1\,;\,0)\| = \sqrt{17} \approx 4{,}12$ pour F1, $\|(-3\,;\,0\,;\,0)\| = 3$ pour F2. La distance préfère F2, simplement parce que ses notes sont petites, comme celles d'Awa. Le cosinus ignore l'intensité et ne garde que le profil : c'est pour cela qu'on l'utilise pour recommander.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
