@@ -13,7 +13,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 5, section 5.4.4 (compromis entre biais et variance pour minimiser l'erreur quadratique moyenne) ; chapitre 7, sections 7.11 (bagging et ensembles de modèles) et 7.12 (dropout vu comme un ensemble)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -113,15 +113,46 @@ En combinant les deux étapes, on obtient la formule. Chaque terme est positif o
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : fais varier le degré de 0 à 7 et note le biais² et la variance. Pour quel degré leur somme est-elle la plus petite ? Regarde ensuite le degré 9 : que deviennent les traits fins ?
+<Exercice titre="Le creux de la somme" niveau="facile" reponse={5} tolerance={0}>
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Fais varier le degré de 0 à 7 et note le biais² et la variance. Pour quel degré leur somme est-elle la plus petite ? Regarde ensuite le degré 9 : que deviennent les traits fins ?
+
+<div slot="solution">
 
 Au degré 0, les vingt modèles sont presque identiques (variance 0,06) mais tous plats, loin des deux pics : biais² environ 2,99. En montant, le faisceau suit de mieux en mieux la tendance, et s'élargit. La somme biais² + variance est la plus petite au degré 5 (environ 1,38), ce qui donne une erreur attendue d'environ 2,02 avec le bruit.
 
 Au degré 9, chaque modèle passe exactement par ses 10 points et oscille violemment entre eux ; les traits fins partent dans tous les sens, hors du cadre. La variance dépasse 300. Un seul modèle de degré 9 peut sembler parfait sur ses données ; c'est la famille entière, vue d'un jeu de données à l'autre, qui révèle son instabilité.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="L'erreur d'une application météo" niveau="moyen" reponse={1.8} tolerance={0.001} unite="°C²">
+
+Une application prédit la température de demain. Les thermomètres qui servent de référence ont un bruit d'écart type 1 °C. Le modèle a un biais² de 0,5 °C² et une variance de 0,3 °C². Quelle est son erreur quadratique attendue ? Quelle part ne pourra jamais être réduite ?
+
+<div slot="solution">
+
+Erreur attendue $= 0{,}5 + 0{,}3 + 1^2 = 1{,}8$ °C², soit une erreur typique d'environ $\sqrt{1{,}8} \approx 1{,}34$ °C.
+
+Le bruit, $\sigma^2 = 1$, représente plus de la moitié du total, et aucun modèle ne peut descendre sous lui : même un modèle parfait, sans biais ni variance, se tromperait en moyenne de 1 °C, parce que la mesure elle-même est imprécise.
+
+</div>
+</Exercice>
+
+<Exercice titre="Plus de données ou un modèle plus simple ?" niveau="defi" reponse={2.04} tolerance={0.001}>
+
+Un modèle entraîné sur 100 exemples a un biais² de 0,2 et une variance de 2,4 ; le bruit vaut 0,64. Deux options s'offrent à toi. Option 1 : doubler les données, ce qui, supposons-le, divise la variance par 2 sans toucher au biais. Option 2 : passer à un modèle plus simple, de biais² 0,9 et de variance 0,6. Calcule l'erreur attendue actuelle et celle de chaque option. Entre la meilleure.
+
+<div slot="solution">
+
+- Actuellement : $0{,}2 + 2{,}4 + 0{,}64 = 3{,}24$.
+- Option 1 : $0{,}2 + 1{,}2 + 0{,}64 = 2{,}04$.
+- Option 2 : $0{,}9 + 0{,}6 + 0{,}64 = 2{,}14$.
+
+Les deux options aident, et doubler les données gagne de peu. La leçon : quand la variance domine, il faut soit plus de données, soit un modèle plus contraint. Quand le biais domine, ni l'un ni l'autre ne suffit : il faut un modèle plus riche.
+
+</div>
+</Exercice>
 
 ## En code
 
