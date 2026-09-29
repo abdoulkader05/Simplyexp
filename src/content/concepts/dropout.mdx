@@ -15,7 +15,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 7, section 7.12 (dropout vu comme un ensemble de sous-réseaux)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -102,15 +102,49 @@ Règle le taux de dropout et change de tirage.
   legende="Les croix rouges marquent les neurones éteints pour cet exemple."
 />
 
-Consigne : avec $p = 0{,}5$, passe les tirages de 1 à 10 et note la somme après dropout. Puis mets $p$ à 0 et à 0,9. Que remarques-tu sur la hauteur des barres gardées ?
+<Exercice titre="Dix tirages à la suite" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation et $p = 0{,}5$, passe les tirages de 1 à 10 et note la somme après dropout. Puis mets $p$ à 0 et à 0,9. Que remarques-tu sur la hauteur des barres gardées ?
+
+<div slot="solution">
 
 Avec $p = 0{,}5$, la somme varie fortement d'un tirage à l'autre, autour de la valeur sans dropout, 11,7 : c'est ce bruit qui empêche l'apprentissage par cœur.
 
 Avec $p = 0$, rien n'est éteint et rien n'est multiplié : on retrouve exactement les activations. Avec $p = 0{,}9$, un ou deux neurones seulement survivent en général, mais multipliés par 10 : la somme reste la même en moyenne, au prix d'un bruit énorme. Un taux trop fort rend l'apprentissage très lent ou impossible ; on choisit $p$ sur la [validation](/concepts/train-val-test/).
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Une couche de 500 neurones" niveau="moyen" reponse={1.25} tolerance={0.001}>
+
+Une couche de 500 neurones utilise un dropout de taux $p = 0{,}2$. Combien de neurones sont éteints en moyenne pour chaque exemple ? Par quel facteur les neurones gardés sont-ils multipliés ? Et au test, que se passe-t-il ?
+
+<div slot="solution">
+
+En moyenne, $0{,}2 \times 500 = 100$ neurones sont éteints et 400 gardés ; le nombre exact change à chaque exemple. Les neurones gardés sont multipliés par $1/(1 - 0{,}2) = 1{,}25$.
+
+Au test, les 500 neurones sont gardés et rien n'est multiplié. Grâce au facteur 1,25 appliqué à l'entraînement, la couche suivante reçoit des signaux du même ordre de grandeur dans les deux cas.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le prix du bruit" niveau="defi" reponse={36} tolerance={0.001}>
+
+Un neurone a une activation $h = 2$. Avec le dropout inversé, ce qu'il transmet, $\tilde{h} = \frac{m}{1-p}\,h$, vaut en moyenne $h$. Calcule sa **variance** $\mathrm{Var}(\tilde{h})$ pour $p = 0{,}5$, puis pour $p = 0{,}9$.
+
+<div slot="indice">
+
+$\mathrm{Var}(\tilde{h}) = \mathbb{E}[\tilde{h}^2] - (\mathbb{E}[\tilde{h}])^2$. La variable $\tilde{h}^2$ vaut $\big(h/(1-p)\big)^2$ avec la probabilité $1 - p$, et 0 sinon.
+
+</div>
+<div slot="solution">
+
+$\mathbb{E}[\tilde{h}^2] = (1 - p) \cdot \frac{h^2}{(1-p)^2} = \frac{h^2}{1 - p}$, donc $\mathrm{Var}(\tilde{h}) = \frac{h^2}{1-p} - h^2 = h^2\,\frac{p}{1 - p}$.
+
+Avec $h = 2$ : pour $p = 0{,}5$, la variance vaut $4 \times 1 = 4$ ; pour $p = 0{,}9$, elle vaut $4 \times 9 = 36$, soit un écart type de 6 pour un signal moyen de 2. Le facteur $p/(1-p)$ explose quand $p$ s'approche de 1 : c'est le « bruit énorme » de la simulation, chiffré.
+
+</div>
+</Exercice>
 
 ## En code
 
