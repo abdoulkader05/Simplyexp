@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra), décomposition en valeurs singulières"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -127,29 +127,48 @@ Côté stockage, chaque couche coûte $8 + 8 + 1 = 17$ nombres. Avec $k = 4$, il
 
 ## Entraîne-toi
 
-**Exercice 1.** Les valeurs singulières d'une matrice sont 10, 3 et 1. Quelle est l'erreur (en norme de Frobenius) de la meilleure approximation de rang 1 ? De rang 2 ?
+<Exercice titre="L'erreur d'une approximation" niveau="facile" reponse={3.16} tolerance={0.002}>
 
-<Depliable titre="Corrigé">
+Les valeurs singulières d'une matrice sont 10, 3 et 1. Quelle est l'erreur (en norme de Frobenius) de la meilleure approximation de rang 1 ? Saisis-la, arrondie à 0,01. Et celle de rang 2 ?
+
+<div slot="indice">
+
+L'erreur est la racine de la somme des carrés des valeurs singulières qu'on a jetées.
+
+</div>
+<div slot="solution">
 
 Rang 1 : $\sqrt{3^2 + 1^2} = \sqrt{10} \approx 3{,}16$. Rang 2 : $\sqrt{1^2} = 1$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Trouve la SVD de $\begin{pmatrix} 5 & 0 \\ 0 & 2 \end{pmatrix}$ et sa meilleure approximation de rang 1.
+<Exercice titre="Une SVD qui se lit directement" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Trouve la SVD de $\begin{pmatrix} 5 & 0 \\ 0 & 2 \end{pmatrix}$ et sa meilleure approximation de rang 1.
+
+<div slot="solution">
 
 $\sigma_1 = 5$ avec $\mathbf{u}_1 = \mathbf{v}_1 = (1\,;\,0)$, et $\sigma_2 = 2$ avec $\mathbf{u}_2 = \mathbf{v}_2 = (0\,;\,1)$. La meilleure approximation de rang 1 est $\begin{pmatrix} 5 & 0 \\ 0 & 0 \end{pmatrix}$, avec une erreur de 2.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une matrice de poids fait $4\,096 \times 4\,096$. On la remplace par ses 64 premières couches. Combien de nombres faut-il stocker ? Quelle fraction de la taille d'origine ?
+<Exercice titre="Compresser une matrice de poids" niveau="defi" reponse={3.13} tolerance={0.003} unite="%">
 
-<Depliable titre="Corrigé">
+Une matrice de poids fait $4\,096 \times 4\,096$. On la remplace par ses 64 premières couches. Combien de nombres faut-il stocker ? Saisis la fraction de la taille d'origine, en pourcentage arrondi à 0,01.
 
-$64 \times (4\,096 + 4\,096 + 1) = 524\,352$ nombres, contre $4\,096^2 = 16\,777\,216$. C'est environ 3,1 % de la taille d'origine. Reste à savoir si l'erreur est acceptable : elle dépend des valeurs singulières qu'on a jetées.
+<div slot="indice">
 
-</Depliable>
+Chaque couche $\sigma_i\,\mathbf{u}_i\,\mathbf{v}_i^\top$ se stocke avec un vecteur $\mathbf{u}_i$, un vecteur $\mathbf{v}_i$ et un nombre $\sigma_i$.
+
+</div>
+<div slot="solution">
+
+$64 \times (4\,096 + 4\,096 + 1) = 524\,352$ nombres, contre $4\,096^2 = 16\,777\,216$. C'est environ 3,13 % de la taille d'origine. Reste à savoir si l'erreur est acceptable : elle dépend des valeurs singulières qu'on a jetées.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
