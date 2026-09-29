@@ -17,7 +17,7 @@ sources:
   - "Documentation PyTorch, torch.nn.functional.scaled_dot_product_attention — https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html — paramètre scale"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -172,9 +172,11 @@ Le premier curseur fait tourner $\mathbf{s}$, le second l'allonge. Au départ, $
   legende="s = λ × √2 × (cos θ ; sin θ). Pour θ = 45° et λ = 1, on retrouve s = (1 ; 1)."
 />
 
-Consigne : tourne $\mathbf{s}$ jusqu'à 135°. Quel mot reçoit l'attention ? Reviens à 45° et pousse λ à 2. Enfin, mets λ à 0.
+<Exercice titre="Où regarde le décodeur ?" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation, tourne $\mathbf{s}$ jusqu'à 135°. Quel mot reçoit l'attention ? Reviens à 45° et pousse λ à 2. Enfin, mets λ à 0.
+
+<div slot="solution">
 
 À 135°, $\mathbf{s} = (-1\,;\,1)$, exactement la direction de « Koffi ». Les scores deviennent $(-2\,;\,0\,;\,2)$ et les poids environ $(0{,}02\,;\,0{,}12\,;\,0{,}87)$ : l'attention passe sur Koffi, et $\mathbf{c}$ bascule vers $\mathbf{h}_3$.
 
@@ -182,7 +184,39 @@ Consigne : tourne $\mathbf{s}$ jusqu'à 135°. Quel mot reçoit l'attention ? Re
 
 Avec λ = 0, tous les scores valent 0 et chaque mot reçoit un tiers. Le décodeur ne cherche rien de précis, il fait la moyenne de tout.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Un décodeur qui hésite" niveau="moyen" reponse={0.468} tolerance={0.002}>
+
+Même phrase, mêmes vecteurs $\mathbf{h}_1 = (1\,;\,-1)$, $\mathbf{h}_2 = (1\,;\,1)$ et $\mathbf{h}_3 = (-1\,;\,1)$. Cette fois, l'état du décodeur est $\mathbf{s} = (0\,;\,1)$. Calcule les trois scores, les trois poids d'attention et le vecteur de contexte. Quel poids reçoit « paie » ?
+
+<div slot="indice">
+
+Les scores sont $\mathbf{s} \cdot \mathbf{h}_j$ : ici, simplement la seconde coordonnée de chaque $\mathbf{h}_j$. Utilise $e^{-1} \approx 0{,}368$ et $e^{1} \approx 2{,}718$.
+
+</div>
+<div slot="solution">
+
+Scores : $(-1\,;\,1\,;\,1)$. Somme des exponentielles : $0{,}368 + 2{,}718 + 2{,}718 = 5{,}804$. Poids : $\alpha \approx (0{,}063\,;\,0{,}468\,;\,0{,}468)$. « paie » et « Koffi » font jeu égal.
+
+Contexte : $\mathbf{c} = 0{,}063\,\mathbf{h}_1 + 0{,}468\,\mathbf{h}_2 + 0{,}468\,\mathbf{h}_3 \approx (0{,}063\,;\,0{,}874)$. Il se place entre $\mathbf{h}_2$ et $\mathbf{h}_3$ : le décodeur regarde deux mots à la fois. L'attention n'est pas obligée de choisir un seul mot.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de poids pour traduire un paragraphe ?" niveau="defi" reponse={500} tolerance={0}>
+
+Pour chaque mot qu'il écrit, le décodeur calcule un poids d'attention par mot de la phrase source. On traduit une phrase de 20 mots en une phrase de 25 mots. Combien de poids d'attention sont calculés en tout ? Et si les deux phrases deviennent deux fois plus longues ?
+
+<div slot="solution">
+
+Un poids par couple (mot écrit, mot source) : $25 \times 20 = 500$ poids. Avec des phrases deux fois plus longues : $50 \times 40 = 2\,000$, soit **4 fois plus**. Doubler la longueur quadruple le travail.
+
+C'est le prix de la souplesse de l'attention : chaque mot peut regarder n'importe quel autre, donc le nombre de regards croît comme le produit des longueurs. Cette croissance quadratique deviendra un enjeu central avec les transformers, où chaque mot regarde tous les mots de la même phrase.
+
+</div>
+</Exercice>
 
 ## En code
 
