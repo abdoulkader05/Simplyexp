@@ -14,7 +14,7 @@ sources:
   - "Radford et al., « Language Models are Unsupervised Multitask Learners », OpenAI, 2019 — https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf — section 2.3 (vocabulaire de 50 257 tokens)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -115,29 +115,43 @@ Reprends l'animation. Consigne : parcours $u$ de 0 à 0,99. Pour quelle part des
 
 ## Entraîne-toi
 
-**Exercice 1.** Une loi catégorielle a pour paramètres $(0{,}5\,;\,0{,}3\,;\,p_3)$. Que vaut $p_3$ ? Quelle catégorie est tirée pour $u = 0{,}85$ ?
+<Exercice titre="Le paramètre manquant" niveau="facile" reponse={0.2} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Une loi catégorielle a pour paramètres $(0{,}5\,;\,0{,}3\,;\,p_3)$. Que vaut $p_3$ ? Quelle catégorie est tirée pour $u = 0{,}85$ ? Dans la case, donne $p_3$.
+
+<div slot="solution">
 
 $p_3 = 1 - 0{,}5 - 0{,}3 = 0{,}2$. Segments : $[0\,;\,0{,}5[$, $[0{,}5\,;\,0{,}8[$, $[0{,}8\,;\,1[$. Donc $u = 0{,}85$ tire la catégorie 3.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Pour quelle valeur de $p$ la variance d'une Bernoulli vaut-elle 0,16 ?
+<Exercice titre="Une variance donnée" niveau="moyen" reponse={0.2} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Pour quelle valeur de $p$ la variance d'une Bernoulli vaut-elle 0,16 ? Il y a deux solutions : dans la case, donne la plus petite.
 
-$p(1 - p) = 0{,}16$, soit $p^2 - p + 0{,}16 = 0$, d'où $p = 0{,}2$ ou $p = 0{,}8$.
+<div slot="indice">
 
-</Depliable>
+La variance d'une Bernoulli vaut $p(1-p)$ : on obtient une équation du second degré.
 
-**Exercice 3.** Un modèle donne la loi $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne réponse est la catégorie 2. Écris le vecteur one-hot de la bonne réponse, puis calcule $-\ln p_y$.
+</div>
+<div slot="solution">
 
-<Depliable titre="Corrigé">
+$p(1 - p) = 0{,}16$, soit $p^2 - p + 0{,}16 = 0$, d'où $p = 0{,}2$ ou $p = 0{,}8$. Les deux lois sont symétriques : échanger « succès » et « échec » ne change pas la dispersion.
+
+</div>
+</Exercice>
+
+<Exercice titre="La perte d'un modèle qui hésite" niveau="defi" reponse={1.61} tolerance={0.01}>
+
+Un modèle donne la loi $(0{,}7\,;\,0{,}2\,;\,0{,}1)$ et la bonne réponse est la catégorie 2. Écris le vecteur one-hot de la bonne réponse, puis calcule $-\ln p_y$.
+
+<div slot="solution">
 
 One-hot : $(0\,;\,1\,;\,0)$. $-\ln p_y = -\ln 0{,}2 \approx 1{,}61$. Si la bonne réponse avait été la catégorie 1, la perte aurait été $-\ln 0{,}7 \approx 0{,}36$.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
