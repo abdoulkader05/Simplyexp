@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, sections 3.1 et 3.2 (pourquoi les probabilités, variables et incertitude)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -119,29 +119,48 @@ $P(A \cup B) = 1$ pour $k = 1$ : $B$ contient alors toutes les faces, et « $A$ 
 
 ## Entraîne-toi
 
-**Exercice 1.** On tire une carte dans un paquet de 32 cartes. Quelle est la probabilité de tirer un cœur ? Un as ? L'as de cœur ? Un cœur ou un as ?
+<Exercice titre="Un paquet de 32 cartes" niveau="facile" reponse={0.34375} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+On tire une carte dans un paquet de 32 cartes. Quelle est la probabilité de tirer un cœur ? Un as ? L'as de cœur ? Un cœur ou un as ? Dans la case, donne la dernière.
+
+<div slot="indice">
+
+Pour « cœur ou as », l'as de cœur est compté deux fois si l'on additionne simplement.
+
+</div>
+<div slot="solution">
 
 8 cœurs : $8/32 = 0{,}25$. 4 as : $4/32 = 0{,}125$. L'as de cœur : $1/32$. Cœur ou as : $8/32 + 4/32 - 1/32 = 11/32 \approx 0{,}344$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Un modèle donne à un message les probabilités 0,85 « normal », 0,1 « publicité » et le reste « arnaque ». Quelle est la probabilité « arnaque » ? Et « pas normal » ?
+<Exercice titre="Le tri des messages" niveau="moyen" reponse={0.15} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Un modèle donne à un message les probabilités 0,85 « normal », 0,1 « publicité » et le reste « arnaque ». Quelle est la probabilité « arnaque » ? Et « pas normal » ? Dans la case, donne la seconde.
+
+<div slot="solution">
 
 Arnaque : $1 - 0{,}85 - 0{,}1 = 0{,}05$. Pas normal : $1 - 0{,}85 = 0{,}15$, soit publicité ou arnaque.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Dans une classe, 60 % des élèves ont un téléphone, 30 % un vélo, et 20 % ont les deux. Quelle proportion n'a ni l'un ni l'autre ?
+<Exercice titre="Téléphone ou vélo" niveau="defi" reponse={0.3} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Dans une classe, 60 % des élèves ont un téléphone, 30 % un vélo, et 20 % ont les deux. Quelle proportion n'a ni l'un ni l'autre ?
+
+<div slot="indice">
+
+Calcule d'abord la proportion qui a au moins l'un des deux, puis passe au contraire.
+
+</div>
+<div slot="solution">
 
 $P(\text{téléphone ou vélo}) = 0{,}6 + 0{,}3 - 0{,}2 = 0{,}7$. Ni l'un ni l'autre : $1 - 0{,}7 = 0{,}3$, soit 30 %.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
