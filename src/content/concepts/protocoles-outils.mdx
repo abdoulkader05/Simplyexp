@@ -90,7 +90,7 @@ Le gain s'écrit :
 $$
 \begin{aligned}
 N M - (N + M) &= NM - N - M + 1 - 1 && \text{on ajoute et retire 1} \\
-&= (N - 1)(M - 1) - 1 && \text{on factorise les trois premiers termes}
+&= (N - 1)(M - 1) - 1 && \text{on factorise les quatre premiers termes}
 \end{aligned}
 $$
 
@@ -210,7 +210,7 @@ def lire_agenda(jour: str) -> str:
 
 **« MCP remplace l'usage d'outils. »** Il le standardise. Le modèle continue d'écrire des appels d'outils comme dans la fiche précédente ; MCP fixe seulement comment le client découvre ces outils et transmet ces appels aux services.
 
-**« Un serveur MCP est sûr puisqu'il suit une norme. »** La norme dit comment parler, pas à qui faire confiance. Un serveur malveillant peut décrire un outil de façon trompeuse, et un outil légitime peut renvoyer un contenu piégé. La spécification demande qu'un humain puisse refuser un appel d'outil, et qu'on considère les annotations d'un serveur non fiable comme non fiables : c'est le sujet de l'[injection de prompt](/concepts/securite-agents/).
+**« Un serveur MCP est sûr puisqu'il suit une norme. »** La norme dit comment parler, pas à qui faire confiance. Un serveur malveillant peut décrire un outil de façon trompeuse, et un outil légitime peut renvoyer un contenu piégé. La spécification demande qu'un humain puisse refuser un appel d'outil ; et un serveur non fiable peut très bien décrire ses outils de façon trompeuse. C'est le sujet de l'[injection de prompt](/concepts/securite-agents/).
 
 ## Dans la vraie vie
 
