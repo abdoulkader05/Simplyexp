@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 9 (Linear Regression), régression polynomiale et surapprentissage"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -95,15 +95,55 @@ Mais cette solution n'a aucune raison de ressembler à la vraie tendance : elle 
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : trouve le degré qui donne la plus petite erreur de test. Puis compare les degrés 7 et 9 : quelle différence vois-tu entre les courbes, alors que les erreurs d'entraînement sont toutes deux presque nulles ?
+<Exercice titre="Le meilleur degré" niveau="facile" reponse={7} tolerance={0}>
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Trouve le degré qui donne la plus petite erreur de test. Puis compare les degrés 7 et 9 : quelle différence vois-tu entre les courbes, alors que les erreurs d'entraînement sont toutes deux presque nulles ?
+
+<div slot="solution">
 
 L'erreur de test est la plus petite au degré 7, environ 1,48. Les degrés 3 à 6 font presque aussi bien, autour de 1,9 à 2,1, avec des courbes plus sages.
 
 Aux degrés 7 et 9, l'erreur d'entraînement est faible (0,06 et 0). Mais la courbe de degré 9 se tord pour attraper chaque point plein et part en boucles entre eux, loin des cercles clairs : erreur de test d'environ 48. Celle de degré 7 reste proche de la tendance. Deux modèles presque parfaits à l'entraînement peuvent donc être très différents sur des données nouvelles ; seule une mesure hors entraînement permet de les départager.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Autant de paramètres que de points" niveau="moyen" reponse={9} tolerance={0}>
+
+Un polynôme de degré $d$ a $d + 1$ paramètres. Avec 10 comptages, quel est le plus petit degré qui permet, en général, de passer exactement par tous les points ? Relie ta réponse à l'erreur d'entraînement nulle observée dans l'animation.
+
+<div slot="solution">
+
+Il faut autant de paramètres que de points : $d + 1 = 10$, donc **degré 9**. Chaque point impose une équation, et 10 équations à 10 inconnues ont en général une solution unique : la courbe passe par les dix points, d'où l'erreur d'entraînement exactement nulle.
+
+Ce n'est pas un signe de qualité, au contraire : un modèle qui a autant de paramètres que d'exemples peut tout « apprendre par cœur », y compris le bruit.
+
+</div>
+</Exercice>
+
+<Exercice titre="Quatre modèles de prévision des ventes" niveau="defi" reponse={9.6} tolerance={0.001}>
+
+Une boutique prévoit ses ventes de la semaine avec quatre modèles. Voici leurs erreurs quadratiques moyennes :
+
+| Modèle | Entraînement | Validation |
+|---|---|---|
+| A | 8,1 | 8,4 |
+| B | 3,2 | 3,9 |
+| C | 1,1 | 3,5 |
+| D | 0,1 | 9,7 |
+
+Pour chaque modèle, calcule l'écart entre validation et entraînement, et entre le plus grand. Lequel sous-apprend ? Lequel surapprend ? Lequel choisir ?
+
+<div slot="solution">
+
+Écarts : A 0,3 ; B 0,7 ; C 2,4 ; D **9,6**.
+
+- **A sous-apprend** : ses deux erreurs sont élevées et proches. Il est trop simple.
+- **D surapprend** : erreur d'entraînement presque nulle, erreur de validation la pire. C'est la signature typique.
+- **On choisit C**, qui a la plus petite erreur de validation, même si son écart est plus grand que celui de B. Le critère de choix est l'erreur de validation, pas l'écart ; l'écart sert à diagnostiquer. Et on mesure C une dernière fois sur le test avant de l'annoncer.
+
+</div>
+</Exercice>
 
 ## En code
 
