@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.5 (rétropropagation et graphes de calcul)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -108,15 +108,51 @@ Règle les deux poids : les valeurs et les gradients se recalculent.
   legende="Entrée x = 2 et cible t = 1 fixes."
 />
 
-Consigne : trouve un réglage où la perte est nulle. Puis mets $w_1$ à une valeur négative : que deviennent les gradients de $w_1$ et de $w_2$ ?
+<Exercice titre="Plus rien à corriger" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Avec la simulation, trouve un réglage où la perte est nulle. Puis mets $w_1$ à une valeur négative : que deviennent les gradients de $w_1$ et de $w_2$ ?
+
+<div slot="solution">
 
 La perte est nulle quand $y = 1$, par exemple avec $w_1 = 0{,}5$ et $w_2 = 1$ ($h = 1$, $y = 1$), ou $w_1 = 1$ et $w_2 = 0{,}5$. Tous les gradients valent alors 0 : il n'y a plus rien à corriger.
 
 Avec $w_1 < 0$, la pré-activation $z = 2 w_1$ est négative et la ReLU renvoie 0. Alors $h = 0$, $y = 0$ et la perte vaut 0,5. Mais les gradients de $w_1$ et de $w_2$ sont nuls tous les deux : la ReLU coupe le signal, et la descente de gradient ne sait plus comment bouger. C'est le « neurone mort » de la fiche sur les [fonctions d'activation](/concepts/fonctions-activation/), vu depuis la rétropropagation. Dans l'exemple du texte, un pas trop grand ($\eta = 0{,}05$) amène justement $w_1$ à $-0{,}1$ : un pas plus prudent l'aurait évité.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="À toi de remonter le graphe" niveau="moyen" reponse={3} tolerance={0.001}>
+
+Même petit réseau, nouvelles valeurs : entrée $x = 1$, poids $w_1 = 2$ et $w_2 = -1$, cible $t = 1$. Fais la passe avant, puis la passe arrière. Que vaut $\frac{\partial L}{\partial w_1}$ ? Dans quel sens un pas de descente va-t-il faire bouger chacun des deux poids ?
+
+<div slot="indice">
+
+Passe avant : $z$, $h$, $y$ puis $L$. Passe arrière : commence par $\frac{\partial L}{\partial y} = y - t$, puis multiplie par la dérivée locale de chaque opération en remontant.
+
+</div>
+<div slot="solution">
+
+Passe avant : $z = 2$, $h = \mathrm{ReLU}(2) = 2$, $y = -1 \times 2 = -2$ et $L = \frac{1}{2}(-2 - 1)^2 = 4{,}5$.
+
+Passe arrière : $\frac{\partial L}{\partial y} = -3$, donc $\frac{\partial L}{\partial w_2} = -3 \times h = -6$ et $\frac{\partial L}{\partial h} = -3 \times w_2 = 3$. La ReLU laisse passer ($z > 0$) : $\frac{\partial L}{\partial z} = 3$, et $\frac{\partial L}{\partial w_1} = 3 \times x = 3$.
+
+La descente va à l'opposé du gradient : $w_2$ **augmente** (gradient négatif) et $w_1$ **diminue**. C'est logique : la sortie $-2$ est trop basse, et elle est négative à cause de $w_2$. Rendre $w_2$ moins négatif la fait remonter vers la cible.
+
+</div>
+</Exercice>
+
+<Exercice titre="Pourquoi personne ne calcule les gradients un par un" niveau="defi" reponse={333334} tolerance={0.001}>
+
+Un réseau a un million de paramètres. Une passe avant coûte une unité de calcul ; on suppose qu'une passe arrière en coûte deux. Première méthode : estimer chaque dérivée en bougeant un paramètre d'un tout petit peu, comme dans la vérification du texte, soit une passe avant de référence plus une passe avant par paramètre. Seconde méthode : la rétropropagation. Combien de fois la première méthode est-elle plus coûteuse ?
+
+<div slot="solution">
+
+Première méthode : $1 + 1\,000\,000 = 1\,000\,001$ passes avant, donc $1\,000\,001$ unités. Rétropropagation : une passe avant et une passe arrière, soit $1 + 2 = 3$ unités. Rapport : $1\,000\,001 / 3 \approx 333\,334$.
+
+Le coût de la rétropropagation ne dépend presque pas du nombre de paramètres, alors que celui de la méthode naïve lui est proportionnel. Pour un réseau de plusieurs milliards de paramètres, la méthode naïve est tout simplement impraticable. La petite perturbation reste utile, mais seulement pour **vérifier** quelques gradients, comme on l'a fait avec $w_1 = 0{,}501$.
+
+</div>
+</Exercice>
 
 ## En code
 
