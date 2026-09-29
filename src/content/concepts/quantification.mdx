@@ -1,0 +1,230 @@
+---
+id: quantification
+type: concept
+titre: "La quantification : faire tenir un LLM dans un ordinateur portable"
+sous_titre: "Réduire la précision des poids : INT8, 4 bits"
+domaine: llm
+niveau: 5
+prerequis: [lois-echelle]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Dettmers, Lewis, Belkada, Zettlemoyer, « LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale », 2022 — https://arxiv.org/abs/2208.07339 — résumé (mémoire d'inférence divisée par deux sans perte de performance, jusqu’à 175 milliards de paramètres ; quantification par vecteur ; décomposition en précision mixte : plus de 99,9 % des valeurs multipliées en 8 bits, dimensions aberrantes isolées en 16 bits ; quantification absmax : multiplier par 127 / max|X| puis arrondir ; variante avec point zéro ; dimensions aberrantes systématiques à partir d'environ 6,7 milliards de paramètres, environ 0,1 % des dimensions ; les mettre à zéro dégrade fortement la perplexité)"
+  - "Dettmers et al., « QLoRA: Efficient Finetuning of Quantized LLMs », 23 mai 2023 — https://arxiv.org/abs/2305.14314 — résumé (type 4 bits NormalFloat, NF4 ; double quantification des constantes ; ajustement d'un modèle de 65 milliards de paramètres sur une seule carte de 48 Go)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Les [lois d'échelle](/concepts/lois-echelle/) poussent vers des modèles de plusieurs milliards de paramètres. Chacun est un nombre à virgule, stocké en général sur 16 bits, soit 2 octets. Un modèle de 7 milliards de paramètres pèse donc 14 Go rien que pour ses poids : trop pour la plupart des ordinateurs portables et des cartes graphiques grand public. Et chaque token généré oblige à relire tous ces poids en mémoire, ce qui ralentit tout. Peut-on stocker chaque poids sur moins de bits sans que le modèle devienne mauvais ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+Quantifier, c'est remplacer chaque poids par un petit entier (8 ou 4 bits) et une échelle partagée ; on divise la mémoire par deux ou par quatre au prix d'une petite erreur d'arrondi.
+</PhraseCle>
+
+## En image
+
+Pense à une carte routière imprimée en petit format.
+
+- Sur la carte d'origine, chaque village est placé au mètre près.
+- Sur la version de poche, on superpose une grille : chaque village est ramené au carreau le plus proche. On perd un peu de précision, mais la carte tient dans la poche.
+- La taille des carreaux dépend de la région couverte : si la carte doit aussi montrer une île très lointaine, les carreaux grossissent, et tous les villages proches finissent dans le même carreau.
+
+Là où l'image s'arrête : dans un réseau, ce ne sont pas des villages mais des milliards de poids, et une petite erreur sur chacun peut s'accumuler de couche en couche. Tout l'art consiste à choisir l'échelle pour que cette accumulation reste négligeable.
+
+## Comment ça marche
+
+La méthode la plus simple est la quantification **absmax** sur 8 bits. Pour un groupe de valeurs $x$ (une ligne d'une matrice de poids, par exemple) :
+
+$$
+s = \frac{127}{\max_i |x_i|} \qquad\qquad q_i = \operatorname{arrondi}(s \cdot x_i) \qquad\qquad \hat{x}_i = \frac{q_i}{s}
+$$
+
+où :
+- $\max_i |x_i|$ est la plus grande valeur absolue du groupe ;
+- $s$ est l'échelle, un seul nombre stocké pour tout le groupe ;
+- $q_i$ est un entier entre $-127$ et $127$, donc codable sur 8 bits ;
+- $\hat{x}_i$ est la valeur reconstruite au moment du calcul, proche de $x_i$.
+
+Exemple à la main avec $x = (0{,}5\ ;\ -1{,}2\ ;\ 2{,}54\ ;\ 0{,}03)$ : le maximum vaut $2{,}54$, donc $s = 127 / 2{,}54 = 50$. On obtient $q = (25\ ;\ -60\ ;\ 127\ ;\ 2)$, car $1{,}5$ s'arrondit à $2$. Au retour, $\hat{x} = (0{,}5\ ;\ -1{,}2\ ;\ 2{,}54\ ;\ 0{,}04)$ : une seule erreur, de $0{,}01$. Fais défiler.
+
+<PasAPas rendu="quantif-arrondi" label="Quantification absmax d'un petit groupe de poids">
+  <Etape etat="initial">
+    **Quatre poids** en virgule flottante, placés sur la droite qui va de $-\max$ à $+\max$.
+  </Etape>
+  <Etape etat="echelle">
+    **L'échelle.** On veut que le plus grand poids tombe exactement sur 127 : $s = 127 / 2{,}54 = 50$.
+  </Etape>
+  <Etape etat="arrondi">
+    **L'arrondi.** On multiplie par 50 et l'on arrondit : $25$, $-60$, $127$, $2$. Chaque poids tient maintenant sur 8 bits au lieu de 16.
+  </Etape>
+  <Etape etat="retour">
+    **Le retour.** Au moment du calcul, on divise par 50. Seul $d$ a bougé, de $0{,}03$ à $0{,}04$.
+  </Etape>
+  <Etape etat="aberrant">
+    **Une valeur aberrante.** Si $c$ vaut 60, l'échelle tombe à $127/60 \approx 2{,}12$ : un pas de grille vaut désormais $0{,}47$. $d$ devient $0$, $b$ passe de $-1{,}2$ à $-1{,}42$. Une seule grande valeur ruine la précision des petites.
+  </Etape>
+</PasAPas>
+
+Ce dernier cas n'a rien d'artificiel. Les auteurs de LLM.int8() ont observé qu'à partir d'environ 6,7 milliards de paramètres, quelques dimensions, environ 0,1 % d'entre elles, prennent systématiquement de très grandes valeurs dans les activations, et qu'elles sont indispensables : les mettre à zéro dégrade fortement le modèle. Leur solution combine deux idées : une échelle par **vecteur** plutôt qu'une pour toute la matrice, et une **précision mixte** où ces rares dimensions restent en 16 bits pendant que plus de 99,9 % des valeurs sont multipliées en 8 bits. Résultat : la mémoire d'inférence est divisée par deux, sans perte mesurable, jusqu'à 175 milliards de paramètres. En 2023, la méthode QLoRA descend à 4 bits avec un format adapté aux poids distribués selon une [loi normale](/maths/loi-normale/).
+
+<Schema rendu="quantif-memoire" legende="Mémoire occupée par les seuls poids d'un modèle de 7 milliards de paramètres, selon le nombre de bits par poids. Seules les versions 8 bits et 4 bits tiennent sur une carte de 8 Go." />
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Quelle erreur commet-on, au pire ?">
+
+L'arrondi déplace $s \cdot x_i$ d'au plus un demi-entier :
+
+$$
+\begin{aligned}
+|q_i - s x_i| &\leq \tfrac{1}{2} && \text{propriété de l'arrondi à l'entier le plus proche} \\
+|\hat{x}_i - x_i| = \frac{|q_i - s x_i|}{s} &\leq \frac{1}{2s} && \text{on divise par } s > 0 \\
+&= \frac{\max_j |x_j|}{254} && \text{car } s = 127 / \max_j |x_j|
+\end{aligned}
+$$
+
+L'erreur maximale est donc proportionnelle au **plus grand** poids du groupe. Avec $\max = 2{,}54$, elle vaut au plus $0{,}01$ ; avec $\max = 60$, elle monte à $0{,}236$. D'où les deux parades : de petits groupes (une échelle par ligne ou par bloc), pour que chaque groupe ait un maximum modeste, et un traitement à part des valeurs aberrantes.
+
+La mémoire, elle, suit une règle simple : $M = N \times b / 8$ octets pour $N$ paramètres codés sur $b$ bits, plus quelques échelles, négligeables quand les groupes sont assez grands.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le modèle dans le portable" niveau="facile" reponse={6.5} tolerance={0.01} unite="Go">
+
+Un modèle de 13 milliards de paramètres pèse 26 Go en 16 bits. Combien pèsent ses poids en 4 bits ?
+
+<div slot="solution">
+
+$M = 13 \times 10^9 \times 4 / 8 = 6{,}5 \times 10^9$ octets, soit **6,5 Go** : quatre fois moins qu'en 16 bits. Il tient alors sur une carte de 8 Go, sans compter la mémoire nécessaire au cache de clés et de valeurs pendant la génération.
+
+</div>
+</Exercice>
+
+<Exercice titre="Arrondir un petit poids" niveau="moyen" reponse={16} tolerance={0}>
+
+Un groupe de poids vaut $(0{,}8\ ;\ -0{,}3\ ;\ 0{,}1)$. Avec la quantification absmax sur 8 bits, quel entier code le poids $0{,}1$ ? Quelle erreur commet-on en le reconstruisant ?
+
+<div slot="indice">
+
+Calcule d'abord l'échelle $s = 127 / 0{,}8$.
+
+</div>
+<div slot="solution">
+
+$s = 127 / 0{,}8 = 158{,}75$. Puis $0{,}1 \times 158{,}75 = 15{,}875$, arrondi à **16**. Reconstruction : $16 / 158{,}75 \approx 0{,}1008$, soit une erreur d'environ $0{,}000\,8$, bien sous la borne $0{,}8 / 254 \approx 0{,}003$.
+
+</div>
+</Exercice>
+
+<Exercice titre="La valeur qui écrase les autres" niveau="defi" reponse={18.1} tolerance={0.01} unite="%">
+
+Dans l'animation, avec la valeur aberrante 60, le poids $b = -1{,}2$ est reconstruit en $-3 \times 60 / 127$. Quelle est l'erreur **relative** sur $b$, en pour cent ? Que proposes-tu pour l'éviter ?
+
+<div slot="solution">
+
+$-3 \times 60 / 127 \approx -1{,}417$. Erreur : $|{-1{,}417} + 1{,}2| / 1{,}2 \approx 0{,}181$, soit environ **18,1 %**, contre 0 % sans la valeur aberrante.
+
+Parades : isoler la valeur aberrante et la garder en 16 bits (précision mixte, comme LLM.int8()), ou quantifier par petits groupes pour que la grande valeur n'impose son échelle qu'à ses voisines immédiates.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : la quantification absmax d'une matrice de poids tirée au hasard, par matrice entière puis par ligne, et l'effet d'une valeur aberrante.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+def quantifier(x, axe=None):
+    m = np.abs(x).max(axis=axe, keepdims=axe is not None)
+    s = 127 / m
+    q = np.round(x * s).astype(np.int8)
+    return q, s
+
+def erreur(W, axe):
+    q, s = quantifier(W, axe)
+    return np.abs(q / s - W).mean()
+
+W = rng.normal(0, 0.02, (256, 256))        # des poids typiques, petits et centrés
+print(f"erreur moyenne, échelle unique  : {erreur(W, None):.6f}")
+print(f"erreur moyenne, échelle par ligne : {erreur(W, 1):.6f}")
+
+W[3, 7] = 2.0                               # une valeur aberrante
+print(f"avec aberrante, échelle unique  : {erreur(W, None):.6f}")
+print(f"avec aberrante, échelle par ligne : {erreur(W, 1):.6f}")
+
+N = 7e9
+for bits in (16, 8, 4):
+    print(f"7 Md de paramètres en {bits:2d} bits : {N * bits / 8 / 1e9:.1f} Go")
+```
+
+En vrai, la bibliothèque `transformers` charge un modèle quantifié en 8 ou 4 bits grâce à `bitsandbytes`, qui implémente les méthodes de ces deux papers :
+
+```python
+# no-run
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4")
+modele = AutoModelForCausalLM.from_pretrained("un-modele-de-7-milliards", quantization_config=config)
+```
+
+## Les pièges classiques
+
+**« Quantifier, c'est réentraîner le modèle. »** Les méthodes les plus courantes s'appliquent après l'entraînement, en quelques minutes : on convertit les poids, sans nouvelle descente de gradient.
+
+**« 4 bits, c'est quatre fois moins bon que 16 bits. »** La mémoire est divisée par quatre, pas la qualité. Avec de bonnes échelles et un bon format, la perte de qualité est souvent faible ; elle se mesure, par exemple en [perplexité](/maths/perplexite/), et elle dépend du modèle.
+
+**« Une seule échelle par matrice suffit. »** Une seule grande valeur fixe alors l'échelle pour des milliers de poids et écrase les petits. D'où les échelles par ligne ou par bloc, et le traitement à part des valeurs aberrantes.
+
+## Dans la vraie vie
+
+La quantification est ce qui permet de faire tourner des modèles de plusieurs milliards de paramètres sur un ordinateur portable ou un téléphone, et de servir plus d'utilisateurs avec la même carte graphique dans un centre de calcul. LLM.int8() a montré qu'on pouvait diviser par deux la mémoire d'inférence jusqu'à 175 milliards de paramètres sans perte mesurable. QLoRA a permis d'ajuster un modèle de 65 milliards de paramètres sur une seule carte de 48 Go, en gardant les poids du modèle en 4 bits et en n'entraînant que de petites matrices ajoutées : c'est l'idée de [LoRA](/concepts/lora/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Combien pèsent les poids d'un modèle de 7 milliards de paramètres en 8 bits ?",
+    choix: ["3,5 Go", "7 Go", "14 Go", "56 Go"],
+    bonne: 1,
+    explication: "7 × 10⁹ × 8 / 8 = 7 × 10⁹ octets."
+  },
+  {
+    question: "Avec la quantification absmax, où tombe le poids de plus grande valeur absolue ?",
+    choix: ["Sur 0", "Sur 127 ou −127", "Sur 255", "Cela dépend de l'arrondi"],
+    bonne: 1,
+    explication: "L'échelle est choisie pour que max|x| corresponde exactement à 127."
+  },
+  {
+    question: "Pourquoi une valeur aberrante pose-t-elle problème ?",
+    choix: ["Elle ne tient pas sur 8 bits", "Elle impose une grande échelle, et les petites valeurs perdent leur précision", "Elle rend le modèle plus rapide", "Elle change le nombre de paramètres"],
+    bonne: 1,
+    explication: "L'erreur maximale vaut max|x| / 254 : elle grandit avec la plus grande valeur du groupe."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment quantifieriez-vous un modèle de 13 milliards de paramètres pour le servir sur une carte de 16 Go, et comment vérifieriez-vous que rien n'est cassé ?">
+
+En 16 bits, les poids pèsent 26 Go : trop. En 8 bits, 13 Go : ça tient, mais il reste peu de place pour le cache de clés et de valeurs, donc pour de longues conversations. En 4 bits, 6,5 Go : confortable. J'utiliserais une quantification par groupes (une échelle par bloc de poids), avec traitement à part des valeurs aberrantes, par exemple via une méthode de type LLM.int8() ou un format 4 bits comme NF4. Pour vérifier, je comparerais au modèle en 16 bits la perplexité sur un texte de validation et les scores sur quelques tâches représentatives de l'usage, puis je relirais un échantillon de réponses : une petite hausse de perplexité peut cacher une dégradation sur une tâche précise.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "quantification", en: "quantization", definition: "Représenter des nombres à virgule par de petits entiers et une échelle, pour économiser mémoire et calcul." },
+  { fr: "échelle", en: "scale", definition: "Facteur partagé par un groupe de valeurs, qui relie les entiers stockés aux valeurs réelles." },
+  { fr: "valeur aberrante", en: "outlier", definition: "Valeur beaucoup plus grande que ses voisines, qui dégrade la précision des autres si elle fixe l'échelle." },
+  { fr: "précision mixte", en: "mixed precision", definition: "Garder certaines valeurs en haute précision et quantifier le reste." }
+]} />
