@@ -13,7 +13,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 8, section 8.1.3 (algorithmes par lots et mini-lots, erreur standard en racine de m) et section 8.3.1 (descente de gradient stochastique)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -111,31 +111,40 @@ Le prix à payer est dans le nombre de trajets lus : $40 \times 1 = 40$ lectures
 
 ## Entraîne-toi
 
-**Exercice 1.** Un jeu de données compte 50 000 exemples et on utilise des lots de 250. Combien de pas fait-on par époque ? Et en 10 époques ?
+<Exercice titre="Compter les pas d’un entraînement" niveau="facile" reponse={2000} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Un jeu de données compte 50 000 exemples et on utilise des lots de 250. Combien de pas fait-on par époque ? Et en 10 époques ? Entre le nombre de pas en 10 époques.
+
+<div slot="solution">
 
 $50\,000 / 250 = 200$ pas par époque, donc $2\,000$ pas en 10 époques.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Pour les quatre trajets, calcule le gradient estimé des lots $\{1, 2\}$ et $\{3, 4\}$ en $w = 100$. Vérifie que la moyenne des six lots possibles vaut $-2\,000$.
+<Exercice titre="Des lots qui se trompent, mais pas en moyenne" niveau="moyen" reponse={-3400} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Pour les quatre trajets, calcule le gradient estimé des lots $\{1, 2\}$ et $\{3, 4\}$ en $w = 100$. Vérifie que la moyenne des six lots possibles vaut $-2\,000$. Entre le gradient estimé du lot $\{3, 4\}$.
+
+<div slot="solution">
 
 $\{1, 2\}$ : $(-400 - 800) / 2 = -600$. $\{3, 4\}$ : $(-2\,000 - 4\,800) / 2 = -3\,400$.
 
 Les six lots donnent $-600$, $-1\,200$ ($\{1, 3\}$), $-2\,600$ ($\{1, 4\}$), $-1\,400$ ($\{2, 3\}$), $-2\,800$ ($\{2, 4\}$) et $-3\,400$. Somme : $-12\,000$, moyenne : $-2\,000$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Avec des lots de 16, l'écart type du gradient estimé vaut 8 (dans une certaine unité). Quelle taille de lot faut-il pour le ramener à 2 ? Combien de fois plus de calcul par pas ?
+<Exercice titre="Le prix d’un gradient moins bruité" niveau="defi" reponse={256} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Avec des lots de 16, l'écart type du gradient estimé vaut 8 (dans une certaine unité). Quelle taille de lot faut-il pour le ramener à 2 ? Combien de fois plus de calcul par pas ? Entre la taille de lot.
+
+<div slot="solution">
 
 L'écart type est proportionnel à $1/\sqrt{m}$. Pour le diviser par 4, il faut multiplier $m$ par $4^2 = 16$ : des lots de 256. Chaque pas coûte alors 16 fois plus de calcul.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
