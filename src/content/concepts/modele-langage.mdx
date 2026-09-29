@@ -14,7 +14,7 @@ sources:
   - "Jurafsky, Martin, Speech and Language Processing, 3e édition (brouillon en ligne) — https://web.stanford.edu/~jurafsky/slp3/ — chapitre 3 (N-gram Language Models : modèles de langage, règle de la chaîne, génération)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
 import { PasAPas, Etape } from '@/components/animations';
 
 ## Le problème de départ
@@ -102,15 +102,47 @@ Minimiser cette somme sur un grand corpus, c'est le [maximum de vraisemblance](/
 
 ## Essaie toi-même
 
+<Exercice titre="Le clavier qui complète" niveau="facile" reponse={0.2} tolerance={0.001}>
+
+Tu écris « Je suis en » sur ton téléphone. Le modèle du clavier donne au mot suivant les probabilités : « retard » 0,4, « route » 0,3, « réunion » 0,2, autre chose 0,1. Sachant « Je suis en retard », il donne 0,5 au point final. Quelle probabilité donne-t-il à la suite « retard . » après « Je suis en » ?
+
+<div slot="solution">
+
+Par la règle du produit : $P(\text{retard} \mid \text{Je suis en}) \times P(\text{.} \mid \text{Je suis en retard}) = 0{,}4 \times 0{,}5 = 0{,}2$. Une fois sur cinq, le clavier s'attend à ce que le message s'arrête exactement là.
+
+</div>
+</Exercice>
+
+<Exercice titre="Toujours le deuxième choix" niveau="moyen" reponse={0.0056} tolerance={0.0001}>
+
 Refais la génération de l'animation, mais en choisissant à chaque étape le **deuxième** token le plus probable. Quelle phrase obtiens-tu, et quelle est sa probabilité ? (On suppose que les lois des étapes suivantes seraient les mêmes que dans l'animation, ce qui n'est pas réaliste mais suffit pour le calcul.)
 
-<Depliable titre="Ce que tu devrais observer">
+<div slot="solution">
 
 « Le chat mange dans la lit » : le texte devient vite bancal, parce que les lois de l'animation ont été calculées pour les contextes « dort », « sur », « le », pas pour ceux qu'on vient de fabriquer. Sa probabilité vaudrait $0{,}25 \times 0{,}25 \times 0{,}3 \times 0{,}3 \approx 0{,}005\,6$, environ quatre fois moins que la suite gloutonne.
 
 C'est justement ce que fait un vrai modèle et que l'exercice ne peut pas faire : **recalculer** la loi à chaque étape à partir du contexte réellement écrit. Après « Le chat mange », un modèle entraîné proposerait plutôt « des », « une » ou « son », et la phrase resterait correcte.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le glouton rate la meilleure phrase" niveau="defi" reponse={0.36} tolerance={0.001}>
+
+Un modèle doit écrire deux tokens. Au premier pas, il donne 0,6 à « A » et 0,4 à « B ». Sachant « A », le meilleur second token a la probabilité 0,3 ; sachant « B », le meilleur second token a la probabilité 0,9. Quelle suite de deux tokens le décodage glouton choisit-il, et avec quelle probabilité ? Quelle est la probabilité de la meilleure suite possible ?
+
+<div slot="indice">
+
+Le glouton choisit le meilleur premier token sans regarder la suite. Compare ensuite les produits des deux probabilités, pour chaque premier token.
+
+</div>
+<div slot="solution">
+
+Le glouton prend « A » (0,6 > 0,4), puis le meilleur second token : probabilité $0{,}6 \times 0{,}3 = 0{,}18$. En commençant par « B », on obtenait $0{,}4 \times 0{,}9 = 0{,}36$, **deux fois plus**.
+
+Le glouton optimise pas à pas, pas la phrase entière. Pour trouver la suite la plus probable, il faudrait explorer plusieurs débuts en parallèle, ce qui coûte plus de calculs. Et, comme on l'a vu, la phrase la plus probable n'est de toute façon pas toujours la plus naturelle.
+
+</div>
+</Exercice>
 
 ## En code
 
