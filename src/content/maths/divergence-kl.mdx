@@ -14,7 +14,7 @@ sources:
   - "Ouyang et al., « Training language models to follow instructions with human feedback », 2022 — https://arxiv.org/abs/2203.02155 — section 3.5 (pénalité KL par token par rapport au modèle SFT)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -116,29 +116,43 @@ $D_{\mathrm{KL}}(p \,\|\, q)$ contient le terme $0{,}2 \ln(0{,}2/q(\text{champ})
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule $D_{\mathrm{KL}}(p \,\|\, q)$ pour $p = (0{,}5\,;\,0{,}5)$ et $q = (0{,}25\,;\,0{,}75)$.
+<Exercice titre="L'écart entre deux lois" niveau="facile" reponse={0.144} tolerance={0.01} unite="nat">
 
-<Depliable titre="Corrigé">
+Calcule $D_{\mathrm{KL}}(p \,\|\, q)$ pour $p = (0{,}5\,;\,0{,}5)$ et $q = (0{,}25\,;\,0{,}75)$.
+
+<div slot="solution">
 
 $0{,}5 \ln 2 + 0{,}5 \ln(2/3) \approx 0{,}347 - 0{,}203 = 0{,}144$ nat.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Une entropie croisée vaut 2,3 nats et l'entropie de la vraie loi 1,9 nat. Que vaut la divergence KL ?
+<Exercice titre="Ce qu'on peut encore gagner" niveau="moyen" reponse={0.4} tolerance={0.001} unite="nat">
 
-<Depliable titre="Corrigé">
+Une entropie croisée vaut 2,3 nats et l'entropie de la vraie loi 1,9 nat. Que vaut la divergence KL ?
 
-$2{,}3 - 1{,}9 = 0{,}4$ nat.
+<div slot="indice">
 
-</Depliable>
+Entropie croisée = entropie + divergence KL.
 
-**Exercice 3.** Pourquoi $D_{\mathrm{KL}}(p \,\|\, q)$ est-elle infinie si $q_k = 0$ pour une issue telle que $p_k > 0$ ?
+</div>
+<div slot="solution">
 
-<Depliable titre="Corrigé">
+$2{,}3 - 1{,}9 = 0{,}4$ nat. C'est tout ce qu'un meilleur modèle peut encore gagner : les 1,9 nat restants viennent du hasard du texte lui-même.
 
-Le terme $p_k \ln(p_k / q_k)$ contient une division par zéro : $\ln(p_k/0)$ est infini. Un modèle qui déclare impossible un événement qui arrive réellement subit une surprise infinie quand il se produit.
+</div>
+</Exercice>
 
-</Depliable>
+<Exercice titre="Le filtre trop sûr de lui" niveau="defi">
+
+Un filtre anti-spam donne la probabilité 0 à « arnaque » pour tous les messages qui commencent par « Bonjour ». Pourquoi $D_{\mathrm{KL}}(p \,\|\, q)$ est-elle infinie si $q_k = 0$ pour une issue telle que $p_k > 0$ ? Que se passe-t-il le jour où une arnaque commence par « Bonjour » ?
+
+<div slot="solution">
+
+Le terme $p_k \ln(p_k / q_k)$ contient une division par zéro : $\ln(p_k/0)$ est infini. Un modèle qui déclare impossible un événement qui arrive réellement subit une surprise infinie quand il se produit : ici, la première arnaque polie suffit à rendre la perte infinie. C'est pourquoi on ne laisse jamais un modèle donner une probabilité exactement nulle.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
