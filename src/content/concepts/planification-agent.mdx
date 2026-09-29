@@ -19,7 +19,7 @@ import { PasAPas, Etape, Schema } from '@/components/animations';
 
 ## Le problème de départ
 
-Un agent [ReAct](/concepts/react-agent/) réagit tour après tour : il regarde la dernière observation et choisit l'action suivante. Sur une question en deux sauts, c'est parfait. Sur une tâche de trente étapes, il perd le fil : il oublie une étape, en répète une autre, ou s'engage dans une impasse qu'il aurait pu voir venir. Les auteurs de Plan-and-Solve ont classé les erreurs des modèles à qui l'on demande simplement de raisonner étape par étape, sans exemple : erreurs de calcul, erreurs de compréhension, et **étapes manquantes**. Contre ce dernier type, la réponse est vieille comme les listes de courses : écrire le plan avant de commencer.
+Un agent [ReAct](/concepts/react-agent/) réagit tour après tour : il regarde la dernière observation et choisit l'action suivante. Sur une question en deux sauts, c'est parfait. Sur une tâche de trente étapes, il perd le fil : il oublie une étape, en répète une autre, ou s'engage dans une impasse qu'il aurait pu voir venir. Les auteurs de Plan-and-Solve, une méthode de consigne publiée en 2023 qui demande au modèle de planifier avant de résoudre, ont classé les erreurs des modèles à qui l'on demande simplement de raisonner étape par étape, sans exemple : erreurs de calcul, erreurs de compréhension, et **étapes manquantes**. Contre ce dernier type, la réponse est vieille comme les listes de courses : écrire le plan avant de commencer.
 
 ## L'idée en une phrase
 
