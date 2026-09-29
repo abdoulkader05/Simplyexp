@@ -33,6 +33,10 @@
       "titre": "Deep Learning : empiler pour comprendre"
     },
     {
+      "id": "renforcement",
+      "titre": "Renforcement : apprendre en agissant"
+    },
+    {
       "id": "langage",
       "titre": "Le langage : des mots aux vecteurs"
     },
@@ -296,6 +300,7 @@
       "suite": [
         "bayes",
         "independance",
+        "processus-decision-markov",
         "regle-produit"
       ],
       "papers": []
@@ -485,7 +490,7 @@
         "entropie-croisee"
       ],
       "suite": [
-        "rlhf"
+        "ppo"
       ],
       "papers": []
     },
@@ -529,6 +534,7 @@
       ],
       "suite": [
         "convexite",
+        "gradient-politique",
         "learning-rate",
         "regression-lineaire",
         "sgd-minibatch"
@@ -695,6 +701,7 @@
         "loi-categorielle"
       ],
       "suite": [
+        "modele-recompense",
         "neurone-artificiel",
         "softmax"
       ],
@@ -1286,7 +1293,8 @@
         "fine-tuning",
         "hallucinations",
         "in-context-learning",
-        "lois-echelle"
+        "lois-echelle",
+        "rl-recompenses-verifiables"
       ],
       "papers": [
         {
@@ -1446,13 +1454,15 @@
       "id": "apprentissage-renforcement",
       "titre": "L'apprentissage par renforcement : apprendre à coups de récompenses",
       "sous_titre": "Agent, action, récompense et politique",
-      "domaine": "llm",
+      "domaine": "renforcement",
       "niveau": 4,
       "prerequis": [
         "esperance-variance"
       ],
       "suite": [
-        "rlhf"
+        "exploration-exploitation",
+        "modele-recompense",
+        "processus-decision-markov"
       ],
       "papers": []
     },
@@ -1464,8 +1474,8 @@
       "niveau": 5,
       "prerequis": [
         "instruction-tuning",
-        "apprentissage-renforcement",
-        "divergence-kl"
+        "modele-recompense",
+        "ppo"
       ],
       "suite": [
         "dpo"
@@ -1566,6 +1576,7 @@
         "chain-of-thought"
       ],
       "suite": [
+        "environnements-agents",
         "evaluation-agents",
         "memoire-agent",
         "react-agent",
@@ -1662,6 +1673,218 @@
       "domaine": "agents",
       "niveau": 5,
       "prerequis": [
+        "agent-llm"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "exploration-exploitation",
+      "titre": "Explorer ou exploiter : le dilemme du bandit manchot",
+      "sous_titre": "Bandits multi-bras, epsilon-greedy et regret",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "apprentissage-renforcement"
+      ],
+      "suite": [
+        "q-learning"
+      ],
+      "papers": []
+    },
+    {
+      "id": "processus-decision-markov",
+      "titre": "Le processus de décision markovien : le cadre de tout le renforcement",
+      "sous_titre": "États, actions, transitions, récompenses et actualisation",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "apprentissage-renforcement",
+        "probabilite-conditionnelle"
+      ],
+      "suite": [
+        "environnement-rl",
+        "fonction-valeur"
+      ],
+      "papers": []
+    },
+    {
+      "id": "environnement-rl",
+      "titre": "Construire un environnement de renforcement : le terrain de jeu de l'agent",
+      "sous_titre": "Interface reset et step, observations, récompenses et fin d'épisode",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "processus-decision-markov"
+      ],
+      "suite": [
+        "reward-hacking",
+        "rl-recompenses-verifiables"
+      ],
+      "papers": []
+    },
+    {
+      "id": "fonction-valeur",
+      "titre": "Les fonctions de valeur : combien vaut une situation ?",
+      "sous_titre": "Retour actualisé, valeur d'état V et valeur d'action Q",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "processus-decision-markov"
+      ],
+      "suite": [
+        "equation-bellman",
+        "gradient-politique"
+      ],
+      "papers": []
+    },
+    {
+      "id": "equation-bellman",
+      "titre": "L'équation de Bellman : la valeur d'aujourd'hui dépend de celle de demain",
+      "sous_titre": "Équations de Bellman, programmation dynamique et itération de la valeur",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "fonction-valeur"
+      ],
+      "suite": [
+        "q-learning"
+      ],
+      "papers": []
+    },
+    {
+      "id": "q-learning",
+      "titre": "Le Q-learning : apprendre la valeur des actions par essais et erreurs",
+      "sous_titre": "Q-learning, différence temporelle et deep Q-network",
+      "domaine": "renforcement",
+      "niveau": 4,
+      "prerequis": [
+        "equation-bellman",
+        "exploration-exploitation"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "mnih-2013",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "reward-hacking",
+      "titre": "Le piratage de récompense : quand l'agent triche pour gagner",
+      "sous_titre": "Reward hacking, spécification de la récompense et loi de Goodhart",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "environnement-rl"
+      ],
+      "suite": [],
+      "papers": []
+    },
+    {
+      "id": "gradient-politique",
+      "titre": "Le gradient de politique : pousser directement les bonnes actions",
+      "sous_titre": "REINFORCE, astuce du log et ligne de base",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "fonction-valeur",
+        "descente-gradient"
+      ],
+      "suite": [
+        "ppo"
+      ],
+      "papers": []
+    },
+    {
+      "id": "ppo",
+      "titre": "PPO : améliorer la politique sans tout casser",
+      "sous_titre": "Proximal Policy Optimization, ratio de probabilités et écrêtage",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "gradient-politique",
+        "divergence-kl"
+      ],
+      "suite": [
+        "rl-recompenses-verifiables",
+        "rlhf"
+      ],
+      "papers": [
+        {
+          "paper": "schulman-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "modele-recompense",
+      "titre": "Le modèle de récompense : apprendre ce que les humains préfèrent",
+      "sous_titre": "Comparaisons par paires et modèle de Bradley-Terry",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "apprentissage-renforcement",
+        "regression-logistique"
+      ],
+      "suite": [
+        "rlhf"
+      ],
+      "papers": [
+        {
+          "paper": "christiano-2017",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "rl-recompenses-verifiables",
+      "titre": "Le renforcement à récompenses vérifiables : apprendre à raisonner",
+      "sous_titre": "RLVR, récompenses par vérificateur, mathématiques et code",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "ppo",
+        "environnement-rl",
+        "pretraining"
+      ],
+      "suite": [
+        "environnements-agents",
+        "grpo"
+      ],
+      "papers": [
+        {
+          "paper": "deepseek-2025",
+          "relation": "popularise"
+        }
+      ]
+    },
+    {
+      "id": "grpo",
+      "titre": "GRPO : comparer les réponses d'un même groupe",
+      "sous_titre": "Group Relative Policy Optimization et avantage relatif",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "rl-recompenses-verifiables"
+      ],
+      "suite": [],
+      "papers": [
+        {
+          "paper": "shao-2024",
+          "relation": "introduit"
+        }
+      ]
+    },
+    {
+      "id": "environnements-agents",
+      "titre": "Entraîner un agent par renforcement : les environnements multi-tours",
+      "sous_titre": "Environnements interactifs, bacs à sable et récompenses de fin de tâche",
+      "domaine": "renforcement",
+      "niveau": 5,
+      "prerequis": [
+        "rl-recompenses-verifiables",
         "agent-llm"
       ],
       "suite": [],
@@ -1856,10 +2079,11 @@
       "annee": 2017,
       "arxiv": "1706.03741",
       "requiert": [
-        "apprentissage-renforcement"
+        "gradient-politique"
       ],
       "introduit": [
-        "rlhf"
+        "rlhf",
+        "modele-recompense"
       ]
     },
     {
@@ -2104,6 +2328,66 @@
       "popularise": [
         "appel-outils"
       ]
+    },
+    {
+      "id": "mnih-2013",
+      "titre": "Un réseau qui apprend seul à jouer à l'Atari",
+      "titre_original": "Playing Atari with Deep Reinforcement Learning",
+      "auteurs": "Mnih et al.",
+      "annee": 2013,
+      "arxiv": "1312.5602",
+      "requiert": [
+        "q-learning",
+        "mlp"
+      ],
+      "popularise": [
+        "q-learning"
+      ]
+    },
+    {
+      "id": "schulman-2017",
+      "titre": "PPO : le compromis qui a conquis le renforcement",
+      "titre_original": "Proximal Policy Optimization Algorithms",
+      "auteurs": "Schulman et al.",
+      "annee": 2017,
+      "arxiv": "1707.06347",
+      "requiert": [
+        "gradient-politique",
+        "divergence-kl"
+      ],
+      "introduit": [
+        "ppo"
+      ]
+    },
+    {
+      "id": "shao-2024",
+      "titre": "GRPO : se passer du critique en comparant ses propres réponses",
+      "titre_original": "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models",
+      "auteurs": "Shao et al.",
+      "annee": 2024,
+      "arxiv": "2402.03300",
+      "requiert": [
+        "ppo",
+        "rl-recompenses-verifiables"
+      ],
+      "introduit": [
+        "grpo"
+      ]
+    },
+    {
+      "id": "deepseek-2025",
+      "titre": "DeepSeek-R1 : le raisonnement qui émerge du renforcement",
+      "titre_original": "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning",
+      "auteurs": "DeepSeek-AI",
+      "annee": 2025,
+      "arxiv": "2501.12948",
+      "requiert": [
+        "grpo",
+        "chain-of-thought"
+      ],
+      "popularise": [
+        "rl-recompenses-verifiables"
+      ]
     }
   ],
   "parcours": [
@@ -2234,13 +2518,18 @@
         "gradient-evanescent",
         "connexions-residuelles",
         "normalisation-couches",
+        "apprentissage-renforcement",
+        "processus-decision-markov",
+        "fonction-valeur",
         "rnn",
         "lstm",
         "encoder-decoder",
         "goulot-contexte",
         "attention",
         "qkv",
-        "apprentissage-renforcement",
+        "gradient-politique",
+        "modele-recompense",
+        "ppo",
         "self-attention",
         "encodage-positionnel",
         "masque-causal",
@@ -2311,6 +2600,9 @@
         "gradient-evanescent",
         "connexions-residuelles",
         "normalisation-couches",
+        "apprentissage-renforcement",
+        "processus-decision-markov",
+        "fonction-valeur",
         "recherche-semantique",
         "rnn",
         "lstm",
@@ -2318,7 +2610,9 @@
         "goulot-contexte",
         "attention",
         "qkv",
-        "apprentissage-renforcement",
+        "gradient-politique",
+        "modele-recompense",
+        "ppo",
         "self-attention",
         "encodage-positionnel",
         "masque-causal",
@@ -2424,6 +2718,99 @@
         "planification-agent",
         "multi-agents",
         "securite-agents"
+      ]
+    },
+    {
+      "id": "renforcement-de-zero",
+      "titre": "Le renforcement, du bandit manchot au raisonnement des LLM",
+      "cibles": [
+        "q-learning",
+        "reward-hacking",
+        "rlhf",
+        "grpo",
+        "environnements-agents"
+      ],
+      "etapes": [
+        "fonctions",
+        "derivee",
+        "exp-log",
+        "vecteurs",
+        "matrices",
+        "produit-scalaire",
+        "probabilites-bases",
+        "derivees-partielles",
+        "gradient",
+        "regle-chaine",
+        "normes-distances",
+        "produit-matriciel",
+        "similarite-cosinus",
+        "probabilite-conditionnelle",
+        "independance",
+        "regle-produit",
+        "variables-aleatoires",
+        "esperance-variance",
+        "loi-categorielle",
+        "fonction-perte",
+        "descente-gradient",
+        "tokenisation",
+        "loi-grands-nombres",
+        "maximum-vraisemblance",
+        "entropie",
+        "entropie-croisee",
+        "divergence-kl",
+        "learning-rate",
+        "sgd-minibatch",
+        "momentum",
+        "adam",
+        "regression-lineaire",
+        "regression-logistique",
+        "softmax",
+        "neurone-artificiel",
+        "fonctions-activation",
+        "bpe",
+        "embeddings",
+        "modele-langage",
+        "ngrammes",
+        "mlp",
+        "backpropagation",
+        "gradient-evanescent",
+        "connexions-residuelles",
+        "normalisation-couches",
+        "apprentissage-renforcement",
+        "exploration-exploitation",
+        "processus-decision-markov",
+        "environnement-rl",
+        "fonction-valeur",
+        "equation-bellman",
+        "q-learning",
+        "rnn",
+        "lstm",
+        "encoder-decoder",
+        "goulot-contexte",
+        "attention",
+        "qkv",
+        "gradient-politique",
+        "modele-recompense",
+        "ppo",
+        "reward-hacking",
+        "self-attention",
+        "encodage-positionnel",
+        "masque-causal",
+        "multi-head",
+        "bloc-transformer",
+        "modele-masque",
+        "bert-vs-gpt",
+        "pretraining",
+        "rl-recompenses-verifiables",
+        "grpo",
+        "fine-tuning",
+        "in-context-learning",
+        "chain-of-thought",
+        "instruction-tuning",
+        "rlhf",
+        "appel-outils",
+        "agent-llm",
+        "environnements-agents"
       ]
     }
   ]

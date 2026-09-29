@@ -17,6 +17,7 @@ domaines:
   - { id: optimisation,        titre: "Optimisation : l'art de s'améliorer pas à pas" }
   - { id: machine-learning,    titre: "Machine Learning : les premiers modèles" }
   - { id: deep-learning,       titre: "Deep Learning : empiler pour comprendre" }
+  - { id: renforcement,        titre: "Renforcement : apprendre en agissant" }
   - { id: langage,             titre: "Le langage : des mots aux vecteurs" }
   - { id: transformers,        titre: "Transformers : l'architecture qui a tout changé" }
   - { id: llm,                 titre: "LLM : dans la tête de ChatGPT" }
@@ -633,7 +634,7 @@ concepts:
   - id: apprentissage-renforcement
     titre: "L'apprentissage par renforcement : apprendre à coups de récompenses"
     sous_titre: "Agent, action, récompense et politique"
-    domaine: llm
+    domaine: renforcement
     niveau: 4
     prerequis: [esperance-variance]
 
@@ -642,7 +643,7 @@ concepts:
     sous_titre: "Reinforcement Learning from Human Feedback et modèle de récompense"
     domaine: llm
     niveau: 5
-    prerequis: [instruction-tuning, apprentissage-renforcement, divergence-kl]
+    prerequis: [instruction-tuning, modele-recompense, ppo]
 
   - id: dpo
     titre: "DPO : aligner un modèle sans renforcement"
@@ -728,6 +729,98 @@ concepts:
     domaine: agents
     niveau: 5
     prerequis: [agent-llm]
+
+  # ---------- RENFORCEMENT ----------
+  - id: exploration-exploitation
+    titre: "Explorer ou exploiter : le dilemme du bandit manchot"
+    sous_titre: "Bandits multi-bras, epsilon-greedy et regret"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [apprentissage-renforcement]
+
+  - id: processus-decision-markov
+    titre: "Le processus de décision markovien : le cadre de tout le renforcement"
+    sous_titre: "États, actions, transitions, récompenses et actualisation"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [apprentissage-renforcement, probabilite-conditionnelle]
+
+  - id: environnement-rl
+    titre: "Construire un environnement de renforcement : le terrain de jeu de l'agent"
+    sous_titre: "Interface reset et step, observations, récompenses et fin d'épisode"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [processus-decision-markov]
+
+  - id: fonction-valeur
+    titre: "Les fonctions de valeur : combien vaut une situation ?"
+    sous_titre: "Retour actualisé, valeur d'état V et valeur d'action Q"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [processus-decision-markov]
+
+  - id: equation-bellman
+    titre: "L'équation de Bellman : la valeur d'aujourd'hui dépend de celle de demain"
+    sous_titre: "Équations de Bellman, programmation dynamique et itération de la valeur"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [fonction-valeur]
+
+  - id: q-learning
+    titre: "Le Q-learning : apprendre la valeur des actions par essais et erreurs"
+    sous_titre: "Q-learning, différence temporelle et deep Q-network"
+    domaine: renforcement
+    niveau: 4
+    prerequis: [equation-bellman, exploration-exploitation]
+
+  - id: reward-hacking
+    titre: "Le piratage de récompense : quand l'agent triche pour gagner"
+    sous_titre: "Reward hacking, spécification de la récompense et loi de Goodhart"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [environnement-rl]
+
+  - id: gradient-politique
+    titre: "Le gradient de politique : pousser directement les bonnes actions"
+    sous_titre: "REINFORCE, astuce du log et ligne de base"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [fonction-valeur, descente-gradient]
+
+  - id: ppo
+    titre: "PPO : améliorer la politique sans tout casser"
+    sous_titre: "Proximal Policy Optimization, ratio de probabilités et écrêtage"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [gradient-politique, divergence-kl]
+
+  - id: modele-recompense
+    titre: "Le modèle de récompense : apprendre ce que les humains préfèrent"
+    sous_titre: "Comparaisons par paires et modèle de Bradley-Terry"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [apprentissage-renforcement, regression-logistique]
+
+  - id: rl-recompenses-verifiables
+    titre: "Le renforcement à récompenses vérifiables : apprendre à raisonner"
+    sous_titre: "RLVR, récompenses par vérificateur, mathématiques et code"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [ppo, environnement-rl, pretraining]
+
+  - id: grpo
+    titre: "GRPO : comparer les réponses d'un même groupe"
+    sous_titre: "Group Relative Policy Optimization et avantage relatif"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [rl-recompenses-verifiables]
+
+  - id: environnements-agents
+    titre: "Entraîner un agent par renforcement : les environnements multi-tours"
+    sous_titre: "Environnements interactifs, bacs à sable et récompenses de fin de tâche"
+    domaine: renforcement
+    niveau: 5
+    prerequis: [rl-recompenses-verifiables, agent-llm]
 
 # ============================================================
 # PAPERS EXPLIQUÉS
@@ -852,8 +945,8 @@ papers:
     auteurs: "Christiano et al."
     annee: 2017
     arxiv: "1706.03741"
-    requiert: [apprentissage-renforcement]
-    introduit: [rlhf]
+    requiert: [gradient-politique]
+    introduit: [rlhf, modele-recompense]
 
   - id: vaswani-2017
     titre: "Attention Is All You Need : le papier qui a tout changé"
@@ -1000,6 +1093,42 @@ papers:
     requiert: [fine-tuning, in-context-learning]
     popularise: [appel-outils]
 
+  - id: mnih-2013
+    titre: "Un réseau qui apprend seul à jouer à l'Atari"
+    titre_original: "Playing Atari with Deep Reinforcement Learning"
+    auteurs: "Mnih et al."
+    annee: 2013
+    arxiv: "1312.5602"
+    requiert: [q-learning, mlp]
+    popularise: [q-learning]
+
+  - id: schulman-2017
+    titre: "PPO : le compromis qui a conquis le renforcement"
+    titre_original: "Proximal Policy Optimization Algorithms"
+    auteurs: "Schulman et al."
+    annee: 2017
+    arxiv: "1707.06347"
+    requiert: [gradient-politique, divergence-kl]
+    introduit: [ppo]
+
+  - id: shao-2024
+    titre: "GRPO : se passer du critique en comparant ses propres réponses"
+    titre_original: "DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models"
+    auteurs: "Shao et al."
+    annee: 2024
+    arxiv: "2402.03300"
+    requiert: [ppo, rl-recompenses-verifiables]
+    introduit: [grpo]
+
+  - id: deepseek-2025
+    titre: "DeepSeek-R1 : le raisonnement qui émerge du renforcement"
+    titre_original: "DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning"
+    auteurs: "DeepSeek-AI"
+    annee: 2025
+    arxiv: "2501.12948"
+    requiert: [grpo, chain-of-thought]
+    popularise: [rl-recompenses-verifiables]
+
 # ============================================================
 # PARCOURS — l'ordre de lecture est calculé par le script
 # ============================================================
@@ -1024,3 +1153,7 @@ parcours:
   - id: construire-un-agent
     titre: "Construire un agent : du LLM qui parle au LLM qui agit"
     cibles: [multi-agents, memoire-agent, securite-agents, protocoles-outils, evaluation-agents]
+
+  - id: renforcement-de-zero
+    titre: "Le renforcement, du bandit manchot au raisonnement des LLM"
+    cibles: [q-learning, reward-hacking, rlhf, grpo, environnements-agents]

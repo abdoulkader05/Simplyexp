@@ -5,7 +5,7 @@ import { concepts, domaines, parcours, urlConcept, type Concept } from './graphe
 /** Les grandes étapes du chemin, des maths aux agents. */
 export const ETAGES = [
   { id: 'maths', titre: 'Les maths de l’IA', resume: 'Fonctions, vecteurs, probabilités, information, optimisation.', domaines: ['analyse', 'algebre-lineaire', 'probabilites', 'statistiques', 'theorie-information', 'optimisation'] },
-  { id: 'apprentissage', titre: 'Apprendre à partir des données', resume: 'Premiers modèles, réseaux de neurones et entraînement.', domaines: ['machine-learning', 'deep-learning'] },
+  { id: 'apprentissage', titre: 'Apprendre à partir des données', resume: 'Premiers modèles, réseaux de neurones, apprentissage par renforcement.', domaines: ['machine-learning', 'deep-learning', 'renforcement'] },
   { id: 'langage', titre: 'Du langage aux transformers', resume: 'Tokens, embeddings, réseaux récurrents, attention.', domaines: ['langage', 'transformers'] },
   { id: 'llm', titre: 'Les LLM et les agents', resume: 'Pré-entraînement, alignement, génération, agents qui agissent.', domaines: ['llm', 'agents'] },
 ] as const;
