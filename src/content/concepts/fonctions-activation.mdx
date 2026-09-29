@@ -16,7 +16,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.3 (unités cachées : ReLU, sigmoïde, tanh)"
 ---
 
-import { PhraseCle, Depliable, Quiz, Glossaire, Terme } from '@/components/pedagogie';
+import { PhraseCle, Depliable, Quiz, Glossaire, Terme, Exercice } from '@/components/pedagogie';
 import { FormuleVivante, Simulation } from '@/components/animations';
 
 ## Le problème de départ
@@ -104,15 +104,52 @@ Le signal est divisé par un million : les premières couches n'apprennent presq
 
 ## Essaie toi-même
 
-Reprends l'animation. Consigne : pour chaque fonction, place $z$ à 3, puis à $-3$, et note la pente. Laquelle garde une pente utile des deux côtés ? Laquelle a une pente nulle d'un côté ?
+<Exercice titre="Quatre pentes, deux côtés" niveau="facile">
 
-<Depliable titre="Ce que tu devrais observer">
+Reprends l'animation. Pour chaque fonction, place $z$ à 3, puis à $-3$, et note la pente. Laquelle garde une pente utile des deux côtés ? Laquelle a une pente nulle d'un côté ?
+
+<div slot="solution">
 
 Sigmoïde : pente d'environ 0,045 en 3 comme en $-3$ ; elle sature des deux côtés. Tanh : environ 0,010 des deux côtés, elle sature encore plus loin du centre, même si sa pente en zéro est plus forte. ReLU : pente 1 en 3, pente 0 en $-3$ ; un neurone dont la pré-activation reste toujours négative n'apprend plus, on dit qu'il est « mort ». GELU : pente d'environ 1 en 3 et presque nulle en $-3$, mais légèrement négative autour de $-1$ (environ $-0{,}08$) : elle ne coupe pas net.
 
 Aucune n'est parfaite. La ReLU et la GELU évitent la saturation du côté positif, ce qui explique leur succès dans les réseaux profonds ; la sigmoïde reste utile en sortie, pour produire une probabilité.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Le neurone trop sûr de lui" niveau="moyen" reponse={0.0177} tolerance={0.0005}>
+
+Un neurone sigmoïde reçoit une pré-activation $z = 4$ : sa sortie vaut déjà presque 1. Que vaut sa pente $\sigma'(4)$ ? Combien de fois plus lentement apprend-il qu'un neurone ReLU avec la même pré-activation, toutes choses égales par ailleurs ?
+
+<div slot="indice">
+
+Utilise $\sigma'(z) = \sigma(z)\,(1 - \sigma(z))$, avec $\sigma(4) = 1 / (1 + e^{-4})$.
+
+</div>
+<div slot="solution">
+
+$e^{-4} \approx 0{,}018\,3$, donc $\sigma(4) \approx 0{,}982$ et $\sigma'(4) \approx 0{,}982 \times 0{,}018 \approx 0{,}017\,7$. La ReLU a une pente de 1 en $z = 4$ : le signal d'erreur qui traverse le neurone sigmoïde est environ **57 fois** plus faible. Un neurone saturé qui se trompe met donc très longtemps à changer d'avis.
+
+</div>
+</Exercice>
+
+<Exercice titre="Trois couches qui n'en font qu'une" niveau="defi" reponse={1.5} tolerance={0.001}>
+
+Trois neurones à une entrée sont empilés, **sans** fonction d'activation : $h_1 = 2x + 1$, puis $h_2 = 3h_1 - 4$, puis $y = 0{,}5\,h_2 + 2$. Écris $y$ sous la forme $y = wx + b$ : que vaut $b$ ? Recommence ensuite avec une ReLU après les deux premiers neurones, et compare les sorties pour $x = -1$ et $x = 2$.
+
+<div slot="indice">
+
+Remplace $h_1$ dans $h_2$, puis $h_2$ dans $y$. Pour la version ReLU, calcule couche par couche en remplaçant chaque valeur négative par 0.
+
+</div>
+<div slot="solution">
+
+$h_2 = 3(2x + 1) - 4 = 6x - 1$, puis $y = 0{,}5(6x - 1) + 2 = 3x + 1{,}5$. Donc $w = 3$ et $b = 1{,}5$ : trois couches pour une seule droite.
+
+Avec les ReLU, pour $x = -1$ : $2 \times (-1) + 1 = -1$ devient 0, puis $3 \times 0 - 4 = -4$ devient 0, et $y = 2$. La version sans activation donnait $3 \times (-1) + 1{,}5 = -1{,}5$. Pour $x = 2$, en revanche, tout reste positif et les deux versions donnent $7{,}5$. Le réseau à ReLU est une droite par morceaux : il change de pente là où un neurone s'éteint. C'est exactement ce que l'empilement linéaire ne sait pas faire.
+
+</div>
+</Exercice>
 
 ## En code
 
