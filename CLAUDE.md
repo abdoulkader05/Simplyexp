@@ -36,10 +36,12 @@ scripts/                   build_graph.py, valider_fiche.py, executer_code.py, h
 python scripts/build_graph.py graph.yaml graph.json   valider le graphe + générer graph.json
 python scripts/valider_fiche.py <fichier.mdx>          contrôler une fiche (ou --tout)
 python scripts/executer_code.py <fichier.mdx>          exécuter les blocs python d'une fiche
+python scripts/relecture_nemotron.py <id>               avis Nemotron (ou --domaine d, --tout)
 npm run dev / npm run build                            site local / build de production
 ```
 
-Commandes Claude Code : `/planifier <parcours>`, `/produire <id ou parcours>`, `/verifier <id>`.
+Commandes Claude Code : `/planifier <parcours>`, `/produire <id ou parcours>`, `/verifier <id>`,
+`/relire <id | --domaine d | --tout>` (second avis par Nemotron, clé `NVIDIA_API_KEY`).
 
 ## Règles d'or
 
@@ -93,6 +95,7 @@ Commandes Claude Code : `/planifier <parcours>`, `/produire <id ou parcours>`, `
 | animateur      | choisit, paramètre et intègre les composants d'animation      | `src/content/`, `src/components/` |
 | verificateur   | exécute, recalcule, capture, vérifie les faits               | `rapports/`           |
 | relecteur      | contrôle la pédagogie, la langue et la cohérence du parcours | `rapports/`           |
+| relecteur-nemotron | fait relire par Nemotron (API NVIDIA), puis trie ses remarques | `rapports/`, `rapports/nemotron/` |
 
 Les sous-agents ne se lancent pas entre eux : c'est la conversation principale (via les
 commandes) qui orchestre la chaîne.
