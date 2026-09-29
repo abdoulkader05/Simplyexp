@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 6, section 6.5.2 (règle de la chaîne du calcul différentiel)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -116,33 +116,70 @@ Près de $x = -1/3$, $u = 3x + 1$ est proche de 0, et la dérivée $6u$ aussi : 
 
 ## Entraîne-toi
 
-**Exercice 1.** Dérive $y = (2x - 5)^3$ et calcule la dérivée en $x = 3$.
+<Exercice titre="Une puissance d'une expression" niveau="facile" reponse={6} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Dérive $y = (2x - 5)^3$ et saisis la dérivée en $x = 3$.
+
+<div slot="solution">
 
 $u = 2x - 5$, $y = u^3$. $\frac{dy}{dx} = 3u^2 \times 2 = 6(2x - 5)^2$. En $x = 3$ : $u = 1$, donc $6$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Dérive $y = e^{-x^2}$.
+<Exercice titre="L'exponentielle d'un carré" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Dérive $y = e^{-x^2}$.
+
+<div slot="indice">
+
+Pose $u = -x^2$ : alors $y = e^u$, et la dérivée de $e^u$ par rapport à $u$ est $e^u$.
+
+</div>
+<div slot="solution">
 
 $u = -x^2$, $y = e^u$. $\frac{dy}{dx} = e^u \times (-2x) = -2x\,e^{-x^2}$. C'est, à une constante près, la pente de la courbe en cloche de la [loi normale](/maths/loi-normale/).
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une perte vaut $\mathcal{L} = (\sigma(w x) - 1)^2$, avec $x = 2$. Calcule $\frac{d\mathcal{L}}{dw}$ en $w = 0$.
+<Exercice titre="Trois étages, comme un neurone" niveau="moyen" reponse={-0.5} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Une perte vaut $\mathcal{L} = (\sigma(w x) - 1)^2$, avec $x = 2$. Calcule $\frac{d\mathcal{L}}{dw}$ en $w = 0$.
 
-Trois étages : $z = wx$, $p = \sigma(z)$, $\mathcal{L} = (p - 1)^2$. En $w = 0$ : $z = 0$, $p = 0{,}5$.
+<div slot="indice">
+
+Trois étages : $z = wx$, $p = \sigma(z)$, $\mathcal{L} = (p - 1)^2$. Rappel : $\sigma'(z) = \sigma(z)\,(1 - \sigma(z))$ et $\sigma(0) = 0{,}5$.
+
+</div>
+<div slot="solution">
+
+En $w = 0$ : $z = 0$, $p = 0{,}5$.
 
 $\frac{d\mathcal{L}}{dp} = 2(p - 1) = -1$ ; $\frac{dp}{dz} = p(1 - p) = 0{,}25$ ; $\frac{dz}{dw} = x = 2$.
 
 Produit : $-1 \times 0{,}25 \times 2 = -0{,}5$. La dérivée est négative : augmenter $w$ fait baisser la perte.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="La tache d'huile qui s'étale" niveau="defi" reponse={75.4} tolerance={0.001} unite="cm² par seconde">
+
+Une goutte d'huile tombe sur une nappe et forme une tache ronde dont le rayon grandit de 2 cm par seconde : $r(t) = 2t$. Son aire est $A = \pi r^2$. À quelle vitesse l'aire augmente-t-elle à l'instant $t = 3$ s ?
+
+<div slot="indice">
+
+L'aire dépend du rayon, qui dépend du temps : $\frac{dA}{dt} = \frac{dA}{dr} \times \frac{dr}{dt}$.
+
+</div>
+<div slot="solution">
+
+$\frac{dA}{dr} = 2\pi r$ et $\frac{dr}{dt} = 2$. À $t = 3$, $r = 6$ cm, donc $\frac{dA}{dt} = 2\pi \times 6 \times 2 = 24\pi \approx 75{,}4$ cm² par seconde.
+
+Le rayon grandit à vitesse constante, mais l'aire de plus en plus vite : chaque centimètre de rayon ajoute un anneau plus grand que le précédent. La règle de la chaîne fait ce calcul sans jamais écrire $A$ en fonction de $t$.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
