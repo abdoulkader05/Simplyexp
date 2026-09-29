@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.13 (théorie de l'information : information propre, entropie de Shannon, nats et bits)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -113,29 +113,43 @@ L'entropie est maximale en $p = 0{,}5$, où elle vaut 1 bit : les deux issues so
 
 ## Entraîne-toi
 
-**Exercice 1.** Quelle est l'entropie d'un dé équilibré à 6 faces, en bits ?
+<Exercice titre="Un dé équilibré" niveau="facile" reponse={2.585} tolerance={0.01} unite="bits">
 
-<Depliable titre="Corrigé">
+Quelle est l'entropie d'un dé équilibré à 6 faces, en bits ?
+
+<div slot="solution">
 
 $\log_2 6 \approx 2{,}585$ bits.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Calcule l'entropie de la loi $(0{,}5\,;\,0{,}25\,;\,0{,}25)$.
+<Exercice titre="Le bulletin météo en bits" niveau="moyen" reponse={1.5} tolerance={0.001} unite="bits">
 
-<Depliable titre="Corrigé">
+Une station envoie chaque soir la météo du lendemain : soleil avec la probabilité 0,5, nuages 0,25, pluie 0,25. Calcule l'entropie de cette loi : c'est le nombre moyen de bits par bulletin avec le meilleur code possible.
 
-$0{,}5 \times 1 + 0{,}25 \times 2 + 0{,}25 \times 2 = 1{,}5$ bit.
+<div slot="indice">
 
-</Depliable>
+La surprise vaut 1 bit pour « soleil » et 2 bits pour chacun des deux autres.
 
-**Exercice 3.** Un modèle donne au mot suivant la loi $(0{,}97\,;\,0{,}01\,;\,0{,}01\,;\,0{,}01)$. Un autre donne $(0{,}25\,;\,0{,}25\,;\,0{,}25\,;\,0{,}25)$. Calcule leurs entropies. Lequel est le plus sûr de lui ?
+</div>
+<div slot="solution">
 
-<Depliable titre="Corrigé">
+$0{,}5 \times 1 + 0{,}25 \times 2 + 0{,}25 \times 2 = 1{,}5$ bit. Le code « soleil = 0, nuages = 10, pluie = 11 » atteint exactement cette moyenne.
+
+</div>
+</Exercice>
+
+<Exercice titre="Deux modèles, deux certitudes" niveau="defi" reponse={0.242} tolerance={0.01} unite="bit">
+
+Un modèle donne au mot suivant la loi $(0{,}97\,;\,0{,}01\,;\,0{,}01\,;\,0{,}01)$. Un autre donne $(0{,}25\,;\,0{,}25\,;\,0{,}25\,;\,0{,}25)$. Calcule leurs entropies. Lequel est le plus sûr de lui ? Dans la case, donne l'entropie du premier.
+
+<div slot="solution">
 
 Premier : $0{,}97 \times 0{,}044 + 3 \times 0{,}01 \times 6{,}64 \approx 0{,}043 + 0{,}199 = 0{,}242$ bit. Second : $\log_2 4 = 2$ bits. Le premier est bien plus sûr de lui, ce qui ne veut pas dire qu'il a raison : c'est l'entropie croisée qui le dira.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
