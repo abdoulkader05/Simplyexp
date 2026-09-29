@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -132,31 +132,65 @@ Le plus grand produit arrive vers 18°, quand $\mathbf{v}$ pointe exactement com
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule $(1\,;\,-2\,;\,4) \cdot (3\,;\,0\,;\,-1)$.
+<Exercice titre="Un produit scalaire à la main" niveau="facile" reponse={-1} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Calcule $(1\,;\,-2\,;\,4) \cdot (3\,;\,0\,;\,-1)$.
+
+<div slot="solution">
 
 $1 \times 3 + (-2) \times 0 + 4 \times (-1) = 3 + 0 - 4 = -1$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Trouve le nombre $k$ tel que $(2\,;\,k)$ soit orthogonal à $(3\,;\,-6)$.
+<Exercice titre="Rendre deux vecteurs orthogonaux" niveau="moyen" reponse={1} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Trouve le nombre $k$ tel que $(2\,;\,k)$ soit orthogonal à $(3\,;\,-6)$.
+
+<div slot="indice">
+
+Deux vecteurs sont orthogonaux quand leur produit scalaire est nul.
+
+</div>
+<div slot="solution">
 
 Il faut $(2\,;\,k) \cdot (3\,;\,-6) = 0$, c'est-à-dire $6 - 6k = 0$. Donc $k = 1$. Vérification : $(2\,;\,1) \cdot (3\,;\,-6) = 6 - 6 = 0$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un neurone reçoit $\mathbf{x} = (1\,;\,0\,;\,2)$ et ses poids sont $\mathbf{w} = (0{,}5\,;\,-1\,;\,0{,}25)$. Calcule $\mathbf{w} \cdot \mathbf{x}$. Quelle coordonnée de $\mathbf{x}$ n'a aucune influence sur le résultat, et pourquoi ?
+<Exercice titre="Ce qu'un neurone ignore" niveau="moyen" reponse={1} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Un neurone reçoit $\mathbf{x} = (1\,;\,0\,;\,2)$ et ses poids sont $\mathbf{w} = (0{,}5\,;\,-1\,;\,0{,}25)$. Calcule $\mathbf{w} \cdot \mathbf{x}$. Quelle coordonnée de $\mathbf{x}$ n'a aucune influence sur le résultat, et pourquoi ?
+
+<div slot="solution">
 
 $\mathbf{w} \cdot \mathbf{x} = 0{,}5 \times 1 + (-1) \times 0 + 0{,}25 \times 2 = 0{,}5 + 0 + 0{,}5 = 1$.
 
 Ici, la deuxième entrée vaut 0 : elle n'apporte rien, quel que soit son poids. Inversement, une entrée dont le poids vaut 0 serait ignorée quelle que soit sa valeur. Apprendre, pour un neurone, c'est justement régler ces poids pour décider quelles entrées comptent.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Quel magasin est le moins cher ?" niveau="defi" reponse={3300} tolerance={0} unite="F">
+
+Ta liste de courses est le vecteur de quantités $\mathbf{q} = (3\,;\,2\,;\,5)$ : 3 kg de riz, 2 bouteilles d'huile, 5 boîtes de tomates. Le magasin A affiche les prix unitaires $\mathbf{p}_A = (250\,;\,1\,000\,;\,150)$ F, le magasin B $\mathbf{p}_B = (300\,;\,900\,;\,120)$ F. Calcule le montant du panier dans chaque magasin, puis saisis le plus petit des deux.
+
+<div slot="indice">
+
+Le montant d'un panier est la somme des quantités multipliées par les prix : c'est $\mathbf{q} \cdot \mathbf{p}$.
+
+</div>
+<div slot="solution">
+
+$\mathbf{q} \cdot \mathbf{p}_A = 3 \times 250 + 2 \times 1\,000 + 5 \times 150 = 750 + 2\,000 + 750 = 3\,500$ F.
+
+$\mathbf{q} \cdot \mathbf{p}_B = 3 \times 300 + 2 \times 900 + 5 \times 120 = 900 + 1\,800 + 600 = 3\,300$ F.
+
+Le magasin B est moins cher de 200 F, alors que son riz est plus cher : c'est le produit scalaire entier qui compte, pas un prix isolé. On peut aussi calculer directement l'écart : $\mathbf{q} \cdot (\mathbf{p}_A - \mathbf{p}_B) = 3 \times (-50) + 2 \times 100 + 5 \times 30 = 200$ F.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
