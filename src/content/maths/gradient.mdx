@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 4 (Numerical Computation), optimisation par gradient et dérivée directionnelle"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -119,29 +119,61 @@ Près de $(0\,;\,0)$, la flèche rétrécit jusqu'à disparaître. Au fond du bo
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule le gradient de $f(x\,;\,y) = 3x + x y^2$ au point $(1\,;\,2)$.
+<Exercice titre="Un gradient en un point" niveau="facile">
 
-<Depliable titre="Corrigé">
+Calcule le gradient de $f(x\,;\,y) = 3x + x y^2$ au point $(1\,;\,2)$.
+
+<div slot="solution">
 
 $\frac{\partial f}{\partial x} = 3 + y^2$ et $\frac{\partial f}{\partial y} = 2xy$. Au point $(1\,;\,2)$ : $\nabla f = (3 + 4\,;\,2 \times 1 \times 2) = (7\,;\,4)$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Pour $f(x\,;\,y) = x^2 + 2y^2$ au point $(1\,;\,1)$, donne la direction de plus forte descente et la pente dans cette direction.
+<Exercice titre="La plus forte descente" niveau="moyen" reponse={-4.47} tolerance={0.002}>
 
-<Depliable titre="Corrigé">
+Pour $f(x\,;\,y) = x^2 + 2y^2$ au point $(1\,;\,1)$, donne la direction de plus forte descente puis saisis la pente dans cette direction.
+
+<div slot="indice">
+
+La plus forte descente suit $-\nabla f$, et la pente y vaut $-\|\nabla f\|$.
+
+</div>
+<div slot="solution">
 
 La plus forte descente suit $-\nabla f(1\,;\,1) = (-2\,;\,-4)$, soit, ramenée à une norme 1, $(-0{,}447\,;\,-0{,}894)$. La pente y vaut $-\|\nabla f\| = -\sqrt{20} \approx -4{,}47$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une perte dépend de deux poids : $\mathcal{L}(w_1\,;\,w_2) = (w_1 - 3)^2 + (w_2 + 1)^2$. Calcule $\nabla \mathcal{L}$ en $(0\,;\,0)$. Dans quelle direction faut-il bouger les poids ? Où est le minimum ?
+<Exercice titre="Deux poids à régler" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Une perte dépend de deux poids : $\mathcal{L}(w_1\,;\,w_2) = (w_1 - 3)^2 + (w_2 + 1)^2$. Calcule $\nabla \mathcal{L}$ en $(0\,;\,0)$. Dans quelle direction faut-il bouger les poids ? Où est le minimum ?
+
+<div slot="solution">
 
 $\nabla \mathcal{L} = (2(w_1 - 3)\,;\,2(w_2 + 1))$, soit $(-6\,;\,2)$ en $(0\,;\,0)$. Pour réduire la perte, on bouge dans la direction $-\nabla \mathcal{L} = (6\,;\,-2)$ : augmenter $w_1$, diminuer $w_2$. Le minimum est en $(3\,;\,-1)$, où le gradient s'annule. Ici, comme le bol est rond, $-\nabla \mathcal{L}$ pointe exactement vers lui.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="Randonnée sur une colline" niveau="defi" reponse={8.54} tolerance={0.001} unite="m par hm">
+
+Sur une carte de randonnée, l'altitude d'une colline vaut $h(x\,;\,y) = 900 - 0{,}5\,x^2 - 2\,y^2$ mètres, où $x$ et $y$ sont les positions est et nord, en hectomètres (centaines de mètres). Tu es au point $(3\,;\,-2)$. Dans quelle direction la montée est-elle la plus raide ? Saisis la pente dans cette direction, en mètres de dénivelé par hectomètre parcouru.
+
+<div slot="indice">
+
+La montée la plus raide suit $\nabla h$ lui-même (et non $-\nabla h$), et sa pente vaut $\|\nabla h\|$.
+
+</div>
+<div slot="solution">
+
+$\frac{\partial h}{\partial x} = -x = -3$ et $\frac{\partial h}{\partial y} = -4y = 8$. Donc $\nabla h(3\,;\,-2) = (-3\,;\,8)$ : il faut aller un peu vers l'ouest et surtout vers le nord, vers le sommet situé en $(0\,;\,0)$.
+
+Pente : $\|\nabla h\| = \sqrt{9 + 64} = \sqrt{73} \approx 8{,}54$ m par hectomètre, soit environ 8,5 %. Un GPS de randonnée qui indique « la pente la plus raide » calcule exactement ce vecteur. L'entraînement d'un modèle fait l'inverse : il suit $-\nabla$ pour descendre.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
