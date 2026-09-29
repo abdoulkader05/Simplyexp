@@ -1,0 +1,244 @@
+---
+id: chain-of-thought
+type: concept
+titre: "Chain-of-thought : faire réfléchir un modèle à voix haute"
+sous_titre: "Raisonnement étape par étape dans les LLM"
+domaine: llm
+niveau: 5
+prerequis: [in-context-learning]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Wei et al., « Chain-of-Thought Prompting Elicits Reasoning in Large Language Models », 2022 — https://arxiv.org/abs/2201.11903 — résumé (une chaîne de pensée est une suite d'étapes de raisonnement intermédiaires ; huit exemples avec raisonnement et un modèle de 540 milliards de paramètres atteignent l'état de l'art sur GSM8K, problèmes de mathématiques rédigés)"
+  - "Kojima et al., « Large Language Models are Zero-Shot Reasoners », 2022 — https://arxiv.org/abs/2205.11916 — résumé (ajouter « Let's think step by step » ; InstructGPT text-davinci-002 : MultiArith de 17,7 % à 78,7 %, GSM8K de 10,4 % à 40,7 %)"
+  - "Wang et al., « Self-Consistency Improves Chain of Thought Reasoning in Language Models », 2022 — https://arxiv.org/abs/2203.11171 — résumé (tirer plusieurs raisonnements variés au lieu du seul raisonnement glouton, puis garder la réponse la plus cohérente ; +17,9 % sur GSM8K)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Pose à un modèle de langage un petit problème en plusieurs étapes : « Un bus part avec 18 passagers. 6 descendent, 12 montent. Au deuxième arrêt, la moitié descend. Combien en reste-t-il ? » S'il répond directement, il doit produire le bon nombre dès le premier token de sa réponse. Or un [modèle de langage](/concepts/modele-langage/) calcule chaque token avec une quantité de calcul fixe, un seul passage dans le réseau. Trois opérations enchaînées, comprimées dans un seul token, c'est beaucoup demander. Un humain, lui, poserait le calcul sur un brouillon.
+
+## L'idée en une phrase
+
+<PhraseCle>
+On pousse le modèle à écrire les étapes intermédiaires de son raisonnement avant la réponse ; chaque résultat écrit devient du contexte pour la suite, et la réponse finale n'arrive qu'après le calcul.
+</PhraseCle>
+
+## En image
+
+Pense à un exercice de mathématiques au collège.
+
+- Écrire seulement « 12 » dans la case réponse, c'est calculer de tête d'un seul coup : une erreur de retenue et tout est faux, sans qu'on sache où.
+- Poser le calcul ligne par ligne, c'est s'appuyer à chaque ligne sur la précédente : chaque étape est petite, donc plus sûre.
+- Le correcteur peut aussi lire le brouillon et repérer l'étape fautive.
+- Et si trois élèves trouvent 12 par des chemins différents alors qu'un seul trouve 15, on fait plutôt confiance à 12.
+
+Là où l'image s'arrête : le modèle ne « pense » pas en silence avant d'écrire. Ce qu'il n'écrit pas n'existe pas pour lui ; son brouillon, ce sont les tokens qu'il produit.
+
+## Comment ça marche
+
+Une chaîne de pensée (*chain of thought*) est, selon Wei et ses coauteurs en 2022, une suite d'étapes de raisonnement intermédiaires écrites avant la réponse. Il y a deux façons de l'obtenir.
+
+1. **Par l'exemple.** C'est de l'[apprentissage en contexte](/concepts/in-context-learning/) : on met dans le prompt quelques problèmes résolus **avec leur raisonnement détaillé**. Le modèle imite le format et détaille à son tour. Dans le paper de Wei, huit exemples de ce type, donnés à un modèle de 540 milliards de paramètres, suffisent à atteindre l'état de l'art sur GSM8K, un jeu de problèmes de mathématiques rédigés.
+2. **Par une simple phrase.** Kojima et ses coauteurs montrent la même année qu'ajouter « Let's think step by step » (« Réfléchissons étape par étape ») avant la réponse, sans aucun exemple, fait passer un modèle d'InstructGPT de 17,7 % à 78,7 % de réussite sur MultiArith, et de 10,4 % à 40,7 % sur GSM8K.
+
+Pourquoi est-ce que ça aide ? Chaque token écrit est relu par le modèle pour produire le suivant. Un résultat intermédiaire, une fois écrit, n'a plus à être recalculé : il est là, dans le contexte. Le calcul est découpé en petits pas, chacun à la portée d'un passage du réseau. Fais défiler.
+
+<PasAPas rendu="cot-raisonnement" label="Réponse directe contre raisonnement étape par étape">
+  <Etape etat="initial">
+    **Le problème.** Trois opérations à enchaîner : une soustraction, une addition, une division par deux.
+  </Etape>
+  <Etape etat="direct">
+    **Réponse directe.** Le modèle doit sortir un nombre tout de suite. Il donne « 15 », qui a l'air plausible, mais qui est faux.
+  </Etape>
+  <Etape etat="e1">
+    **Pas à pas.** Il écrit d'abord $18 - 6 = 12$. Ce résultat est maintenant dans le contexte.
+  </Etape>
+  <Etape etat="e2">
+    **Deuxième étape.** Il n'a plus qu'à ajouter les 12 qui montent au « 12 » déjà écrit : 24.
+  </Etape>
+  <Etape etat="e3">
+    **Troisième étape, puis la réponse.** La moitié de 24 descend : il en reste 12. La réponse arrive en dernier, une fois le calcul posé.
+  </Etape>
+</PasAPas>
+
+Un raisonnement peut quand même dérailler. Wang et ses coauteurs proposent en 2022 l'**auto-cohérence** (*self-consistency*) : au lieu d'un seul raisonnement, on en tire plusieurs au hasard, avec une [température](/concepts/decodage-sampling/) non nulle, et l'on garde la réponse la plus fréquente. Sur GSM8K, le résumé du paper annonce un gain de 17,9 % par rapport à la chaîne de pensée simple.
+
+<Schema rendu="cot-vote" legende="Cinq raisonnements tirés au hasard sur le problème du bus. Les chemins justes convergent vers 12 ; les erreurs se dispersent. Le vote garde 12." />
+
+Pourquoi voter aide-t-il ? Supposons deux réponses possibles, la juste et une fausse, et des raisonnements indépendants qui trouvent chacun la bonne réponse avec la probabilité $p$. Avec trois raisonnements, la majorité est juste si au moins deux le sont :
+
+$$
+P(\text{majorité juste}) = p^3 + 3p^2(1 - p)
+$$
+
+où :
+- $p$ est la probabilité qu'un raisonnement isolé aboutisse à la bonne réponse ;
+- $p^3$ est la probabilité que les trois soient justes ;
+- $3p^2(1-p)$ celle qu'exactement deux le soient, avec trois places possibles pour le raisonnement faux.
+
+Exemple : avec $p = 0{,}6$, on obtient $0{,}216 + 3 \times 0{,}36 \times 0{,}4 = 0{,}216 + 0{,}432 = 0{,}648$. Trois raisonnements votés font mieux qu'un seul : 64,8 % contre 60 %.
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Compter les façons d'avoir la majorité">
+
+Chaque raisonnement est juste avec la probabilité $p$, faux avec $1-p$, indépendamment des autres. Le nombre de raisonnements justes parmi $n$ suit donc une loi binomiale : la probabilité d'en avoir exactement $j$ est $\binom{n}{j} p^j (1-p)^{n-j}$, où $\binom{n}{j}$ compte les façons de choisir lesquels sont justes.
+
+$$
+\begin{aligned}
+P(\text{majorité juste}) &= \sum_{j > n/2} \binom{n}{j} p^j (1-p)^{n-j} && \text{plus de la moitié des raisonnements sont justes} \\
+&= \binom{3}{2} p^2 (1-p) + \binom{3}{3} p^3 && \text{pour } n = 3 \text{ : } j = 2 \text{ ou } 3 \\
+&= 3p^2(1-p) + p^3 && \binom{3}{2} = 3, \ \binom{3}{3} = 1
+\end{aligned}
+$$
+
+Le vote n'est pas magique : il amplifie la tendance de départ. Si $p > 0{,}5$, la majorité est plus souvent juste qu'un raisonnement seul, et d'autant plus que $n$ grandit. Si $p < 0{,}5$, elle est plus souvent **fausse**. En pratique, les erreurs se dispersent sur plusieurs réponses différentes, ce qui avantage la bonne réponse même quand $p$ est un peu plus faible ; mais l'indépendance des raisonnements n'est qu'approchée, puisqu'ils viennent du même modèle.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Quelle technique ?" niveau="facile">
+
+Pour chaque prompt, dis s'il s'agit d'une chaîne de pensée par l'exemple, d'une chaîne de pensée « zero-shot », ou d'aucune des deux.
+
+1. « Q : Combien font 15 % de 80 ? R : Réfléchissons étape par étape. »
+2. « Q : 3 stylos à 250 francs, combien en tout ? R : Un stylo coûte 250 francs, donc 3 coûtent 3 × 250 = 750. La réponse est 750. Q : 4 cahiers à 300 francs, combien en tout ? R : »
+3. « Q : Combien font 15 % de 80 ? R : »
+
+<div slot="solution">
+
+1. **Chaîne de pensée zero-shot** : aucun exemple, seulement la phrase qui invite à détailler.
+2. **Chaîne de pensée par l'exemple** : l'exemple résolu montre un raisonnement détaillé avant la réponse ; le modèle imitera ce format.
+3. **Aucune** : c'est une question directe. Le modèle répondra probablement « 12 » tout de suite, sans étapes.
+
+</div>
+</Exercice>
+
+<Exercice titre="Voter à trois" niveau="moyen" reponse={0.784} tolerance={0.002}>
+
+Un modèle trouve la bonne réponse à un problème 7 fois sur 10 quand il raisonne une seule fois. On tire trois raisonnements indépendants et on garde la réponse majoritaire, en supposant qu'il n'y a qu'une réponse fausse possible. Quelle est la probabilité que la majorité soit juste ?
+
+<div slot="solution">
+
+$p^3 + 3p^2(1-p) = 0{,}7^3 + 3 \times 0{,}49 \times 0{,}3 = 0{,}343 + 0{,}441 = 0{,}784$.
+
+On passe de 70 % à 78,4 % de réussite, au prix de trois fois plus de tokens générés.
+
+</div>
+</Exercice>
+
+<Exercice titre="Cinq voix, et le piège" niveau="defi" reponse={0.683} tolerance={0.002}>
+
+Même hypothèse (une seule réponse fausse possible, raisonnements indépendants), avec $p = 0{,}6$ et cinq raisonnements. Quelle est la probabilité que la majorité soit juste ? Que se passerait-il avec un modèle plus faible, $p = 0{,}4$ ?
+
+<div slot="indice">
+
+Avec cinq voix, il faut au moins trois raisonnements justes : additionne les cas $j = 3$, $j = 4$ et $j = 5$, avec $\binom{5}{3} = 10$, $\binom{5}{4} = 5$ et $\binom{5}{5} = 1$.
+
+</div>
+<div slot="solution">
+
+$10 \times 0{,}6^3 \times 0{,}4^2 + 5 \times 0{,}6^4 \times 0{,}4 + 0{,}6^5 = 0{,}345\,6 + 0{,}259\,2 + 0{,}077\,76 \approx 0{,}683$.
+
+Avec $p = 0{,}4$, le même calcul donne environ $0{,}317$ : **pire** qu'un raisonnement seul (0,4). Le vote renforce la réponse la plus fréquente ; si c'est la mauvaise, il la renforce aussi. Voter n'aide que si le modèle a déjà raison plus souvent qu'à son tour, ou si ses erreurs se dispersent.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : simuler le vote entre raisonnements, et vérifier la formule par tirage.
+
+```python
+import numpy as np
+from math import comb
+rng = np.random.default_rng(0)
+
+def p_majorite(n, p):
+    """Probabilité exacte qu'une majorité stricte de n raisonnements soit juste."""
+    return sum(comb(n, j) * p**j * (1 - p)**(n - j) for j in range(n // 2 + 1, n + 1))
+
+def simuler(n, p, essais=100_000):
+    justes = rng.random((essais, n)) < p          # chaque raisonnement est juste avec la probabilité p
+    return (justes.sum(axis=1) > n / 2).mean()
+
+for p in (0.4, 0.6, 0.7):
+    for n in (1, 3, 5, 9):
+        print(f"p = {p}, n = {n} : exact {p_majorite(n, p):.3f}, simulé {simuler(n, p):.3f}")
+
+# Le vote lui-même : la réponse la plus fréquente
+reponses = ["12", "12", "15", "12", "9"]
+valeurs, comptes = np.unique(reponses, return_counts=True)
+print("réponse retenue :", valeurs[comptes.argmax()], "avec", comptes.max(), "voix sur", len(reponses))
+```
+
+En vrai, avec un modèle ouvert : on ajoute la phrase d'amorce, et pour l'auto-cohérence, on tire plusieurs réponses avec une température non nulle.
+
+```python
+# no-run
+from transformers import pipeline
+generateur = pipeline("text-generation", model="Qwen/Qwen2.5-0.5B-Instruct")
+question = "Un bus part avec 18 passagers. 6 descendent, 12 montent, puis la moitié descend. Combien en reste-t-il ?"
+prompt = question + "\nRéfléchissons étape par étape."
+sorties = generateur(prompt, max_new_tokens=120, do_sample=True, temperature=0.7, num_return_sequences=5)
+for s in sorties:
+    print(s["generated_text"][len(prompt):], "\n---")
+```
+
+## Les pièges classiques
+
+**« Le raisonnement écrit est ce que le modèle a vraiment calculé. »** C'est un texte généré, qui aide le modèle ; il n'est pas une trace garantie de son fonctionnement interne. Un raisonnement peut être plausible et mener à une réponse fausse, ou contenir une étape fausse et tomber juste par hasard.
+
+**« Il faut toujours demander de raisonner étape par étape. »** Pour une question simple ou factuelle, c'est inutile : plus de tokens, donc plus de temps et de coût, pour la même réponse. La chaîne de pensée sert aux problèmes qui demandent plusieurs étapes.
+
+**« Voter corrige toutes les erreurs. »** Le vote amplifie la tendance du modèle. Si le modèle se trompe le plus souvent de la même façon, le vote confirme l'erreur avec assurance.
+
+## Dans la vraie vie
+
+Quand tu demandes à un assistant de résoudre un problème en plusieurs étapes, lui demander de détailler son raisonnement est un réglage simple, souvent efficace. Le principe se retrouve dans les [agents](/concepts/agent-llm/), qui écrivent une réflexion avant de choisir chaque action. L'auto-cohérence est utilisée quand la fiabilité compte plus que le coût : on paie plusieurs générations pour une réponse plus sûre.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi écrire les étapes aide-t-il le modèle ?",
+    choix: ["Parce que le modèle devient plus gros", "Parce que chaque résultat écrit est relu comme contexte pour la suite", "Parce que les poids changent pendant le raisonnement", "Parce que la température baisse"],
+    bonne: 1,
+    explication: "Les étapes écrites découpent le calcul : chaque token s'appuie sur les résultats intermédiaires déjà présents."
+  },
+  {
+    question: "Qu'est-ce que la chaîne de pensée « zero-shot » ?",
+    choix: ["Un prompt avec huit exemples détaillés", "Ajouter une phrase comme « Réfléchissons étape par étape », sans exemple", "Un modèle sans pré-entraînement", "Répondre sans raisonner"],
+    bonne: 1,
+    explication: "Kojima et ses coauteurs obtiennent le raisonnement détaillé avec cette seule phrase, sans aucun exemple résolu."
+  },
+  {
+    question: "Chaque raisonnement est juste avec p = 0,5. Trois raisonnements votent. Probabilité que la majorité soit juste ?",
+    choix: ["0,125", "0,5", "0,75", "0,875"],
+    bonne: 1,
+    explication: "0,125 + 3 × 0,25 × 0,5 = 0,5 : à p = 0,5, le vote ne change rien."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi le chain-of-thought améliore-t-il le raisonnement, et quelles en sont les limites ?">
+
+Un transformer dépense une quantité de calcul fixe par token généré. Demander la réponse immédiatement force tout le raisonnement dans un seul passage. En écrivant des étapes intermédiaires, le modèle étale le calcul sur de nombreux tokens et s'appuie sur ses propres résultats, relus dans le contexte. On l'obtient par des exemples détaillés dans le prompt (Wei et al.) ou par une amorce comme « Let's think step by step » (Kojima et al.), et l'auto-cohérence ajoute un vote entre plusieurs raisonnements tirés au hasard. Limites : plus de tokens, donc plus de latence et de coût ; un raisonnement écrit n'est pas une explication fidèle du calcul interne ; une erreur précoce se propage aux étapes suivantes ; et le vote n'aide que si le modèle a déjà raison plus souvent qu'à son tour.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "chaîne de pensée", en: "chain of thought", definition: "Suite d'étapes de raisonnement intermédiaires que le modèle écrit avant sa réponse." },
+  { fr: "chaîne de pensée zero-shot", en: "zero-shot chain of thought", definition: "Obtenir un raisonnement détaillé par une simple amorce, sans exemple résolu." },
+  { fr: "auto-cohérence", en: "self-consistency", definition: "Tirer plusieurs raisonnements au hasard et garder la réponse la plus fréquente." },
+  { fr: "vote majoritaire", en: "majority vote", definition: "Choisir la réponse donnée par le plus grand nombre de raisonnements." }
+]} />
