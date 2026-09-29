@@ -1,0 +1,255 @@
+---
+id: dpo
+type: concept
+titre: "DPO : aligner un modèle sans renforcement"
+sous_titre: "Direct Preference Optimization"
+domaine: llm
+niveau: 5
+prerequis: [rlhf]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Rafailov et al., « Direct Preference Optimization: Your Language Model is Secretly a Reward Model », 2023 — https://arxiv.org/abs/2305.18290 — résumé (pas de modèle de récompense à ajuster, pas d'échantillonnage pendant l'entraînement, pas de renforcement ; politique optimale en forme close, problème RLHF résolu par une simple perte de classification ; dépasse le RLHF par PPO pour contrôler le sentiment, égale ou améliore la qualité en résumé et en dialogue à un tour, plus simple à mettre en œuvre) et équations 1, 3 et 7 (modèle de Bradley-Terry ; objectif RLHF avec β D_KL vers π_ref ; perte L_DPO = −E[log σ(β log π_θ(y_w|x)/π_ref(y_w|x) − β log π_θ(y_l|x)/π_ref(y_l|x))] ; récompense implicite β log π_θ/π_ref)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Le [RLHF](/concepts/rlhf/) fonctionne, mais il est lourd. Il faut entraîner un modèle de récompense à part, puis lancer une boucle de renforcement où le modèle génère des réponses, les fait noter, et s'ajuste, en surveillant une pénalité pour ne pas trop dériver. Cela fait plusieurs modèles en mémoire en même temps, et beaucoup de réglages. Or, au départ, on n'a qu'un jeu de paires : pour chaque consigne, une réponse préférée et une réponse rejetée. Ne pourrait-on pas apprendre directement sur ces paires, comme on entraîne un classifieur ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+En résolvant le problème du RLHF sur le papier, on montre que la récompense peut s'écrire avec les probabilités du modèle lui-même ; on remplace alors toute la boucle de renforcement par une seule perte, calculée sur les paires de préférences.
+</PhraseCle>
+
+## En image
+
+Reprends l'apprenti cuisinier du RLHF.
+
+- Avec le RLHF, on forme d'abord un dégustateur sur les avis du jury, puis l'apprenti cuisine des centaines de plats que le dégustateur note.
+- Avec DPO, on se passe du dégustateur. On donne directement à l'apprenti les paires jugées par le jury : « celui-ci plutôt que celui-là ».
+- Pour chaque paire, il ajuste ses habitudes pour rendre le plat préféré un peu plus probable et le plat rejeté un peu moins, **par rapport à ses habitudes de départ**.
+- Au bout du compte, ses propres goûts jouent le rôle du dégustateur.
+
+Là où l'image s'arrête : l'apprenti ne cuisine rien de nouveau pendant cet entraînement. DPO n'apprend que sur les paires déjà collectées, sans produire et faire noter de nouvelles réponses.
+
+## Comment ça marche
+
+L'optimisation directe des préférences (*Direct Preference Optimization*, DPO), proposée par Rafailov et ses coauteurs en 2023, part du même objectif que le RLHF : maximiser la récompense tout en restant proche d'un modèle de référence $\pi_{\text{ref}}$, en général le modèle issu du fine-tuning supervisé. Leur observation : ce problème a une solution exacte, qui relie la récompense au modèle optimal. On peut donc réécrire la perte du modèle de récompense directement en fonction du modèle de langage :
+
+$$
+\mathcal{L}_{\text{DPO}} = -\ln \sigma\left(\beta \ln \frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \ln \frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right)
+$$
+
+où :
+- $x$ est la consigne, $y_w$ la réponse préférée et $y_l$ la réponse rejetée ;
+- $\pi_\theta$ est le modèle qu'on entraîne, et $\pi_{\text{ref}}$ le modèle de référence, gelé ;
+- $\pi(y \mid x)$ est la probabilité que le modèle donne à la réponse entière, produit des probabilités de ses tokens ;
+- $\beta > 0$ joue le même rôle que dans le RLHF : il règle à quel point on peut s'écarter de la référence ;
+- $\sigma$ est la fonction sigmoïde.
+
+On moyenne cette perte sur toutes les paires, et on la minimise par descente de gradient, comme n'importe quel fine-tuning. Exemple avec $\beta = 0{,}1$ : si le modèle rend la réponse préférée 2 fois plus probable que la référence, et la rejetée 2 fois moins, l'argument vaut $0{,}1 \times (\ln 2 - \ln 0{,}5) \approx 0{,}139$, et la perte $-\ln \sigma(0{,}139) \approx 0{,}626$, contre $\ln 2 \approx 0{,}693$ au départ.
+
+<Schema rendu="dpo-schema" legende="RLHF contre DPO. Le RLHF enchaîne un modèle de récompense et une boucle de renforcement ; DPO remplace les deux par une perte unique calculée sur les paires de préférences." />
+
+Fais défiler : l'exemple suit une seule paire pendant l'entraînement.
+
+<PasAPas rendu="dpo-probas" label="La perte DPO sur une paire, au fil de l'entraînement">
+  <Etape etat="initial">
+    **Au départ**, le modèle est une copie de la référence : les deux rapports valent 1, leurs logarithmes 0, et la perte vaut $\ln 2 \approx 0{,}693$, comme un classifieur qui hésite à 50-50.
+  </Etape>
+  <Etape etat="pas1">
+    **Un pas de gradient** augmente la probabilité de la réponse préférée et diminue celle de la rejetée, **par rapport à la référence**. La perte descend à 0,626.
+  </Etape>
+  <Etape etat="pas2">
+    **L'écart grandit** : rapports de 8 et de 0,25. La perte descend à 0,535, mais de moins en moins vite : la sigmoïde sature.
+  </Etape>
+  <Etape etat="implicite">
+    **La récompense implicite.** $\beta \ln(\pi_\theta / \pi_{\text{ref}})$ vaut environ 0,21 pour la préférée et −0,14 pour la rejetée. Le modèle de langage s'est transformé en juge, sans juge séparé.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="De la récompense au modèle, puis à la perte">
+
+On part de l'objectif du RLHF : maximiser $\mathbb{E}[r(x, y)] - \beta\, D_{\mathrm{KL}}(\pi \,\|\, \pi_{\text{ref}})$. Le paper montre que le maximum est atteint par :
+
+$$
+\pi^*(y \mid x) = \frac{1}{Z(x)}\, \pi_{\text{ref}}(y \mid x)\, e^{r(x, y)/\beta}
+$$
+
+où $Z(x)$ est une constante de normalisation, qui ne dépend que de $x$. On retourne l'équation pour exprimer la récompense :
+
+$$
+\begin{aligned}
+e^{r(x,y)/\beta} &= Z(x)\, \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} && \text{on isole l'exponentielle} \\
+r(x, y) &= \beta \ln \frac{\pi^*(y \mid x)}{\pi_{\text{ref}}(y \mid x)} + \beta \ln Z(x) && \text{on prend le logarithme}
+\end{aligned}
+$$
+
+On injecte cette expression dans le modèle de Bradley-Terry du RLHF, $P(y_w \succ y_l) = \sigma(r(x, y_w) - r(x, y_l))$ :
+
+$$
+r(x, y_w) - r(x, y_l) = \beta \ln \frac{\pi^*(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \beta \ln \frac{\pi^*(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)} \qquad \text{les } \beta \ln Z(x) \text{ s'annulent}
+$$
+
+Le terme gênant $Z(x)$, impossible à calculer puisqu'il faudrait sommer sur toutes les réponses possibles, disparaît dans la différence. On remplace $\pi^*$ par le modèle qu'on entraîne, $\pi_\theta$, et l'on maximise la vraisemblance des préférences observées, c'est-à-dire qu'on minimise $-\ln \sigma(\cdot)$ : c'est $\mathcal{L}_{\text{DPO}}$.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Ce que DPO supprime" niveau="facile">
+
+Parmi ces éléments du RLHF, lesquels disparaissent avec DPO, et lesquels restent ?
+
+1. Les paires de préférences annotées par des humains.
+2. Le modèle de récompense entraîné à part.
+3. La génération de nouvelles réponses pendant l'entraînement.
+4. Le modèle de référence et le coefficient $\beta$.
+
+<div slot="solution">
+
+1. **Restent** : ce sont les données, sans elles rien n'est possible.
+2. **Disparaît** : la récompense est implicite, écrite avec les probabilités du modèle.
+3. **Disparaît** : DPO apprend sur les paires existantes, sans échantillonner.
+4. **Restent** : la référence sert à calculer les rapports, et $\beta$ règle toujours l'écart permis.
+
+</div>
+</Exercice>
+
+<Exercice titre="Calculer une perte DPO" niveau="moyen" reponse={0.626} tolerance={0.002}>
+
+Avec $\beta = 0{,}1$, le modèle donne à la réponse préférée une probabilité 2 fois plus grande que la référence, et à la rejetée une probabilité 2 fois plus petite. Calcule la perte DPO sur cette paire.
+
+<div slot="solution">
+
+Argument : $0{,}1 \times (\ln 2 - \ln 0{,}5) = 0{,}1 \times (0{,}693 + 0{,}693) \approx 0{,}139$. Sigmoïde : $\sigma(0{,}139) \approx 0{,}535$. Perte : $-\ln 0{,}535 \approx 0{,}626$.
+
+Au départ, avec des rapports égaux à 1, la perte valait $\ln 2 \approx 0{,}693$ : elle a baissé, parce que le modèle sépare mieux les deux réponses.
+
+</div>
+</Exercice>
+
+<Exercice titre="Lire la récompense cachée" niveau="defi" reponse={0.71} tolerance={0.005}>
+
+Avec $\beta = 0{,}5$, un modèle entraîné par DPO donne la probabilité $0{,}012$ à une réponse A, que la référence jugeait à $0{,}004$ ; et $0{,}002$ à une réponse B, que la référence jugeait à $0{,}004$. Calcule les récompenses implicites de A et de B, puis la probabilité que le modèle, vu comme un juge, préfère A.
+
+<div slot="indice">
+
+Récompense implicite : $\beta \ln(\pi_\theta / \pi_{\text{ref}})$. Puis $P(A \succ B) = \sigma(\hat r_A - \hat r_B)$.
+
+</div>
+<div slot="solution">
+
+$\hat r_A = 0{,}5 \ln 3 \approx 0{,}549$ ; $\hat r_B = 0{,}5 \ln 0{,}5 \approx -0{,}347$. Écart : $0{,}896$. Probabilité : $\sigma(0{,}896) \approx 0{,}71$.
+
+C'est tout le sens du sous-titre du paper, « votre modèle de langage est secrètement un modèle de récompense » : on peut lire les préférences apprises directement dans les probabilités du modèle, comparées à celles de la référence.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : la perte DPO à partir des log-probabilités des réponses, et un petit entraînement sur un « modèle » réduit à une loi sur quatre réponses.
+
+```python
+import numpy as np
+sigma = lambda z: 1 / (1 + np.exp(-z))
+
+def perte_dpo(logp_w, logp_l, logref_w, logref_l, beta=0.1):
+    z = beta * ((logp_w - logref_w) - (logp_l - logref_l))
+    return -np.log(sigma(z)), z
+
+for rw, rl in [(1, 1), (2, 0.5), (8, 0.25)]:
+    perte, z = perte_dpo(np.log(rw), np.log(rl), 0.0, 0.0)
+    print(f"rapports {rw} et {rl} : z = {z:.3f}, perte = {perte:.3f}")
+
+# Un « modèle » : une loi softmax sur 4 réponses possibles à une même consigne
+logits_ref = np.array([1.0, 1.0, 0.5, 0.0])
+ref = np.exp(logits_ref) / np.exp(logits_ref).sum()
+logits = logits_ref.copy()
+preferee, rejetee, beta, pas = 0, 1, 0.1, 1.0       # la réponse 0 est préférée à la réponse 1
+
+for _ in range(20):                              # quelques pas seulement
+    p = np.exp(logits) / np.exp(logits).sum()
+    _, z = perte_dpo(np.log(p[preferee]), np.log(p[rejetee]), np.log(ref[preferee]), np.log(ref[rejetee]), beta)
+    # gradient de −ln σ(z) par rapport aux logits : −(1 − σ(z)) β (e_w − e_l)
+    grad = np.zeros(4)
+    grad[preferee] -= (1 - sigma(z)) * beta
+    grad[rejetee] += (1 - sigma(z)) * beta
+    logits -= pas * grad
+
+p = np.exp(logits) / np.exp(logits).sum()
+print("référence :", ref.round(3))
+print("après DPO  :", p.round(3))
+print("récompenses implicites :", (beta * np.log(p / ref)).round(3))
+```
+
+En vrai, la bibliothèque `trl` fournit un entraîneur DPO : il suffit d'un jeu de données avec, pour chaque consigne, une réponse préférée et une réponse rejetée.
+
+```python
+# no-run
+from trl import DPOConfig, DPOTrainer
+# colonnes : « prompt », « chosen » (préférée), « rejected » (rejetée)
+config = DPOConfig(output_dir="dpo", beta=0.1)
+entraineur = DPOTrainer(model=modele, args=config, train_dataset=paires, processing_class=tokenizer)
+entraineur.train()
+```
+
+## Les pièges classiques
+
+**« DPO n'a pas besoin de modèle de référence. »** Il en a besoin pour calculer les rapports $\pi_\theta / \pi_{\text{ref}}$. Sans eux, rien n'empêcherait le modèle de dériver loin de son comportement de départ. La référence joue le rôle de la pénalité KL du RLHF.
+
+**« Baisser la perte revient à rendre la réponse préférée très probable. »** La perte ne regarde que l'écart **relatif** entre les deux réponses, chacune comparée à la référence. Elle peut baisser en rendant surtout la réponse rejetée moins probable.
+
+**« DPO est toujours meilleur que le RLHF. »** Le paper montre qu'il fait au moins aussi bien sur les tâches testées, en étant bien plus simple. Mais DPO n'apprend que sur des paires déjà collectées, alors que le RLHF génère et fait noter de nouvelles réponses pendant l'entraînement ; selon la tâche et les données, l'un ou l'autre peut l'emporter.
+
+## Dans la vraie vie
+
+Selon le résumé du paper, DPO dépasse le RLHF par PPO pour contrôler le sentiment des textes générés, et l'égale ou le dépasse en qualité sur le résumé de textes et le dialogue à un tour, tout en étant nettement plus simple à mettre en œuvre et à entraîner. Pour une équipe qui dispose de paires de préférences et d'un modèle déjà ajusté par [instruction tuning](/concepts/instruction-tuning/), c'est une étape d'alignement accessible, qui ressemble à un fine-tuning ordinaire : une perte, un jeu de données, une descente de gradient.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Que remplace la perte DPO ?",
+    choix: ["Le pré-entraînement", "Le modèle de récompense et la boucle de renforcement du RLHF", "Le tokenizer", "Les données de préférences"],
+    bonne: 1,
+    explication: "Une seule perte sur les paires remplace l'entraînement du juge et l'optimisation par renforcement."
+  },
+  {
+    question: "Au début de l'entraînement, π_θ = π_ref. Que vaut la perte DPO sur chaque paire ?",
+    choix: ["0", "ln 2 ≈ 0,693", "1", "β"],
+    bonne: 1,
+    explication: "Les rapports valent 1, l'argument vaut 0, et −ln σ(0) = −ln 0,5 = ln 2."
+  },
+  {
+    question: "Pourquoi la constante Z(x) n'apparaît-elle pas dans la perte ?",
+    choix: ["Parce qu'elle vaut toujours 1", "Parce qu'elle s'annule dans la différence des deux récompenses", "Parce que β l'absorbe", "Parce qu'on l'estime par échantillonnage"],
+    bonne: 1,
+    explication: "Les deux réponses partagent la même consigne x, donc le même β ln Z(x), qui disparaît dans la différence."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : dérivez l'idée de DPO à partir de l'objectif du RLHF, et donnez ses avantages et ses limites.">
+
+L'objectif du RLHF, maximiser $\mathbb{E}[r] - \beta D_{\mathrm{KL}}(\pi\|\pi_{\text{ref}})$, a pour solution $\pi^* \propto \pi_{\text{ref}}\, e^{r/\beta}$. On en tire $r = \beta \ln(\pi^*/\pi_{\text{ref}}) + \beta \ln Z(x)$. En injectant cette expression dans le modèle de Bradley-Terry, $Z(x)$ s'annule dans la différence des récompenses, ce qui donne une perte de classification binaire, $-\ln\sigma(\beta \ln\frac{\pi_\theta(y_w)}{\pi_{\text{ref}}(y_w)} - \beta\ln\frac{\pi_\theta(y_l)}{\pi_{\text{ref}}(y_l)})$, optimisable directement sur les paires. Avantages : pas de modèle de récompense séparé, pas d'échantillonnage pendant l'entraînement, pas d'algorithme de renforcement à régler, donc un entraînement bien plus simple. Limites : l'apprentissage se fait uniquement sur des données fixes, sans exploration de nouvelles réponses ; la qualité dépend fortement de la couverture et de la propreté des paires ; et $\beta$ reste à régler.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "optimisation directe des préférences", en: "Direct Preference Optimization, DPO", definition: "Aligner un modèle sur des paires de préférences par une seule perte, sans modèle de récompense ni renforcement." },
+  { fr: "modèle de référence", en: "reference model", definition: "Copie gelée du modèle de départ, qui sert à mesurer l'écart du modèle entraîné." },
+  { fr: "récompense implicite", en: "implicit reward", definition: "Score β ln(π_θ / π_ref) que l'on peut lire dans les probabilités du modèle entraîné par DPO." },
+  { fr: "paire de préférences", en: "preference pair", definition: "Pour une consigne, une réponse préférée et une réponse rejetée par un annotateur." }
+]} />
