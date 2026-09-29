@@ -37,6 +37,8 @@ pre {
 .katex-display > .katex { font-size: 1.1em; }
 
 table { border-collapse: collapse; width: 100%; margin: 0 0 1.5rem; font-size: .92rem; }
+/* Sur mobile, un tableau large défile dans son cadre au lieu d'élargir la page. */
+@media (max-width: 640px) { .prose table { display: block; overflow-x: auto; width: auto; max-width: 100%; } }
 th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--trait); vertical-align: top; }
 th { font-family: var(--police-titre); font-weight: 600; }
 

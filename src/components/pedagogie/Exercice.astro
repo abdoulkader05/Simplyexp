@@ -69,6 +69,8 @@ const aIndice = Astro.slots.has('indice');
   .niveau-facile .ex-niveau { color: var(--indigo); }
   .niveau-defi .ex-niveau { color: var(--laterite); }
   .ex-titre { margin: 0; font-size: var(--t-m); }
+  /* Tableaux et formules larges défilent dans l'encadré au lieu d'élargir la page. */
+  .ex-enonce, .ex-bloc-corps { overflow-x: auto; }
   .ex-enonce > :global(:last-child) { margin-bottom: .75rem; }
   .ex-reponse { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem .75rem; margin-bottom: .75rem; }
   .ex-reponse label { display: grid; gap: .2rem; font-size: var(--t-xs); color: var(--encre-douce); font-family: var(--police-titre); }
