@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 3, section 3.7 (indépendance et indépendance conditionnelle) ; chapitre 5, section 5.2 (hypothèses i.i.d.)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -114,29 +114,48 @@ Avec $P(\text{long} \mid \text{pluie}) = 0$, il faut que tous les trajets longs 
 
 ## Entraîne-toi
 
-**Exercice 1.** On lance une pièce trois fois. Quelle est la probabilité d'obtenir trois fois pile ? Au moins une fois face ?
+<Exercice titre="Trois lancers de pièce" niveau="facile" reponse={0.875} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+On lance une pièce trois fois. Quelle est la probabilité d'obtenir trois fois pile ? Au moins une fois face ? Dans la case, donne la seconde.
+
+<div slot="indice">
+
+« Au moins une fois face » est le contraire de « trois fois pile ».
+
+</div>
+<div slot="solution">
 
 Trois fois pile : $(1/2)^3 = 1/8$. Au moins une fois face : $1 - 1/8 = 7/8$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Dans une ville, 20 % des habitants ont un vélo et 50 % un téléphone à écran tactile ; 12 % ont les deux. Ces deux possessions sont-elles indépendantes ?
+<Exercice titre="Vélo et téléphone" niveau="moyen" reponse={0.6} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Dans une ville, 20 % des habitants ont un vélo et 50 % un téléphone à écran tactile ; 12 % ont les deux. Ces deux possessions sont-elles indépendantes ? Dans la case, donne la probabilité d'avoir un tel téléphone sachant qu'on a un vélo.
+
+<div slot="solution">
 
 $0{,}2 \times 0{,}5 = 0{,}1 \neq 0{,}12$. Elles sont (un peu) dépendantes : avoir un vélo rend légèrement plus probable d'avoir un tel téléphone, $0{,}12/0{,}2 = 0{,}6$ au lieu de 0,5.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Un modèle donne la probabilité 0,9 à la bonne réponse de chacun de 50 exemples de test indépendants. Quelle est la probabilité de tout le jeu ? Et la somme des $-\ln p$ ?
+<Exercice titre="Cinquante exemples de test" niveau="defi" reponse={5.27} tolerance={0.01}>
 
-<Depliable titre="Corrigé">
+Un modèle donne la probabilité 0,9 à la bonne réponse de chacun de 50 exemples de test indépendants. Quelle est la probabilité de tout le jeu ? Et la somme des $-\ln p$ ? Dans la case, donne la somme.
+
+<div slot="indice">
+
+Le logarithme transforme le produit des 50 probabilités en une somme de 50 termes égaux.
+
+</div>
+<div slot="solution">
 
 $0{,}9^{50} \approx 0{,}005\,2$. La somme des $-\ln p$ vaut $50 \times 0{,}105 \approx 5{,}27$, soit une moyenne de 0,105 par exemple : c'est la perte moyenne du modèle.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
