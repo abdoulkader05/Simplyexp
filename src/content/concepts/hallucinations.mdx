@@ -1,0 +1,238 @@
+---
+id: hallucinations
+type: concept
+titre: "Les hallucinations : pourquoi un LLM invente avec aplomb"
+sous_titre: "Origines et limites des hallucinations des LLM"
+domaine: llm
+niveau: 5
+prerequis: [decodage-sampling, pretraining]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 13
+sources:
+  - "Ji et al., « Survey of Hallucination in Natural Language Generation », 2022 — https://arxiv.org/abs/2202.03629 — définition (contenu généré absurde ou infidèle à la source fournie), hallucinations intrinsèques (qui contredisent la source) et extrinsèques (qu'on ne peut ni confirmer ni infirmer par la source), causes liées aux données et à l'entraînement ou au décodage ; les stratégies de décodage qui augmentent la diversité, comme le top-k, sont positivement corrélées à davantage d'hallucinations"
+  - "Kalai, Nachum, Vempala, Zhang, « Why Language Models Hallucinate », 4 septembre 2025 — https://arxiv.org/abs/2509.04664 — résumé (l'entraînement et l'évaluation récompensent le fait de deviner plutôt que de reconnaître son incertitude ; les hallucinations naissent comme des erreurs de classification binaire ; les évaluations dominantes pénalisent les réponses incertaines), texte (sous une notation binaire, s'abstenir est strictement sous-optimal ; consigne proposée : ne répondre que si la confiance dépasse t, les erreurs coûtant t/(1−t) points, une bonne réponse 1 point et « je ne sais pas » 0)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Demande à un LLM la date de fondation d'une petite entreprise de ton quartier, ou la bibliographie d'un chercheur peu connu. Souvent, il répondra avec la même assurance que pour la capitale de la France, et il se trompera : une date plausible, un titre d'article qui n'existe pas. Ce n'est pas un bug rare qu'un correctif fera disparaître. C'est une conséquence directe de la façon dont ces modèles sont entraînés, puis utilisés. Comprendre d'où viennent ces inventions, c'est savoir quand leur faire confiance, et comment en réduire le nombre.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un LLM hallucine quand il produit un texte fluide mais faux ou non fondé : il a appris ce qui est probable, pas ce qui est vrai, et tout le pousse à répondre plutôt qu'à dire « je ne sais pas ».
+</PhraseCle>
+
+## En image
+
+Pense à un élève pendant un examen à questions ouvertes, noté ainsi : 1 point par bonne réponse, 0 pour une mauvaise, 0 pour une copie blanche.
+
+- Face à une question dont il ignore la réponse, laisser blanc rapporte 0 à coup sûr.
+- Écrire une réponse plausible rapporte parfois 1 point, et ne coûte jamais rien.
+- Un élève rationnel répond donc **toujours**, avec aplomb, même quand il devine.
+
+Là où l'image s'arrête : l'élève sait qu'il devine. Chez un modèle, rien dans le texte produit ne signale l'incertitude : la phrase inventée est aussi bien écrite que la vraie.
+
+## Comment ça marche
+
+Une hallucination (*hallucination*) est un contenu généré absurde, ou infidèle à la source fournie. La revue de Ji et ses coauteurs distingue deux formes :
+
+- **intrinsèque** : le texte contredit la source (un document dit « 7 h », le résumé dit « 8 h ») ;
+- **extrinsèque** : le texte ajoute une affirmation que la source ne permet ni de confirmer ni d'infirmer.
+
+<Schema rendu="hallucination-types" legende="À partir d'une même source, une hallucination intrinsèque contredit ce qui est écrit ; une hallucination extrinsèque ajoute ce qui n'y est pas." />
+
+D'où viennent-elles ? Trois mécanismes se cumulent.
+
+1. **Le pré-entraînement vise le probable.** Le [pré-entraînement](/concepts/pretraining/) récompense le texte vraisemblable. Pour un fait vu des milliers de fois, le vraisemblable coïncide avec le vrai. Pour un fait rare, vu une fois ou jamais, le modèle n'a qu'une loi presque plate sur des réponses plausibles.
+2. **Le décodage choisit quand même.** Le [décodage](/concepts/decodage-sampling/) transforme cette loi incertaine en une phrase unique, bien formée. L'hésitation disparaît. Ji et ses coauteurs notent même que les stratégies qui augmentent la diversité, comme le top-k, vont de pair avec davantage d'hallucinations.
+3. **L'évaluation récompense la devinette.** Kalai et ses coauteurs montrent en 2025 que la plupart des évaluations notent de façon binaire : une réponse fausse et un « je ne sais pas » valent tous deux 0. Sous une telle notation, s'abstenir est toujours le mauvais choix.
+
+Leur proposition : dire dans la consigne « ne réponds que si ta confiance dépasse $t$ », et pénaliser les erreurs. Le score attendu d'une réponse donnée avec une confiance $p$ vaut alors :
+
+$$
+S(p) = p \times 1 - (1 - p) \times \frac{t}{1 - t}
+$$
+
+où :
+- $p$ est la probabilité que la réponse soit juste ;
+- $t$ est le seuil de confiance fixé dans la consigne, entre 0 et 1 ;
+- $\frac{t}{1 - t}$ est le nombre de points perdus par erreur ;
+- s'abstenir (« je ne sais pas ») vaut $0$.
+
+Exemple à la main : une réponse juste avec la probabilité $p = 0{,}22$ et un seuil $t = 0{,}5$, donc une pénalité de 1 point. $S = 0{,}22 - 0{,}78 \times 1 = -0{,}56$ : mieux vaut s'abstenir. Sous notation binaire, sans pénalité, la même réponse rapporte $+0{,}22$ en moyenne : mieux vaut deviner. Fais défiler.
+
+<PasAPas rendu="hallucination-pari" label="Pourquoi un modèle devine, et comment la notation change le calcul">
+  <Etape etat="initial">
+    **Un fait rare.** Une petite entreprise locale : sa date de fondation apparaît peut-être une fois dans les données d'entraînement, peut-être jamais.
+  </Etape>
+  <Etape etat="loi">
+    **Une loi presque plate.** Le modèle répartit sa probabilité entre plusieurs années plausibles ; aucune ne dépasse 0,22. Les probabilités sont inventées pour l'illustration.
+  </Etape>
+  <Etape etat="reponse">
+    **Une phrase assurée.** Le décodage tire « 2001 » et l'insère dans une phrase parfaitement fluide. Rien n'indique au lecteur que la réponse avait moins d'une chance sur quatre d'être juste.
+  </Etape>
+  <Etape etat="binaire">
+    **La notation binaire.** Répondre rapporte 0,22 point en moyenne, s'abstenir 0. Un modèle optimisé pour ce genre d'évaluation apprend à toujours répondre.
+  </Etape>
+  <Etape etat="penalite">
+    **Une erreur qui coûte.** Avec un seuil $t = 0{,}5$, une erreur coûte 1 point. Répondre vaut alors $-0{,}56$ en moyenne : s'abstenir devient le bon choix.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Pourquoi le seuil t est exactement le bon point de bascule">
+
+On compare répondre et s'abstenir. Répondre est intéressant si et seulement si $S(p) > 0$ :
+
+$$
+\begin{aligned}
+p - (1 - p) \frac{t}{1 - t} &> 0 && \text{score attendu positif} \\
+p (1 - t) - (1 - p)\, t &> 0 && \text{on multiplie par } 1 - t > 0 \\
+p - pt - t + pt &> 0 && \text{on développe} \\
+p &> t && \text{les termes } pt \text{ s'annulent}
+\end{aligned}
+$$
+
+La pénalité $\frac{t}{1-t}$ est donc choisie pour que le seuil de décision soit exactement $t$ : un modèle qui maximise son score ne répond que s'il est confiant à plus de $t$. Quelques valeurs : $t = 0{,}5$ donne une pénalité de 1 point, $t = 0{,}75$ de 3 points, $t = 0{,}9$ de 9 points.
+
+Et sous notation binaire ? C'est le cas $t = 0$ : pas de pénalité, $S(p) = p \geq 0$ pour toute réponse. S'abstenir n'est jamais strictement meilleur que deviner.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le quiz de culture générale" niveau="facile" reponse={0.3} tolerance={0.01} unite="point">
+
+Un modèle passe un quiz noté 1 point par bonne réponse et 0 sinon, « je ne sais pas » compris. Il a 30 % de chances de trouver la bonne réponse à une question difficile. Quel est son score attendu s'il répond ? Et s'il s'abstient ?
+
+<div slot="solution">
+
+S'il répond : $0{,}3 \times 1 + 0{,}7 \times 0 = 0{,}3$ point. S'il s'abstient : 0. Répondre est toujours au moins aussi bon : c'est exactement l'incitation à deviner.
+
+</div>
+</Exercice>
+
+<Exercice titre="Un seuil exigeant" niveau="moyen" reponse={-1} tolerance={0.01} unite="point">
+
+Une entreprise évalue son assistant avec la consigne « ne réponds que si ta confiance dépasse 0,9 ». Quel est le score attendu d'une réponse juste avec la probabilité 0,8 ?
+
+<div slot="indice">
+
+La pénalité vaut $t/(1-t)$ avec $t = 0{,}9$.
+
+</div>
+<div slot="solution">
+
+Pénalité : $0{,}9 / 0{,}1 = 9$ points. Score : $0{,}8 - 0{,}2 \times 9 = 0{,}8 - 1{,}8 = -1$. Même à 80 % de confiance, il vaut mieux s'abstenir : c'est cohérent, puisque $0{,}8 < 0{,}9$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le barème du concours" niveau="defi" reponse={0.8} tolerance={0.01}>
+
+Un concours enlève 4 points par réponse fausse et en donne 1 par bonne réponse ; une question laissée blanche vaut 0. À partir de quelle probabilité d'avoir juste un candidat rationnel a-t-il intérêt à répondre ?
+
+<div slot="indice">
+
+Écris que la pénalité $c = 4$ vaut $t/(1-t)$, et résous en $t$. Ou refais directement le calcul $p - (1-p)\,c > 0$.
+
+</div>
+<div slot="solution">
+
+$p - 4(1 - p) > 0 \iff 5p > 4 \iff p > 0{,}8$. Autrement dit $c = t/(1-t) = 4$ donne $t = 4/5 = 0{,}8$. Le candidat ne doit répondre que s'il est sûr à plus de 80 %. Un tel barème décourage les réponses au hasard, chez les étudiants comme chez les modèles.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : un modèle factice qui connaît bien les faits fréquents et mal les faits rares, évalué sous deux barèmes, avec ou sans le droit de s'abstenir.
+
+```python
+import numpy as np
+rng = np.random.default_rng(0)
+
+# 1 000 questions : la confiance du modèle est haute sur les faits fréquents, basse sur les rares
+confiance = np.concatenate([rng.uniform(0.8, 1.0, 600), rng.uniform(0.1, 0.5, 400)])
+juste = rng.random(1000) < confiance        # la réponse est juste avec cette probabilité
+
+def evaluer(t, s_abstenir):
+    penalite = t / (1 - t) if t > 0 else 0.0
+    repond = confiance > t if s_abstenir else np.ones(1000, dtype=bool)
+    score = np.where(repond, np.where(juste, 1.0, -penalite), 0.0)
+    erreurs = (repond & ~juste).sum()
+    return score.mean(), erreurs, repond.mean()
+
+for t in (0.0, 0.5, 0.75):
+    for s in (False, True):
+        m, err, taux = evaluer(t, s)
+        print(f"seuil {t:4.2f}, abstention {'oui' if s else 'non'} : score {m:+.3f}, "
+              f"réponses fausses {err:3d}, taux de réponse {taux:.2f}")
+```
+
+En vrai, on ne peut pas lire directement la confiance d'un LLM dans la justesse d'un fait ; on la mesure indirectement, par exemple en comparant plusieurs réponses tirées à la même question, et l'on réduit les hallucinations en donnant au modèle des sources à citer :
+
+```python
+# no-run
+reponses = [generer(question, temperature=1.0) for _ in range(5)]
+accord = max(reponses.count(r) for r in set(reponses)) / len(reponses)
+print("réponse probablement fiable" if accord >= 0.8 else "réponses divergentes : prudence")
+```
+
+## Les pièges classiques
+
+**« Un modèle plus gros n'hallucine plus. »** Il connaît plus de faits, donc il hallucine moins sur ceux-là. Mais sur les faits rares ou postérieurs à son entraînement, la loi reste incertaine, et l'incitation à deviner est la même.
+
+**« Une température de 0 supprime les hallucinations. »** Elle supprime le tirage au hasard, pas l'erreur : si l'année la plus probable est fausse, le modèle la donnera à chaque fois, avec la même assurance.
+
+**« Si la phrase est bien écrite, c'est qu'elle est juste. »** La fluidité mesure la vraisemblance du texte, pas sa vérité. Une hallucination est, par nature, une phrase plausible.
+
+## Dans la vraie vie
+
+Les hallucinations sont la principale raison pour laquelle on ne peut pas utiliser un LLM seul pour des tâches où l'exactitude compte : santé, droit, finance, citations scientifiques. Trois parades se complètent. Donner au modèle les documents pertinents au moment de répondre et lui demander de s'y tenir : c'est le [RAG](/concepts/rag/), qui transforme une question de mémoire en question de lecture. Lui apprendre, par [fine-tuning](/concepts/fine-tuning/), à dire « je ne sais pas » et à citer ses sources. Et changer les barèmes d'évaluation pour qu'une erreur coûte plus qu'une abstention, comme le proposent Kalai et ses coauteurs.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Un résumé affirme « la réunion a lieu mardi » alors que le document source dit « jeudi ». De quel type d'hallucination s'agit-il ?",
+    choix: ["Extrinsèque", "Intrinsèque", "Ce n'est pas une hallucination", "Une erreur de tokenisation"],
+    bonne: 1,
+    explication: "Le résumé contredit la source : hallucination intrinsèque."
+  },
+  {
+    question: "Sous une notation binaire (1 si juste, 0 sinon, 0 pour « je ne sais pas »), quelle stratégie maximise le score ?",
+    choix: ["S'abstenir dès qu'on doute", "Toujours répondre", "Répondre une fois sur deux", "Répondre seulement si l'on est sûr à 100 %"],
+    bonne: 1,
+    explication: "Répondre rapporte p ≥ 0 en moyenne, s'abstenir 0 : deviner n'est jamais perdant."
+  },
+  {
+    question: "Avec un seuil t = 0,75, combien de points coûte une erreur ?",
+    choix: ["0,75", "1", "3", "4"],
+    bonne: 2,
+    explication: "t / (1 − t) = 0,75 / 0,25 = 3."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi les LLM hallucinent-ils, et que feriez-vous pour réduire le problème dans un assistant d'entreprise ?">
+
+Ils sont pré-entraînés à produire du texte probable ; sur les faits rares ou absents des données, leur loi est incertaine, mais le décodage produit quand même une phrase fluide, et les évaluations binaires récompensent le fait de répondre plutôt que de s'abstenir. Pour réduire le problème : fournir les documents de l'entreprise au moment de la réponse (RAG) et exiger des citations vérifiables ; baisser la température pour les réponses factuelles ; ajuster le modèle, ou sa consigne, pour qu'il dise « je ne sais pas » en dessous d'un seuil de confiance ; mesurer la cohérence entre plusieurs réponses tirées ; et évaluer avec un barème qui pénalise les erreurs plus que les abstentions. Pour les décisions à fort enjeu, garder une vérification humaine.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "hallucination", en: "hallucination", definition: "Contenu généré absurde ou infidèle à la source, présenté avec la même assurance qu'un contenu juste." },
+  { fr: "hallucination intrinsèque", en: "intrinsic hallucination", definition: "Affirmation qui contredit la source fournie." },
+  { fr: "hallucination extrinsèque", en: "extrinsic hallucination", definition: "Affirmation que la source ne permet ni de confirmer ni d'infirmer." },
+  { fr: "abstention", en: "abstention", definition: "Répondre « je ne sais pas » plutôt que de deviner." }
+]} />
