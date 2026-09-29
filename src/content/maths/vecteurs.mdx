@@ -14,7 +14,7 @@ sources:
   - "Goodfellow, Bengio, Courville, Deep Learning, MIT Press, 2016 — https://www.deeplearningbook.org/ — chapitre 2 (Linear Algebra)"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -130,35 +130,62 @@ Le bout de la flèche dorée glisse sur une droite, qui passe par le bout de $\m
 
 ## Entraîne-toi
 
-**Exercice 1.** Calcule $\mathbf{u} + \mathbf{v}$ et $3\,\mathbf{u} - \mathbf{v}$ pour $\mathbf{u} = (2\,;\,-1\,;\,0)$ et $\mathbf{v} = (1\,;\,4\,;\,-2)$.
+<Exercice titre="Additionner et multiplier" niveau="facile">
 
-<Depliable titre="Corrigé">
+Calcule $\mathbf{u} + \mathbf{v}$ et $3\,\mathbf{u} - \mathbf{v}$ pour $\mathbf{u} = (2\,;\,-1\,;\,0)$ et $\mathbf{v} = (1\,;\,4\,;\,-2)$.
+
+<div slot="solution">
 
 $\mathbf{u} + \mathbf{v} = (2 + 1\,;\,-1 + 4\,;\,0 - 2) = (3\,;\,3\,;\,-2)$.
 
 $3\,\mathbf{u} = (6\,;\,-3\,;\,0)$, donc $3\,\mathbf{u} - \mathbf{v} = (6 - 1\,;\,-3 - 4\,;\,0 + 2) = (5\,;\,-7\,;\,2)$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 2.** Trouve le nombre $k$ tel que $k\,(2\,;\,6) = (-1\,;\,-3)$. Existe-t-il un $k$ tel que $k\,(2\,;\,6) = (1\,;\,2)$ ?
+<Exercice titre="Même direction ou pas ?" niveau="moyen" reponse={-0.5} tolerance={0}>
 
-<Depliable titre="Corrigé">
+Trouve le nombre $k$ tel que $k\,(2\,;\,6) = (-1\,;\,-3)$ et saisis-le. Existe-t-il un $k$ tel que $k\,(2\,;\,6) = (1\,;\,2)$ ?
+
+<div slot="solution">
 
 Il faut $2k = -1$ et $6k = -3$. Les deux égalités donnent $k = -0{,}5$ : c'est la réponse.
 
 Pour $(1\,;\,2)$, il faudrait $2k = 1$, donc $k = 0{,}5$, et $6k = 2$, donc $k = 1/3$. Les deux valeurs diffèrent : aucun $k$ ne convient. Le vecteur $(1\,;\,2)$ n'a pas la même direction que $(2\,;\,6)$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Une boutique de transfert d'argent décrit chaque journée par le vecteur (nombre de dépôts ; nombre de retraits ; nombre de transferts). Lundi : $(40\,;\,25\,;\,12)$. Mardi : $(35\,;\,30\,;\,10)$. Calcule le total des deux jours, puis la moyenne par jour. Quelle opération sur les vecteurs as-tu utilisée pour la moyenne ?
+<Exercice titre="Le bilan d'une boutique" niveau="moyen">
 
-<Depliable titre="Corrigé">
+Une boutique de transfert d'argent décrit chaque journée par le vecteur (nombre de dépôts ; nombre de retraits ; nombre de transferts). Lundi : $(40\,;\,25\,;\,12)$. Mardi : $(35\,;\,30\,;\,10)$. Calcule le total des deux jours, puis la moyenne par jour. Quelle opération sur les vecteurs as-tu utilisée pour la moyenne ?
+
+<div slot="solution">
 
 Total : $(40 + 35\,;\,25 + 30\,;\,12 + 10) = (75\,;\,55\,;\,22)$.
 
 Moyenne : $\frac{1}{2}\,(75\,;\,55\,;\,22) = (37{,}5\,;\,27{,}5\,;\,11)$. On a additionné deux vecteurs, puis multiplié le résultat par le scalaire $\frac{1}{2}$. Un modèle qui calcule la moyenne de ses données d'entraînement fait exactement la même chose, en dimension bien plus grande.
 
-</Depliable>
+</div>
+</Exercice>
+
+<Exercice titre="La pirogue et le courant" niveau="defi" reponse={7.21} tolerance={0.001} unite="km">
+
+Une pirogue traverse un fleuve. Par rapport à l'eau, elle avance vers le nord à 3 km/h : vitesse $(0\,;\,3)$, en km/h, dans le repère (est ; nord). Le courant la pousse vers l'est à 2 km/h : vitesse $(2\,;\,0)$. Quel est son déplacement réel après 2 heures ? Saisis la distance parcourue depuis le départ, à vol d'oiseau.
+
+<div slot="indice">
+
+La vitesse réelle est la somme des deux vitesses. Pour la distance, la longueur d'un vecteur $(a\,;\,b)$ vaut $\sqrt{a^2 + b^2}$.
+
+</div>
+<div slot="solution">
+
+Vitesse réelle : $(0\,;\,3) + (2\,;\,0) = (2\,;\,3)$ km/h. Après 2 heures : $2 \times (2\,;\,3) = (4\,;\,6)$, soit 4 km vers l'est et 6 km vers le nord.
+
+Distance : $\sqrt{4^2 + 6^2} = \sqrt{52} \approx 7{,}21$ km. La pirogue n'arrive pas en face de son point de départ mais 4 km plus loin en aval : pour viser juste, le piroguier doit orienter son bateau un peu vers l'amont. C'est une addition de vecteurs, et une multiplication par un scalaire.
+
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
