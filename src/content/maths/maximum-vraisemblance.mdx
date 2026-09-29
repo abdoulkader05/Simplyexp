@@ -14,7 +14,7 @@ sources:
   - "Deisenroth, Faisal, Ong, Mathematics for Machine Learning, Cambridge University Press, 2020 — https://mml-book.github.io/ — chapitre 8 (When Models Meet Data), section sur l'estimation de paramètres"
 ---
 
-import { Depliable, Glossaire } from '@/components/pedagogie';
+import { Depliable, Glossaire, Exercice } from '@/components/pedagogie';
 import { Simulation } from '@/components/animations';
 
 ## Pourquoi l'IA en a besoin
@@ -122,29 +122,43 @@ $\ell(0{,}3) = 7 \ln 0{,}3 + 3 \ln 0{,}7 \approx -9{,}50$ et $\ell(0{,}9) = 7 \l
 
 ## Entraîne-toi
 
-**Exercice 1.** Sur 50 SMS, 6 sont des arnaques. Quel est l'estimateur du maximum de vraisemblance de la proportion d'arnaques ?
+<Exercice titre="La part des arnaques" niveau="facile" reponse={0.12} tolerance={0.001}>
 
-<Depliable titre="Corrigé">
+Sur 50 SMS, 6 sont des arnaques. Quel est l'estimateur du maximum de vraisemblance de la proportion d'arnaques ?
 
-$\hat{p} = 6/50 = 0{,}12$.
+<div slot="solution">
 
-</Depliable>
+$\hat{p} = 6/50 = 0{,}12$ : la fréquence observée.
 
-**Exercice 2.** Un modèle donne aux bonnes réponses de 4 exemples les probabilités 0,9, 0,6, 0,8 et 0,5. Calcule la log-vraisemblance et la perte moyenne (log-vraisemblance négative divisée par 4).
+</div>
+</Exercice>
 
-<Depliable titre="Corrigé">
+<Exercice titre="Noter un modèle sur quatre exemples" niveau="moyen" reponse={0.383} tolerance={0.005}>
+
+Un modèle donne aux bonnes réponses de 4 exemples les probabilités 0,9, 0,6, 0,8 et 0,5. Calcule la log-vraisemblance et la perte moyenne (log-vraisemblance négative divisée par 4). Dans la case, donne la perte moyenne.
+
+<div slot="solution">
 
 $\ell = \ln 0{,}9 + \ln 0{,}6 + \ln 0{,}8 + \ln 0{,}5 \approx -0{,}105 - 0{,}511 - 0{,}223 - 0{,}693 = -1{,}532$. Perte moyenne : $1{,}532 / 4 \approx 0{,}383$.
 
-</Depliable>
+</div>
+</Exercice>
 
-**Exercice 3.** Trois mesures d'un même trajet, supposées de loi normale de moyenne $\mu$ inconnue et d'écart type connu : 800, 830 et 860 F. Quel $\mu$ maximise la vraisemblance ?
+<Exercice titre="Trois mesures d'un trajet" niveau="defi" reponse={830} tolerance={0.001} unite="F">
 
-<Depliable titre="Corrigé">
+Trois mesures d'un même trajet, supposées de loi normale de moyenne $\mu$ inconnue et d'écart type connu : 800, 830 et 860 F. Quel $\mu$ maximise la vraisemblance ?
+
+<div slot="indice">
+
+Le logarithme de la densité gaussienne contient $-(x_i - \mu)^2$ : maximiser la vraisemblance, c'est minimiser une somme de carrés.
+
+</div>
+<div slot="solution">
 
 Maximiser la vraisemblance gaussienne revient à minimiser $\sum_i (x_i - \mu)^2$, dont la dérivée $-2\sum_i (x_i - \mu)$ s'annule pour $\mu = $ la moyenne des mesures : $(800 + 830 + 860)/3 = 830$ F.
 
-</Depliable>
+</div>
+</Exercice>
 
 ## Les mots à retenir
 
