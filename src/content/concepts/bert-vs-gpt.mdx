@@ -1,0 +1,217 @@
+---
+id: bert-vs-gpt
+type: concept
+titre: "BERT vs GPT : comprendre ou générer ?"
+sous_titre: "Modèles encodeur, décodeur et encodeur-décodeur"
+domaine: llm
+niveau: 5
+prerequis: [modele-masque, masque-causal]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Devlin et al., « BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding », 2018 — https://arxiv.org/abs/1810.04805 — section 3.1 (objectif masqué, représentations bidirectionnelles)"
+  - "Brown et al., « Language Models are Few-Shot Learners », 28 mai 2020 — https://arxiv.org/abs/2005.14165 — résumé (GPT-3 : modèle de langage autorégressif à 175 milliards de paramètres, utilisé sans mise à jour des poids, tâches et exemples donnés en texte)"
+  - "Raffel et al., « Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer », 23 octobre 2019 — https://arxiv.org/abs/1910.10683 — résumé (toute tâche de texte mise au format texte vers texte), section 3.1.1 (encodeur-décodeur standard), section 3.2.1 (masques entièrement visible, causal, et causal avec préfixe ; exemple « translate English to German: That is good. » → « Das ist gut. »)"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+On a maintenant deux façons d'entraîner une pile de blocs transformer sur du texte brut. Le [texte à trous](/concepts/modele-masque/) laisse chaque position lire à gauche et à droite. La prédiction du token suivant, avec son [masque causal](/concepts/masque-causal/), ne laisse lire que le passé. La même brique donne donc des modèles très différents : les uns excellent à **comprendre** un texte déjà écrit, les autres à **en écrire** un nouveau. Quand on choisit un modèle pour une tâche, c'est la première question à se poser.
+
+## L'idée en une phrase
+
+<PhraseCle>
+Un encodeur comme BERT voit toute la phrase et sert à la comprendre ; un décodeur comme GPT ne voit que le passé et sert à générer la suite ; un encodeur-décodeur lit une entrée en entier puis écrit une sortie.
+</PhraseCle>
+
+## En image
+
+Pense à trois métiers autour d'un même texte.
+
+- **Le correcteur** (encodeur) a toute la copie sous les yeux. Il peut relire la fin pour comprendre le début, repérer une faute, noter la copie. Mais il n'écrit rien de neuf.
+- **Le romancier** (décodeur) écrit mot après mot. Il ne peut s'appuyer que sur ce qu'il a déjà écrit : la suite n'existe pas encore.
+- **L'interprète** (encodeur-décodeur) écoute d'abord la phrase entière dans une langue, puis la redit dans une autre, mot après mot.
+
+Là où l'image s'arrête : un grand décodeur bien entraîné sait aussi « comprendre », au point de faire le travail du correcteur si on le lui demande dans un prompt. La frontière est une question d'efficacité, pas d'impossibilité.
+
+## Comment ça marche
+
+Les trois familles utilisent les mêmes [blocs transformer](/concepts/bloc-transformer/). Ce qui change, c'est **qui a le droit de regarder qui** dans l'attention, et l'objectif d'entraînement.
+
+- **Encodeur** (*encoder-only*), par exemple BERT : attention entièrement visible, objectif du texte à trous. En sortie, un vecteur par token, riche du contexte des deux côtés.
+- **Décodeur** (*decoder-only*), par exemple la famille GPT : attention causale, objectif du token suivant. GPT-3, présenté en 2020, est un modèle de ce type à 175 milliards de paramètres.
+- **Encodeur-décodeur** (*encoder-decoder*), par exemple T5 : l'encodeur lit l'entrée en entier, le décodeur écrit la sortie de façon causale en consultant l'encodeur. T5 met toutes les tâches au même format : un texte en entrée, un texte en sortie, comme « translate English to German: That is good. » qui donne « Das ist gut. ».
+
+Pour une phrase de $n$ tokens, le nombre de paires (qui regarde, qui est regardé) autorisées dans une couche d'attention vaut :
+
+$$
+N_{\text{enc}} = n^2 \qquad\qquad N_{\text{dec}} = \frac{n(n+1)}{2}
+$$
+
+où :
+- $n$ est le nombre de tokens ;
+- $N_{\text{enc}}$ compte les paires visibles pour un encodeur (tout le monde voit tout) ;
+- $N_{\text{dec}}$ compte celles d'un décodeur, où le token $i$ ne voit que les tokens $1$ à $i$.
+
+Exemple à la main avec « il pleut très fort », $n = 4$ : $16$ paires pour l'encodeur, $4 \times 5 / 2 = 10$ pour le décodeur. Fais défiler.
+
+<PasAPas rendu="qui-voit-qui" label="Les paires visibles dans un encodeur et dans un décodeur">
+  <Etape etat="initial">
+    **La grille des regards.** Chaque ligne est un token qui regarde, chaque colonne un token regardé. Une case allumée est une paire autorisée.
+  </Etape>
+  <Etape etat="encodeur">
+    **Encodeur.** Toutes les cases sont allumées : « il » voit déjà « fort ». C'est ce qui permet à BERT de lever une ambiguïté grâce à la fin de la phrase.
+  </Etape>
+  <Etape etat="decodeur">
+    **Décodeur.** Seul le triangle du bas reste : chaque token ne voit que lui-même et ce qui précède. 10 paires sur 16. C'est ce qui permet de générer token après token sans jamais tricher.
+  </Etape>
+</PasAPas>
+
+<Schema rendu="familles-modeles" legende="Les trois familles de transformers, leur objectif d'entraînement et leurs usages typiques." />
+
+## Pourquoi cette formule ?
+
+<Depliable titre="Compter les paires du décodeur">
+
+Dans un décodeur, le token numéro $i$ voit les tokens $1, 2, \dots, i$, soit $i$ paires. Pour toute la phrase :
+
+$$
+\begin{aligned}
+N_{\text{dec}} &= 1 + 2 + \dots + n && \text{on additionne ligne par ligne} \\
+2N_{\text{dec}} &= (1 + n) + (2 + (n-1)) + \dots + (n + 1) && \text{on ajoute la somme à l'envers} \\
+&= n(n+1) && n \text{ couples qui valent chacun } n + 1 \\
+N_{\text{dec}} &= \frac{n(n+1)}{2}
+\end{aligned}
+$$
+
+Le rapport $N_{\text{dec}} / N_{\text{enc}} = (n+1)/(2n)$ tend vers $\frac{1}{2}$ quand $n$ grandit : un décodeur regarde environ deux fois moins de paires qu'un encodeur, mais il le paie en ne voyant jamais la suite.
+
+Autre compte utile, celui des **signaux d'apprentissage**. Sur une séquence de $n$ tokens, un décodeur apprend à chaque position (il prédit le suivant partout), soit environ $n$ cibles. Un modèle masqué n'en a qu'environ $0{,}15\,n$.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Le bon outil pour chaque tâche" niveau="facile">
+
+Pour chacune de ces tâches, quelle famille choisirais-tu en priorité, à budget modeste ?
+
+1. Classer des avis clients en « positif » ou « négatif ».
+2. Écrire la suite d'une histoire à partir de ses premières lignes.
+3. Traduire des notices techniques du français vers l'anglais.
+
+<div slot="solution">
+
+1. **Encodeur** : il faut comprendre un texte déjà écrit, pas en produire. Un petit modèle de type BERT, avec une couche de classification, suffit souvent.
+2. **Décodeur** : il faut générer token après token.
+3. **Encodeur-décodeur** : on lit une entrée complète, puis on écrit une sortie d'une autre forme. Un grand décodeur à qui l'on donne la consigne dans le prompt fait aussi très bien l'affaire.
+
+</div>
+</Exercice>
+
+<Exercice titre="Six tokens sous le masque" niveau="moyen" reponse={0.583} tolerance={0.01}>
+
+Pour une phrase de 6 tokens, quelle fraction des paires d'un encodeur reste visible dans un décodeur ?
+
+<div slot="solution">
+
+$N_{\text{dec}} = 6 \times 7 / 2 = 21$ et $N_{\text{enc}} = 36$. Fraction : $21 / 36 \approx 0{,}583$. On vérifie avec $(n+1)/(2n) = 7/12 \approx 0{,}583$.
+
+</div>
+</Exercice>
+
+<Exercice titre="Combien de documents pour rattraper ?" niveau="defi" reponse={6.67} tolerance={0.01} unite="documents">
+
+Un décodeur lit un document de 1 000 tokens et reçoit environ 1 000 signaux d'apprentissage (un par position). Combien de documents de même taille un modèle masqué, avec 15 % de cibles, doit-il lire pour recevoir autant de signaux ?
+
+<div slot="solution">
+
+Le modèle masqué reçoit $0{,}15 \times 1\,000 = 150$ signaux par document. Il lui faut $1\,000 / 150 \approx 6{,}67$ documents. C'est l'une des raisons pour lesquelles les très grands modèles sont presque tous des décodeurs : chaque token lu sert à apprendre. En échange, chaque signal du modèle masqué est plus riche, puisqu'il exploite les deux côtés.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : les deux masques d'attention, et le compte des paires.
+
+```python
+import numpy as np
+
+n = 4
+masque_encodeur = np.ones((n, n), dtype=int)
+masque_decodeur = np.tril(np.ones((n, n), dtype=int))   # triangle inférieur : le passé seulement
+
+print("encodeur :\n", masque_encodeur, "\npaires :", masque_encodeur.sum())
+print("décodeur :\n", masque_decodeur, "\npaires :", masque_decodeur.sum())
+
+for n in (4, 6, 512):
+    print(f"n = {n:4d} : {n * n:7d} paires contre {n * (n + 1) // 2:7d}, rapport {(n + 1) / (2 * n):.3f}")
+```
+
+En vrai, les deux familles se chargent de la même façon, mais pour des usages différents :
+
+```python
+# no-run
+from transformers import pipeline
+classer = pipeline("text-classification", model="distilbert-base-uncased-finetuned-sst-2-english")  # encodeur
+ecrire = pipeline("text-generation", model="gpt2")                                                 # décodeur
+print(classer("This movie was surprisingly good."))
+print(ecrire("Once upon a time", max_new_tokens=20))
+```
+
+## Les pièges classiques
+
+**« BERT et GPT n'ont rien à voir. »** Ils sont faits des mêmes blocs transformer. La différence tient au masque d'attention et à l'objectif d'entraînement.
+
+**« Un encodeur est plus intelligent parce qu'il voit toute la phrase. »** Il voit plus de contexte à chaque position, ce qui aide à comprendre. Mais il ne sait pas générer naturellement, et il apprend moins par token lu.
+
+**« Les décodeurs ne comprennent rien, ils devinent le mot suivant. »** Pour bien deviner le mot suivant dans des textes variés, il faut modéliser beaucoup de choses sur la langue et le monde. Les grands décodeurs résolvent des tâches de compréhension quand on les leur décrit en texte.
+
+## Dans la vraie vie
+
+Les assistants conversationnels actuels sont des décodeurs. Les encodeurs de type BERT restent très utilisés là où il faut représenter du texte vite et pour pas cher : moteurs de [recherche sémantique](/concepts/recherche-semantique/), filtres anti-spam, classement de tickets de support. Les encodeurs-décodeurs gardent une place en traduction et en résumé. GPT-3 a montré en 2020 qu'un grand décodeur pouvait résoudre des tâches nouvelles sans modifier ses poids, à partir de quelques exemples donnés dans le texte : c'est l'[apprentissage en contexte](/concepts/in-context-learning/). La suite du parcours explique comment on entraîne ces modèles : le [pré-entraînement](/concepts/pretraining/).
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Dans un décodeur, que peut regarder le 3e token d'une phrase ?",
+    choix: ["Tous les tokens", "Les tokens 1, 2 et 3", "Seulement le token 2", "Les tokens 3 et suivants"],
+    bonne: 1,
+    explication: "Le masque causal autorise le passé et la position elle-même."
+  },
+  {
+    question: "Combien de paires sont visibles dans un décodeur pour une phrase de 10 tokens ?",
+    choix: ["100", "55", "45", "10"],
+    bonne: 1,
+    explication: "10 × 11 / 2 = 55."
+  },
+  {
+    question: "Quelle famille choisir pour résumer un long article en quelques phrases ?",
+    choix: ["Un encodeur seul", "Un encodeur-décodeur ou un décodeur", "Aucune, c'est impossible", "Un modèle de texte à trous sans sortie"],
+    bonne: 1,
+    explication: "Il faut lire une entrée puis écrire une nouvelle sortie : un encodeur seul ne génère pas de texte."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : pourquoi les grands modèles génératifs actuels sont-ils presque tous des décodeurs ?">
+
+Parce que l'objectif du token suivant est à la fois simple et efficace : chaque position d'une séquence fournit une cible, donc chaque token lu sert à apprendre, alors qu'un objectif masqué n'en exploite qu'environ 15 %. Le même modèle sert ensuite directement à générer, sans décalage entre entraînement et usage. Enfin, une seule pile de blocs est plus simple à agrandir qu'un encodeur et un décodeur séparés, et un grand décodeur peut résoudre des tâches de compréhension quand on les formule en texte. Les encodeurs restent intéressants quand on veut des représentations bon marché d'un texte déjà écrit.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "encodeur", en: "encoder-only model", definition: "Pile de blocs à attention entièrement visible, entraînée par exemple au texte à trous ; sert à représenter un texte." },
+  { fr: "décodeur", en: "decoder-only model", definition: "Pile de blocs à attention causale, entraînée à prédire le token suivant ; sert à générer." },
+  { fr: "encodeur-décodeur", en: "encoder-decoder model", definition: "Un encodeur lit l'entrée en entier, un décodeur causal écrit la sortie en le consultant." },
+  { fr: "autorégressif", en: "autoregressive", definition: "Qui génère chaque token à partir des tokens déjà produits." }
+]} />
