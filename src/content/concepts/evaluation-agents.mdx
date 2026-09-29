@@ -1,0 +1,239 @@
+---
+id: evaluation-agents
+type: concept
+titre: "Évaluer un agent : réussir la tâche, pas seulement bien parler"
+sous_titre: "Benchmarks, taux de réussite et coût des agents"
+domaine: agents
+niveau: 5
+prerequis: [agent-llm]
+statut: brouillon
+mis_a_jour: 2026-09-29
+temps_lecture: 12
+sources:
+  - "Yao, Shinn, Razavi, Narasimhan, « τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains », 17 juin 2024 — https://arxiv.org/abs/2406.12045 — résumé (gpt-4o réussit moins de 50 % des tâches, pass^8 inférieur à 25 % en commerce de détail) ; évaluation par comparaison de l'état de la base de données avec l'état annoté ; définitions pass^k = E[C(c,k)/C(n,k)] et pass@k = 1 − E[C(n−c,k)/C(n,k)] (version HTML ar5iv)"
+  - "Jimenez et al., « SWE-bench: Can Language Models Resolve Real-World GitHub Issues? », 10 octobre 2023 — https://arxiv.org/abs/2310.06770 — 2 294 problèmes tirés de 12 dépôts Python ; le meilleur modèle évalué, Claude 2, en résout 1,96 %"
+---
+
+import { PhraseCle, Depliable, Quiz, Glossaire, Exercice } from '@/components/pedagogie';
+import { PasAPas, Etape, Schema } from '@/components/animations';
+
+## Le problème de départ
+
+Un [agent](/concepts/agent-llm/) répond : « C'est fait, votre vol a été changé pour jeudi. » La phrase est polie, claire, convaincante. Mais le vol a-t-il vraiment été changé ? Pour un modèle qui converse, on juge souvent la qualité d'une réponse. Pour un agent qui agit, cela ne suffit plus : il faut vérifier ce qu'il a **fait**. Et une seule vérification ne suffit pas non plus, parce qu'un agent peut réussir une tâche aujourd'hui et la rater demain sur la même demande. Comment mesurer sérieusement ce qu'il vaut ?
+
+## L'idée en une phrase
+
+<PhraseCle>
+On évalue un agent sur des tâches réalistes en vérifiant l'état final du monde, pas le texte de sa réponse, et en répétant chaque tâche plusieurs fois pour mesurer à la fois sa capacité et sa régularité.
+</PhraseCle>
+
+## En image
+
+Pense à l'examen du permis de conduire.
+
+- L'examinatrice ne demande pas au candidat de **décrire** un créneau : elle le regarde se garer, et vérifie que la voiture est bien dans la place.
+- Un candidat qui réussit un créneau sur quatre **sait** en faire un ; ce n'est pas pour autant quelqu'un à qui l'on confierait sa voiture tous les jours.
+- On regarde aussi le temps mis et le nombre de manœuvres : réussir en vingt minutes n'est pas réussir en deux.
+
+Là où l'image s'arrête : l'examen dure une demi-heure. Un agent, lui, peut repasser la même épreuve des centaines de fois, ce qui permet de mesurer sa régularité avec des nombres, mais coûte à chaque passage.
+
+## Comment ça marche
+
+Un **banc d'essai** (*benchmark*) pour agents réunit trois ingrédients : des **tâches** réalistes, un **environnement** avec de vrais outils (une base de données, un dépôt de code, un site web), et une façon **automatique** de dire si la tâche est réussie. Le principe le plus robuste consiste à juger le résultat, pas la conversation.
+
+<Schema rendu="evaluation-etat" legende="On confie la tâche à l'agent, puis on compare l'état final de l'environnement à un état attendu annoté à l'avance. Le texte de la réponse ne compte pas." />
+
+Deux exemples connus appliquent ce principe. **SWE-bench** rassemble 2 294 problèmes réels tirés de 12 dépôts de code Python : l'agent doit modifier le code, et la tâche est réussie si les tests du projet passent. **τ-bench** simule des clients qui parlent à un agent de service client, avec des outils et des règles à respecter ; à la fin, on compare l'état de la base de données à l'état attendu.
+
+Reste la régularité. On fait passer chaque tâche plusieurs fois, et l'on pose deux questions différentes. Si l'agent réussit chaque essai avec la probabilité $p$, indépendamment d'un essai à l'autre :
+
+$$
+\text{pass@}k = 1 - (1 - p)^k \qquad\qquad \text{pass}^k = p^{\,k}
+$$
+
+où :
+- $p$ est la probabilité de réussir un essai ;
+- $k$ est le nombre d'essais ;
+- $\text{pass@}k$ est la probabilité de réussir **au moins une fois** sur $k$ essais ;
+- $\text{pass}^k$ est la probabilité de réussir **les $k$ fois**.
+
+Exemple : avec $p = 0{,}6$ et $k = 4$, $\text{pass@}4 = 1 - 0{,}4^4 \approx 0{,}97$ mais $\text{pass}^4 = 0{,}6^4 \approx 0{,}13$. Le même agent paraît presque parfait ou franchement peu fiable, selon la question. Fais défiler.
+
+<PasAPas rendu="essais-agent" label="Cinq tâches, huit essais chacune : taux de réussite, pass@4 et pass^4">
+  <Etape etat="initial">
+    **Cinq tâches, huit essais chacune.** Chaque case est un essai : pleine s'il a réussi, pâle s'il a raté. Les résultats sont inventés.
+  </Etape>
+  <Etape etat="taux">
+    **Le taux de réussite global** vaut 22 sur 40, soit 0,55. Mais la tâche 1 réussit toujours, la tâche 5 jamais : la moyenne mélange des situations très différentes.
+  </Etape>
+  <Etape etat="arobase">
+    **pass@4**, sur les quatre premiers essais : une tâche compte si **au moins un** essai a réussi. Quatre tâches sur cinq : 0,8.
+  </Etape>
+  <Etape etat="puissance">
+    **pass^4** : une tâche ne compte que si les **quatre** essais ont réussi. Une seule tâche sur cinq : 0,2.
+  </Etape>
+  <Etape etat="bilan">
+    **Même agent, deux verdicts.** pass@k mesure ce qu'il **peut** faire, utile quand un humain choisit parmi plusieurs tentatives. pass^k mesure sur quoi l'on peut **compter**, ce qui intéresse le client.
+  </Etape>
+</PasAPas>
+
+## Pourquoi cette formule ?
+
+<Depliable titre="D'où viennent pass@k et pass^k, et comment les estimer">
+
+Notons $R_i$ l'événement « l'essai $i$ réussit », avec $P(R_i) = p$, et supposons les essais [indépendants](/maths/independance/).
+
+$$
+\begin{aligned}
+\text{pass}^k &= P(R_1 \cap \dots \cap R_k) = p^{\,k} && \text{tous les essais réussissent} \\
+\text{pass@}k &= 1 - P(\bar R_1 \cap \dots \cap \bar R_k) && \text{complément de « tous ratés »} \\
+&= 1 - (1 - p)^k && \text{chaque échec a la probabilité } 1 - p
+\end{aligned}
+$$
+
+Quand $k$ grandit, pass@k tend vers 1 et pass^k vers 0 (dès que $0 < p < 1$) : les deux mesures s'écartent de plus en plus.
+
+En pratique, $p$ est inconnu. τ-bench l'estime tâche par tâche : si une tâche a été tentée $n$ fois avec $c$ réussites, on estime pass^k par $\binom{c}{k} / \binom{n}{k}$, la proportion des groupes de $k$ essais qui sont tous réussis, puis on fait la moyenne sur les tâches. Exemple : $n = 8$, $c = 6$, $k = 2$ donne $\binom{6}{2} / \binom{8}{2} = 15 / 28 \approx 0{,}54$, un peu moins que $(6/8)^2 \approx 0{,}56$, car on tire les essais sans remise.
+
+</Depliable>
+
+## Essaie toi-même
+
+<Exercice titre="Quelle mesure pour quel usage ?" niveau="facile">
+
+Pour chaque situation, dirais-tu que la mesure pertinente est pass@k ou pass^k ?
+
+1. Un assistant de programmation propose cinq corrections ; le développeur lance les tests et garde celle qui passe.
+2. Un agent de service client traite seul les demandes de remboursement, sans relecture humaine.
+3. Un agent de réservation doit fonctionner pour chaque client, chaque jour, sans surprise.
+
+<div slot="solution">
+
+1. **pass@k** : il suffit qu'une des $k$ tentatives soit bonne, puisqu'un test automatique fait le tri.
+2. **pass^k** : chaque demande compte, une erreur coûte de l'argent et la confiance du client.
+3. **pass^k** : c'est exactement la régularité d'essai en essai qu'on veut mesurer.
+
+</div>
+</Exercice>
+
+<Exercice titre="Le taux qui paraît bon" niveau="moyen" reponse={0.43} tolerance={0.01}>
+
+Un agent réussit 90 % de ses essais, indépendamment d'un essai à l'autre. Quelle est la probabilité qu'il réussisse la même tâche **8 fois de suite** ?
+
+<div slot="solution">
+
+$\text{pass}^8 = 0{,}9^8 \approx 0{,}43$. Un agent « à 90 % » sert correctement huit clients d'affilée moins d'une fois sur deux. C'est pourquoi τ-bench rapporte pass^k : dans ses résultats, les meilleurs agents testés réussissaient moins de la moitié des tâches, et leur pass^8 tombait sous 25 % dans le domaine du commerce de détail.
+
+</div>
+</Exercice>
+
+<Exercice titre="Quelle fiabilité par essai viser ?" niveau="defi" reponse={0.987} tolerance={0.001}>
+
+Une entreprise veut qu'un agent traite correctement une même demande 8 fois de suite dans au moins 90 % des cas. Quelle probabilité de réussite $p$ par essai lui faut-il au minimum ? Arrondis au millième.
+
+<div slot="indice">
+
+Il faut $p^8 \geq 0{,}9$. Prends la racine huitième des deux côtés : $p \geq 0{,}9^{1/8}$, que tu peux calculer avec $e^{\ln(0{,}9)/8}$.
+
+</div>
+<div slot="solution">
+
+$p \geq 0{,}9^{1/8} = e^{\ln(0{,}9)/8} \approx e^{-0{,}013\,2} \approx 0{,}987$.
+
+Vérification : $0{,}987^8 \approx 0{,}901$, et $0{,}986^8 \approx 0{,}893$, trop peu. Il faut donc réussir environ 98,7 % des essais, soit moins d'un échec sur 75. Passer de 90 % à 98,7 % par essai est bien plus difficile que ne le laisse croire l'écart apparent.
+
+</div>
+</Exercice>
+
+## En code
+
+Depuis zéro : on simule un agent qui réussit chaque essai avec une probabilité propre à chaque tâche, on mesure le taux de réussite, pass@k et pass^k, puis on compare à l'estimateur de τ-bench.
+
+```python
+import numpy as np
+from math import comb
+
+rng = np.random.default_rng(0)
+p_taches = np.array([0.95, 0.85, 0.6, 0.3, 0.05])       # difficulté de 5 tâches, inventée
+n = 8                                                    # essais par tâche
+essais = rng.random((len(p_taches), n)) < p_taches[:, None]
+c = essais.sum(axis=1)                                   # réussites par tâche
+print("réussites par tâche :", c.tolist(), "| taux global :", round(essais.mean(), 2))
+
+def pass_puissance(c, n, k):   # estimateur de τ-bench : groupes de k essais tous réussis
+    return np.mean([comb(ci, k) / comb(n, k) for ci in c])
+
+def pass_arobase(c, n, k):     # au moins une réussite parmi k essais
+    return np.mean([1 - comb(n - ci, k) / comb(n, k) for ci in c])
+
+for k in (1, 2, 4, 8):
+    print(f"k={k} : pass@k = {pass_arobase(c, n, k):.2f}   pass^k = {pass_puissance(c, n, k):.2f}")
+
+# Formules théoriques pour un agent à p = 0,9
+print("0,9 : pass^8 =", round(0.9 ** 8, 2), "| p requis pour pass^8 >= 0,9 :", round(0.9 ** (1 / 8), 3))
+```
+
+En vrai, les bancs d'essai publics fournissent les tâches, l'environnement et le vérificateur. On y branche son agent, on lance plusieurs essais par tâche, et on rapporte le taux de réussite avec, à côté, le coût (tokens, temps, appels d'outils).
+
+```python
+# no-run
+resultats = []
+for tache in banc.taches():
+    for essai in range(8):
+        env = banc.environnement(tache)             # état initial, outils
+        agent.executer(tache.consigne, outils=env.outils, tours_max=30)
+        resultats.append({"tache": tache.id, "reussi": env.etat() == tache.etat_attendu,
+                          "tokens": agent.tokens_utilises})
+```
+
+## Les pièges classiques
+
+**« L'agent a dit qu'il avait réussi, donc il a réussi. »** Un agent peut annoncer un succès qui n'a pas eu lieu. On vérifie l'état du monde : la base de données, les tests, le fichier produit.
+
+**« Un taux de réussite suffit. »** Un taux moyen cache la régularité. Il faut répéter chaque tâche et regarder pass^k si l'agent doit servir de vrais utilisateurs, et toujours rapporter le coût à côté : réussir 5 % de plus en consommant dix fois plus de tokens n'est pas forcément un progrès.
+
+**« Un bon score sur un banc d'essai garantit un bon agent chez moi. »** Les tâches d'un banc d'essai ne sont pas les tiennes, et un modèle a pu voir des tâches publiques pendant son entraînement. Le plus fiable reste de construire quelques dizaines de tâches tirées de ton propre usage, avec leur état attendu.
+
+## Dans la vraie vie
+
+Quand SWE-bench a été publié en 2023, le meilleur modèle évalué, Claude 2, ne résolvait que 1,96 % des problèmes : le banc d'essai mesurait une compétence alors presque hors de portée, ce qui en a fait une référence pour suivre les progrès des agents de programmation. τ-bench, publié en 2024, a mis en avant l'autre dimension : même les meilleurs agents de l'époque réussissaient moins de la moitié des tâches de service client, et se montraient très irréguliers d'un essai à l'autre. Dans une équipe qui construit un agent, l'évaluation devient un outil de travail quotidien : chaque changement de consigne ou d'outil est rejoué sur le même jeu de tâches avant d'être adopté.
+
+## Vérifie que tu as compris
+
+Trois questions pour t'en assurer, puis une question d'entretien.
+
+<Quiz questions={[
+  {
+    question: "Pourquoi juger l'état final plutôt que la réponse de l'agent ?",
+    choix: ["C'est plus rapide à lire", "Parce qu'un agent peut annoncer un succès qui n'a pas eu lieu", "Parce que les réponses sont toujours fausses", "Pour réduire le nombre de tokens"],
+    bonne: 1,
+    explication: "Seul l'état du monde (base de données, tests) prouve que l'action a eu lieu."
+  },
+  {
+    question: "Avec p = 0,5, que vaut pass^3 ?",
+    choix: ["0,875", "0,125", "0,5", "1,5"],
+    bonne: 1,
+    explication: "pass^3 = 0,5³ = 0,125, alors que pass@3 = 1 − 0,5³ = 0,875."
+  },
+  {
+    question: "Quand k augmente, que devient pass@k pour un agent tel que 0 < p < 1 ?",
+    choix: ["Il diminue vers 0", "Il augmente vers 1", "Il reste égal à p", "Il devient négatif"],
+    bonne: 1,
+    explication: "(1 − p)^k tend vers 0, donc pass@k = 1 − (1 − p)^k tend vers 1."
+  }
+]} />
+
+<Depliable titre="Question d'entretien : comment mettriez-vous en place l'évaluation d'un agent avant sa mise en production ?">
+
+Je construirais un jeu de tâches représentatives de l'usage réel, chacune avec un état final attendu vérifiable automatiquement (état d'une base, tests, fichier produit), plus quelques cas limites et des tentatives de manipulation. Je ferais passer chaque tâche plusieurs fois pour mesurer le taux de réussite, pass^k (la régularité) et, si un humain choisit parmi des propositions, pass@k. Je rapporterais aussi le coût par tâche : tokens, temps, nombre d'appels d'outils, et le taux d'actions interdites tentées. Ce jeu serait rejoué à chaque modification de consigne, d'outil ou de modèle, pour détecter les régressions avant de les découvrir chez les utilisateurs.
+
+</Depliable>
+
+## Les mots à retenir
+
+<Glossaire termes={[
+  { fr: "banc d'essai", en: "benchmark", definition: "Ensemble de tâches, d'environnements et de vérifications automatiques pour mesurer un agent." },
+  { fr: "taux de réussite", en: "success rate", definition: "Proportion des essais où l'état final correspond à l'état attendu." },
+  { fr: "pass@k", en: "pass@k", definition: "Probabilité de réussir au moins une fois en k essais : 1 − (1 − p)^k." },
+  { fr: "pass^k", en: "pass^k", definition: "Probabilité de réussir les k essais : p^k ; mesure la régularité de l'agent." }
+]} />
